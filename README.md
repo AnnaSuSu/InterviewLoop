@@ -1,3 +1,7 @@
+<p align="right">
+  <a href="README.en.md">English</a>
+</p>
+
 <p align="center">
   <img src="images/logo.png" alt="TechSpar" width="360" />
 </p>
