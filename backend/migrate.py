@@ -9,9 +9,9 @@ from pathlib import Path
 from backend.config import settings
 from backend.auth import init_users_table, _hash_password
 
-DEFAULT_USER_ID = "default0"
-DEFAULT_EMAIL = "default@techspar.local"
-DEFAULT_PASSWORD = "techspar123"
+DEFAULT_USER_ID = settings.default_user_id
+DEFAULT_EMAIL = settings.default_email
+DEFAULT_PASSWORD = settings.default_password
 
 DB_PATH = settings.db_path
 DATA_DIR = settings.base_dir / "data"

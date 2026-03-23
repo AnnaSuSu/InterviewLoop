@@ -52,12 +52,12 @@ def init_users_table():
 def ensure_default_user():
     """Create default user from .env config if not exists."""
     email = settings.default_email.lower().strip()
+    uid = settings.default_user_id.strip()
     conn = _get_conn()
     existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
     if existing:
         conn.close()
         return
-    uid = uuid.uuid4().hex[:8]
     hashed = _hash_password(settings.default_password)
     conn.execute(
         "INSERT INTO users (id, email, password, name) VALUES (?, ?, ?, ?)",
@@ -118,6 +118,11 @@ def get_current_user(
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(401, "Invalid token")
+        conn = _get_conn()
+        existing = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        conn.close()
+        if not existing:
+            raise HTTPException(401, "Invalid or expired token")
         return user_id
     except JWTError:
         raise HTTPException(401, "Invalid or expired token")
