@@ -181,4 +181,8 @@ MIT
 
 **If you find this project useful, please give it a star!**
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=AnnaSuSu/TechSpar&type=Date)](https://star-history.com/#AnnaSuSu/TechSpar&Date)
+
 </div>
