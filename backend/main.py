@@ -718,6 +718,11 @@ async def chat(req: ChatRequest, user_id: str = Depends(get_current_user)):
     graph = entry["graph"]
     config = entry["config"]
 
+    # Guard: if graph already completed, reject further messages
+    state = graph.get_state(config)
+    if not state.next:
+        return {"session_id": req.session_id, "message": "", "is_finished": True}
+
     # Inject user message into checkpoint state, then resume from interrupt
     graph.update_state(config, {"messages": [HumanMessage(content=req.message)]})
     result = graph.invoke(None, config)

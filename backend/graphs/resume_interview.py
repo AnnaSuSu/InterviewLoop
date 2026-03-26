@@ -182,6 +182,11 @@ def wait_for_answer(state: ResumeInterviewState) -> dict:
     return {}
 
 
+def end_interview(state: ResumeInterviewState) -> dict:
+    """Mark interview as finished before reaching END."""
+    return {"is_finished": True}
+
+
 def compile_resume_interview(user_id: str):
     """Build and compile the resume interview graph."""
     graph = StateGraph(ResumeInterviewState)
@@ -190,16 +195,18 @@ def compile_resume_interview(user_id: str):
     graph.add_node("ask", _make_interviewer_ask(user_id))
     graph.add_node("advance", advance_phase)
     graph.add_node("wait", wait_for_answer)
+    graph.add_node("end_node", end_interview)
 
     graph.add_edge(START, "init")
     graph.add_edge("init", "wait")
     graph.add_edge("ask", "wait")
     graph.add_edge("advance", "ask")
+    graph.add_edge("end_node", END)
 
     graph.add_conditional_edges("wait", route_after_answer, {
         "ask": "ask",
         "advance": "advance",
-        "end": END,
+        "end": "end_node",
     })
 
     return graph.compile(
