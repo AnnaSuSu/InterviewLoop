@@ -6,6 +6,9 @@ function getNavTarget(task) {
   if (task.type === "retrospective" && task.result?.topic) {
     return `/profile/topic/${task.result.topic}`;
   }
+  if (task.type === "profile_backfill") {
+    return "/profile";
+  }
   // drill_review, jd_review, recording, resume_review → review page
   return `/review/${task.id}`;
 }

@@ -208,6 +208,48 @@ def list_sessions(
     return {"items": items, "total": total}
 
 
+def list_reviewed_sessions_detailed(
+    *, user_id: str,
+    limit: int | None = None,
+    mode: str | None = None,
+) -> list[dict]:
+    """List reviewed sessions with full payload for profile backfill."""
+    conn = _get_conn()
+
+    where = ["review IS NOT NULL", "user_id = ?"]
+    params: list = [user_id]
+    if mode:
+        where.append("mode = ?")
+        params.append(mode)
+    where_sql = " AND ".join(where)
+
+    sql = (
+        "SELECT session_id, mode, topic, meta, transcript, scores, weak_points, overall, created_at "
+        f"FROM sessions WHERE {where_sql} ORDER BY created_at ASC"
+    )
+    if isinstance(limit, int) and limit > 0:
+        sql += " LIMIT ?"
+        params.append(limit)
+
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+
+    items = []
+    for r in rows:
+        items.append({
+            "session_id": r["session_id"],
+            "mode": r["mode"],
+            "topic": r["topic"],
+            "meta": json.loads(r["meta"] or "{}"),
+            "transcript": json.loads(r["transcript"] or "[]"),
+            "scores": json.loads(r["scores"] or "[]"),
+            "weak_points": json.loads(r["weak_points"] or "[]"),
+            "overall": json.loads(r["overall"] or "{}"),
+            "created_at": r["created_at"],
+        })
+    return items
+
+
 def delete_session(session_id: str, *, user_id: str) -> bool:
     conn = _get_conn()
     cursor = conn.execute(

@@ -31,7 +31,7 @@ from backend.memory import get_profile, update_profile_after_interview, llm_upda
 from backend.storage.sessions import (
     create_session, append_message, save_review, save_drill_answers,
     get_session, list_sessions, list_sessions_by_topic,
-    delete_session, list_distinct_topics,
+    delete_session, list_distinct_topics, list_reviewed_sessions_detailed,
 )
 from backend.graph import build_graph
 from backend.auth import (
@@ -494,6 +494,112 @@ def _generate_retrospective_background(task_id: str, topic: str, user_id: str):
         logger.error(f"Retrospective failed for topic {topic}: {e}")
 
 
+def _backfill_profile_background(task_id: str, user_id: str, rebuild: bool, limit: int | None, mode: str | None):
+    """Background task: rebuild or supplement profile from historical reviewed sessions."""
+    try:
+        from backend.memory import (
+            DEFAULT_PROFILE,
+            _load_profile,
+            _save_profile,
+            update_profile_after_interview,
+            llm_update_profile,
+        )
+        from backend.vector_memory import rebuild_index_from_profile
+
+        sessions = list_reviewed_sessions_detailed(user_id=user_id, limit=limit, mode=mode)
+
+        if rebuild:
+            current = _load_profile(user_id)
+            fresh = {
+                **DEFAULT_PROFILE,
+                "name": current.get("name", ""),
+                "target_role": current.get("target_role", DEFAULT_PROFILE.get("target_role", "")),
+            }
+            _save_profile(fresh, user_id)
+
+        processed = 0
+        skipped = 0
+        failed = 0
+
+        for s in sessions:
+            s_mode = (s.get("mode") or "").strip()
+            topic = s.get("topic")
+            transcript = s.get("transcript") or []
+            scores = s.get("scores") or []
+            weak_points = s.get("weak_points") or []
+            overall = s.get("overall") or {}
+
+            # Skip sessions with no useful signal.
+            if not transcript and not overall and not scores:
+                skipped += 1
+                continue
+
+            try:
+                if s_mode == InterviewMode.RESUME.value:
+                    messages = []
+                    for item in transcript:
+                        role = (item or {}).get("role")
+                        content = (item or {}).get("content", "")
+                        if not content:
+                            continue
+                        if role == "user":
+                            messages.append(HumanMessage(content=content))
+                        elif role == "assistant":
+                            messages.append(AIMessage(content=content))
+
+                    if not messages:
+                        skipped += 1
+                        continue
+
+                    asyncio.run(update_profile_after_interview(
+                        mode=InterviewMode.RESUME.value,
+                        topic=topic,
+                        messages=messages,
+                        user_id=user_id,
+                        scores=scores,
+                    ))
+                else:
+                    valid_scores = [x for x in scores if isinstance(x.get("score"), (int, float))]
+                    asyncio.run(llm_update_profile(
+                        mode=s_mode,
+                        topic=topic,
+                        new_weak_points=overall.get("new_weak_points", weak_points),
+                        new_strong_points=overall.get("new_strong_points", []),
+                        topic_mastery=overall.get("topic_mastery", {}),
+                        communication=overall.get("communication_observations", {}),
+                        user_id=user_id,
+                        thinking_patterns=overall.get("thinking_patterns"),
+                        session_summary=overall.get("summary", ""),
+                        avg_score=overall.get("avg_score"),
+                        answer_count=len(valid_scores),
+                        dimension_scores=overall.get("dimension_scores"),
+                    ))
+
+                processed += 1
+            except Exception:
+                failed += 1
+
+        # Keep vector memory and profile weak-point vectors aligned after replay.
+        rebuild_index_from_profile(user_id)
+
+        _task_status[task_id] = {
+            "status": "done",
+            "type": "profile_backfill",
+            "result": {
+                "rebuild": rebuild,
+                "mode": mode,
+                "total_candidates": len(sessions),
+                "processed": processed,
+                "skipped": skipped,
+                "failed": failed,
+            },
+        }
+        logger.info(f"Profile backfill finished for user={user_id}: processed={processed}, failed={failed}")
+    except Exception as e:
+        _task_status[task_id] = {"status": "error", "type": "profile_backfill"}
+        logger.error(f"Profile backfill failed for user={user_id}: {e}")
+
+
 @router.post("/profile/topic/{topic}/retrospective")
 async def generate_retrospective(topic: str, background_tasks: BackgroundTasks,
                                  user_id: str = Depends(get_current_user)):
@@ -510,6 +616,42 @@ async def generate_retrospective(topic: str, background_tasks: BackgroundTasks,
     background_tasks.add_task(_generate_retrospective_background, task_id, topic, user_id)
 
     return {"task_id": task_id, "status": "pending"}
+
+
+@router.post("/profile/backfill")
+async def backfill_profile(
+    background_tasks: BackgroundTasks,
+    body: dict | None = None,
+    user_id: str = Depends(get_current_user),
+):
+    """Replay reviewed sessions to supplement or rebuild user profile.
+
+    body:
+      - rebuild: bool, default true. true means reset profile then replay all selected sessions.
+      - limit: int | null, optional max sessions to replay (oldest first).
+      - mode: str | null, optional one of resume/topic_drill/jd_prep/recording.
+    """
+    body = body or {}
+    rebuild = bool(body.get("rebuild", True))
+    limit = body.get("limit")
+    mode = body.get("mode")
+
+    if limit is not None:
+        try:
+            limit = int(limit)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "limit must be an integer")
+        if limit <= 0:
+            raise HTTPException(400, "limit must be > 0")
+
+    valid_modes = {InterviewMode.RESUME.value, InterviewMode.TOPIC_DRILL.value, InterviewMode.JD_PREP.value, InterviewMode.RECORDING.value}
+    if mode is not None and mode not in valid_modes:
+        raise HTTPException(400, f"Invalid mode. Available: {sorted(valid_modes)}")
+
+    task_id = f"backfill_{user_id}_{uuid.uuid4().hex[:8]}"
+    _task_status[task_id] = {"status": "pending", "type": "profile_backfill"}
+    background_tasks.add_task(_backfill_profile_background, task_id, user_id, rebuild, limit, mode)
+    return {"task_id": task_id, "status": "pending", "type": "profile_backfill"}
 
 
 # ── Interview ──

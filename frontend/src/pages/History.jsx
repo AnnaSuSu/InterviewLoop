@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { AlertTriangle, CalendarDays, ChevronRight, Filter, Hash, LoaderCircle, Trash2 } from "lucide-react";
-import { getHistory, deleteSession, getInterviewTopics } from "../api/interview";
+import { AlertTriangle, CalendarDays, ChevronRight, Filter, Hash, LoaderCircle, RefreshCw, Trash2 } from "lucide-react";
+import { getHistory, deleteSession, getInterviewTopics, backfillProfile } from "../api/interview";
+import { useTaskStatus } from "../contexts/TaskStatusContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ const FILTER_OPTIONS = [
 
 export default function History() {
   const navigate = useNavigate();
+  const { startTask } = useTaskStatus();
   const [sessions, setSessions] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,10 @@ export default function History() {
   const [topics, setTopics] = useState([]);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [backfillRebuild, setBackfillRebuild] = useState(false);
+  const [backfillMode, setBackfillMode] = useState("all");
+  const [backfillLimit, setBackfillLimit] = useState("");
+  const [isBackfilling, setIsBackfilling] = useState(false);
   const hasLoadedOnceRef = useRef(false);
   const requestIdRef = useRef(0);
 
@@ -113,6 +119,25 @@ export default function History() {
       alert("删除失败: " + error.message);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleBackfill = async () => {
+    if (isBackfilling) return;
+    setIsBackfilling(true);
+    try {
+      const payload = { rebuild: backfillRebuild };
+      if (backfillMode !== "all") payload.mode = backfillMode;
+      const parsedLimit = Number.parseInt(backfillLimit, 10);
+      if (Number.isFinite(parsedLimit) && parsedLimit > 0) payload.limit = parsedLimit;
+
+      const task = await backfillProfile(payload);
+      startTask(task.task_id, task.type || "profile_backfill", "画像回灌");
+      alert("画像回灌任务已提交，可在右下角查看进度。");
+    } catch (error) {
+      alert("回灌失败: " + error.message);
+    } finally {
+      setIsBackfilling(false);
     }
   };
 
@@ -228,6 +253,67 @@ export default function History() {
                     </Button>
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-[20px] border border-border/75 bg-background/65 p-3.5 md:p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/80">
+                  <RefreshCw size={13} />
+                  画像回灌
+                </div>
+                <div className="text-[11px] text-dim/70">从历史复盘重放到画像，可选参数</div>
+              </div>
+
+              <div className="grid gap-2.5 md:grid-cols-3">
+                <label className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/80 px-3 py-2.5 text-sm">
+                  <span className="shrink-0 text-dim">模式</span>
+                  <select
+                    className="min-w-0 flex-1 bg-transparent text-right text-text outline-none"
+                    value={backfillMode}
+                    onChange={(event) => setBackfillMode(event.target.value)}
+                  >
+                    <option value="all">全部</option>
+                    <option value="resume">简历面试</option>
+                    <option value="topic_drill">专项训练</option>
+                    <option value="jd_prep">JD 备面</option>
+                    <option value="recording">录音复盘</option>
+                  </select>
+                </label>
+
+                <label className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/80 px-3 py-2.5 text-sm">
+                  <span className="shrink-0 text-dim">限制条数</span>
+                  <input
+                    className="min-w-0 w-24 bg-transparent text-right text-text outline-none"
+                    value={backfillLimit}
+                    onChange={(event) => setBackfillLimit(event.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="可选"
+                    inputMode="numeric"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/80 px-3 py-2.5 text-sm">
+                  <span className="text-dim">重建画像</span>
+                  <input
+                    type="checkbox"
+                    checked={backfillRebuild}
+                    onChange={(event) => setBackfillRebuild(event.target.checked)}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="text-xs text-dim">
+                  关闭重建会在当前画像基础上补充；开启重建会先清空再按历史重放。
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBackfill}
+                  disabled={isBackfilling}
+                >
+                  {isBackfilling ? "提交中..." : "开始回灌"}
+                </Button>
               </div>
             </div>
           </CardContent>

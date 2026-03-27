@@ -195,6 +195,16 @@ export async function getTopicHistory(topic) {
   return res.json();
 }
 
+export async function backfillProfile(payload = {}) {
+  const res = await authFetch(`${API_BASE}/profile/backfill`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 // ── Knowledge management ──
 
 export async function getCoreKnowledge(topic) {
