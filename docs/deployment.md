@@ -19,7 +19,7 @@ cp .env.example .env
 
 ### 2. 最小可运行配置
 
-如果你想先把项目跑起来，推荐先用 **API Embedding** 模式。最少要补这一组：
+如果你想先把项目跑起来，推荐先用 **API Embedding** 模式。如果你使用远程 Embedding API，最小可运行配置如下：
 
 ```env
 API_BASE=https://your-llm-api-base/v1
@@ -130,3 +130,4 @@ QINIU_DOMAIN=
 * 手动开发模式下，前端默认是 `5173`，后端是 `8000`。
 * Docker 模式下，前端默认对外暴露 `80` 端口。
 * 如果你在线上要使用麦克风或录音相关能力，建议启用 HTTPS；浏览器对非 `localhost` 的音频权限更严格。
+* 线上环境不要保留默认的 `JWT_SECRET`、`DEFAULT_PASSWORD`。

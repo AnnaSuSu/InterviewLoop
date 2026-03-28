@@ -1,16 +1,5 @@
 # 新手上手
 
-<picture>
-  <source
-    srcset="images/dashboard-dark.png"
-    media="(prefers-color-scheme: dark)"
-  />
-  <img
-    src="images/dashboard-light.png"
-    alt="TechSpar 仪表盘概览"
-  />
-</picture>
-
 本文默认你已经可以登录系统。如果项目还没跑起来，先看 [部署说明](deployment.md)。
 
 ### 第一次使用，建议按这个顺序玩
@@ -27,17 +16,6 @@
    - 你到底卡在“不会”“答不深”还是“表达不清”
 
 3. **再去“我的画像”和“历史记录”看长期信号**
-
-   <picture>
-     <source
-       srcset="images/my-profile-dark.png"
-       media="(prefers-color-scheme: dark)"
-     />
-     <img
-       src="images/my-profile-light.png"
-       alt="个人画像概览"
-     />
-   </picture>
 
    “我的画像”不是让你手动填写资料的地方，它会根据你完成过的训练自动沉淀结果；“历史记录”更适合横向对比最近几轮练习。
 

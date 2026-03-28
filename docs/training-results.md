@@ -1,16 +1,5 @@
 # 训练结果怎么看
 
-<picture>
-  <source
-    srcset="images/training-results-dark.png"
-    media="(prefers-color-scheme: dark)"
-  />
-  <img
-    src="images/training-results-light.png"
-    alt="训练结果评分报告"
-  />
-</picture>
-
 每次训练结束后，先别只看一个数字。当前系统里至少有两层分数：
 
 * **单场平均分**：当前这轮训练的结果，通常是 **10 分制**。

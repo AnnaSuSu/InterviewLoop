@@ -1,16 +1,5 @@
 # 录音复盘
 
-<picture>
-  <source
-    srcset="images/recording-review-dark.png"
-    media="(prefers-color-scheme: dark)"
-  />
-  <img
-    src="images/recording-review-light.png"
-    alt="录音复盘分析"
-  />
-</picture>
-
 录音复盘是一个独立工作区，用来分析**真实面试录音或已有逐字稿**，不是去历史记录里回放旧音频。
 
 ### 先分清两种模式

@@ -1,16 +1,5 @@
 # JD 定向备面
 
-<picture>
-  <source
-    srcset="images/jd-prep-dark.png"
-    media="(prefers-color-scheme: dark)"
-  />
-  <img
-    src="images/jd-prep-light.png"
-    alt="JD 定向备面界面"
-  />
-</picture>
-
 这个模式不是“直接开始一轮面试”，而是**先拆 JD，再开始训练**。
 
 ### 适合什么时候用

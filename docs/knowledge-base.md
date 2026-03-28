@@ -1,16 +1,5 @@
 # 题库与知识库
 
-<picture>
-  <source
-    srcset="images/question-bank-dark.png"
-    media="(prefers-color-scheme: dark)"
-  />
-  <img
-    src="images/question-bank-light.png"
-    alt="题库列表"
-  />
-</picture>
-
 当前产品里的“题库”是按**训练领域**组织的，不是单独维护一套外部知识库后台。
 
 ### 先理解当前模型
@@ -19,17 +8,6 @@
 
 * **核心知识库**：Markdown 形式的核心知识点，影响该领域的出题和评分参考。
 * **高频题库**：你自己整理的高频问题、易错点、面试清单。
-
-<picture>
-  <source
-    srcset="images/knowledge-editor-dark.png"
-    media="(prefers-color-scheme: dark)"
-  />
-  <img
-    src="images/knowledge-editor-light.png"
-    alt="题库编辑界面"
-  />
-</picture>
 
 ### 正确的使用方式
 

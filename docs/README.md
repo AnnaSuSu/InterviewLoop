@@ -1,17 +1,6 @@
 # TechSpar 文档中心
 
-<picture>
-  <source
-    srcset="images/landing-banner-dark.png"
-    media="(prefers-color-scheme: dark)"
-  />
-  <img
-    src="images/landing-banner-light.png"
-    alt="TechSpar 首页预览"
-  />
-</picture>
-
-这套文档只回答两件事：
+如果你是第一次接触这个项目，建议先关心两件事：
 
 1. 项目怎么启动。
 2. 项目跑起来之后，新手第一天应该怎么玩。
