@@ -1,67 +1,62 @@
 {
+  "java": {
+    "name": "Java",
+    "icon": "Cpu",
+    "dir": "01_Java"
+  },
   "python": {
-    "name": "Python 核心",
+    "name": "Python",
     "icon": "Terminal",
-    "dir": "01_Python核心"
+    "dir": "02_Python"
   },
-  "llm": {
-    "name": "LLM 基础",
-    "icon": "Brain",
-    "dir": "02_LLM基础"
+  "javascript": {
+    "name": "JavaScript",
+    "icon": "Zap",
+    "dir": "03_JavaScript"
   },
-  "agent": {
-    "name": "Agent 架构",
-    "icon": "Bot",
-    "dir": "03_Agent架构"
+  "go": {
+    "name": "Go",
+    "icon": "Rocket",
+    "dir": "04_Go"
+  },
+  "algorithms": {
+    "name": "数据结构与算法",
+    "icon": "Code",
+    "dir": "05_Algorithms"
+  },
+  "sql": {
+    "name": "SQL",
+    "icon": "Database",
+    "dir": "06_SQL"
+  },
+  "react": {
+    "name": "React",
+    "icon": "Blocks",
+    "dir": "07_React"
+  },
+  "spring": {
+    "name": "Spring",
+    "icon": "Layers",
+    "dir": "08_Spring"
   },
   "rag": {
     "name": "RAG",
     "icon": "Library",
-    "dir": "04_RAG"
+    "dir": "09_RAG"
   },
-  "function_calling": {
-    "name": "Function Calling",
-    "icon": "Wrench",
-    "dir": "05_Function_Calling"
+  "agent": {
+    "name": "Agent",
+    "icon": "Bot",
+    "dir": "10_Agent"
   },
-  "mcp": {
-    "name": "MCP",
-    "icon": "Plug",
-    "dir": "06_MCP"
+  "middleware_distributed": {
+    "name": "中间件与分布式",
+    "icon": "Network",
+    "dir": "11_Middleware_Distributed"
   },
-  "langchain": {
-    "name": "LangChain / LangGraph",
-    "icon": "Link",
-    "dir": "07_LangChain_LangGraph"
-  },
-  "prompt": {
-    "name": "Prompt Engineering",
-    "icon": "Pencil",
-    "dir": "08_Prompt_Engineering"
-  },
-  "database": {
-    "name": "数据库与中间件",
-    "icon": "Database",
-    "dir": "09_数据库与中间件"
-  },
-  "memory": {
-    "name": "记忆管理",
-    "icon": "HardDrive",
-    "dir": "10_记忆管理"
-  },
-  "backend": {
-    "name": "后端八股",
-    "icon": "Settings",
-    "dir": "11_后端八股"
-  },
-  "leetcode": {
-    "name": "算法与数据结构",
-    "icon": "Code",
-    "dir": "leetcode"
-  },
-  "docker": {
-    "name": "容器化",
-    "icon": "Container",
-    "dir": "docker"
+  "microservices": {
+    "name": "微服务",
+    "icon": "Workflow",
+    "dir": "12_Microservices"
   }
 }

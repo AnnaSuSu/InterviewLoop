@@ -19,6 +19,9 @@ _index_cache: dict[tuple[str, str], "VectorStoreIndex"] = {}
 
 def load_topics(user_id: str) -> dict:
     """Load topics from user's topics.json. Returns {key: {name, icon, dir}}."""
+    from backend.preset_topics import ensure_preset_topics
+
+    ensure_preset_topics(user_id)
     path = settings.user_topics_path(user_id)
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))

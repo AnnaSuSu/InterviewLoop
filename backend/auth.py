@@ -10,6 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 
 from backend.config import settings
+from backend.preset_topics import ensure_preset_topics
 
 logger = logging.getLogger("uvicorn")
 
@@ -55,6 +56,7 @@ def ensure_default_user():
     conn = _get_conn()
     existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
     if existing:
+        ensure_preset_topics(existing["id"])
         conn.close()
         return
     uid = uuid.uuid4().hex[:8]
@@ -65,6 +67,7 @@ def ensure_default_user():
     )
     conn.commit()
     conn.close()
+    ensure_preset_topics(uid)
     logger.info(f"Default user created: {email}")
 
 
@@ -84,6 +87,7 @@ def create_user(email: str, password: str, name: str = "") -> dict:
         conn.close()
         raise HTTPException(409, "Email already registered")
     conn.close()
+    ensure_preset_topics(uid)
     return {"id": uid, "email": email.lower().strip(), "name": name}
 
 

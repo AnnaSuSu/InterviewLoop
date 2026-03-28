@@ -134,10 +134,10 @@ Pick a domain, and the system fuses three layers of context to generate 10 perso
 
 | Domain | | Domain | | Domain |
 |--------|---|--------|---|--------|
-| 🐍 Python Core | | 🧠 LLM Fundamentals | | 🤖 Agent Architecture |
-| 📚 RAG | | 🔧 Function Calling | | 🔌 MCP |
-| 🔗 LangChain / LangGraph | | ✍️ Prompt Engineering | | 🗄️ Databases & Middleware |
-| 💾 Memory Management | | ⚙️ Backend Fundamentals | | 🧮 Algorithms & Data Structures |
+| ☕ Java | | 🐍 Python | | ⚡ JavaScript |
+| 🚀 Go | | 🧮 Algorithms & Data Structures | | 🗄️ SQL |
+| ⚛️ React | | 🌱 Spring | | 📚 RAG |
+| 🤖 Agent | | 🌐 Middleware & Distributed Systems | | 🔀 Microservices |
 
 Domains can be freely added or removed via the frontend. Knowledge bases support Markdown editing.
 
