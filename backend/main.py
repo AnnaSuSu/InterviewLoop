@@ -1157,6 +1157,8 @@ async def _update_drill_profile(topic: str, overall: dict, scores: list,
         except (TypeError, ValueError, KeyError):
             pass
     mastery = overall.get("topic_mastery", {})
+    if not isinstance(mastery, dict):
+        mastery = {"notes": str(mastery)} if mastery else {}
     coverage = len(valid) / total_questions if total_questions else 0
     if valid:
         # contribution = (difficulty/5) × (score/10), divide by answered count only
