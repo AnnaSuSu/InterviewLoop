@@ -29,7 +29,7 @@ export default function TopicCard({ name, icon, onClick, selected }) {
       <div className="min-w-0 flex-1 z-10">
         <div className={cn(
           "text-[14px] md:text-[15px] font-extrabold leading-snug line-clamp-2 transition-colors duration-300 tracking-tight",
-          selected ? "text-primary dark:text-primary-foreground" : "text-text group-hover:text-primary/95"
+          selected ? "text-primary" : "text-text group-hover:text-primary/95"
         )}>
           {name}
         </div>
