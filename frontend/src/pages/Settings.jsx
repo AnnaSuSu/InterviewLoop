@@ -1,11 +1,19 @@
 import { useState, useEffect } from "react";
-import { Server, Sliders, Eye, EyeOff, Loader2, Check } from "lucide-react";
+import { Server, Sliders, Eye, EyeOff, Loader2, Check, Bot } from "lucide-react";
 import { getSettings, updateSettings } from "../api/interview";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+
+const PREDICTION_AGENTS = [
+  { id: "tech_deep", label: "技术追问", description: "深挖技术细节和底层原理" },
+  { id: "project_shift", label: "项目经验", description: "切换到实际项目案例" },
+  { id: "pressure", label: "压力质疑", description: "质疑或挑战当前回答" },
+  { id: "behavioral", label: "行为考察", description: "转向软技能和团队协作" },
+  { id: "breadth", label: "横向扩展", description: "横向延伸至相关技术领域" },
+];
 
 const DIVERGENCE_OPTIONS = [
   { value: 1, label: "聚焦薄弱", description: "100% 针对存在弱点的知识域，适合考前专项突击" },
@@ -22,6 +30,7 @@ export default function Settings() {
   const [temperature, setTemperature] = useState(0.7);
   const [numQuestions, setNumQuestions] = useState(10);
   const [divergence, setDivergence] = useState(3);
+  const [predictionAgents, setPredictionAgents] = useState(["tech_deep", "pressure", "project_shift"]);
 
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -38,6 +47,7 @@ export default function Settings() {
         setTemperature(data.llm.temperature ?? 0.7);
         setNumQuestions(data.training.num_questions ?? 10);
         setDivergence(data.training.divergence ?? 3);
+        setPredictionAgents(data.training.prediction_agents ?? ["tech_deep", "pressure", "project_shift"]);
       })
       .catch((err) => setError("加载设置失败: " + err.message))
       .finally(() => setLoading(false));
@@ -49,7 +59,7 @@ export default function Settings() {
     try {
       await updateSettings({
         llm: { api_base: apiBase, api_key: apiKey, model, temperature },
-        training: { num_questions: numQuestions, divergence },
+        training: { num_questions: numQuestions, divergence, prediction_agents: predictionAgents },
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -194,6 +204,59 @@ export default function Settings() {
                 <div className="text-[12px] text-dim/70 mt-1 min-h-[18px]">
                   {DIVERGENCE_OPTIONS.find((o) => o.value === divergence)?.description}
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {/* Copilot Prediction Agents */}
+        <Card className="overflow-hidden border-border/80 bg-card/76">
+          <CardContent className="p-5 md:p-7">
+            <div className="flex items-center gap-2 mb-1">
+              <Bot size={16} className="text-primary" />
+              <span className="text-base font-semibold">面试 Copilot</span>
+            </div>
+            <div className="text-[13px] text-dim mb-6">
+              选择面试时启用的预测 Agent，最多同时开启 4 个
+            </div>
+
+            <div className="space-y-2.5">
+              <Label className={labelClass}>预测 Agent</Label>
+              <div className="flex flex-col gap-2">
+                {PREDICTION_AGENTS.map((agent) => {
+                  const enabled = predictionAgents.includes(agent.id);
+                  return (
+                    <button
+                      key={agent.id}
+                      type="button"
+                      onClick={() => {
+                        if (enabled) {
+                          if (predictionAgents.length > 1)
+                            setPredictionAgents(predictionAgents.filter((a) => a !== agent.id));
+                        } else {
+                          if (predictionAgents.length < 4)
+                            setPredictionAgents([...predictionAgents, agent.id]);
+                        }
+                      }}
+                      className={cn(
+                        "flex items-center justify-between px-4 py-3 rounded-xl border text-sm transition-all text-left",
+                        enabled
+                          ? "bg-primary/12 text-primary border-primary/50"
+                          : "border-border bg-card/80 text-dim hover:text-text hover:bg-hover"
+                      )}
+                    >
+                      <div>
+                        <span className="font-medium">{agent.label}</span>
+                        <span className={cn("ml-2 text-[12px]", enabled ? "text-primary/70" : "text-dim/60")}>
+                          {agent.description}
+                        </span>
+                      </div>
+                      {enabled && <Check size={14} />}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="text-[12px] text-dim/60 mt-1">
+                已选 {predictionAgents.length} 个，最多 4 个
               </div>
             </div>
           </CardContent>

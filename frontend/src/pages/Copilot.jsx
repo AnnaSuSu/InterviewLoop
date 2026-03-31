@@ -12,7 +12,7 @@ import {
   getCopilotPrepStatus,
   deleteCopilotPrep,
 } from "../api/copilot";
-import { getResumeStatus, getProfile } from "../api/interview";
+import { getResumeStatus, getProfile, getSettings } from "../api/interview";
 import useCopilotStream from "../hooks/useCopilotStream";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -685,7 +685,17 @@ function RealtimePhase({ prepId, onBack }) {
   const [riskAlert, setRiskAlert] = useState(null);
   const [progressMsg, setProgressMsg] = useState("连接中...");
   const [started, setStarted] = useState(false);
+  const [predictionAgents, setPredictionAgents] = useState(["tech_deep", "pressure", "project_shift"]);
   const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    getSettings()
+      .then((data) => {
+        const agents = data.training?.prediction_agents;
+        if (Array.isArray(agents) && agents.length > 0) setPredictionAgents(agents);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleUpdate = useCallback((msg) => {
     switch (msg.type) {
@@ -700,7 +710,7 @@ function RealtimePhase({ prepId, onBack }) {
   const {
     connected, listening, asrText, lastFinal,
     connect, startListening, stopListening, sendManualText, disconnect,
-  } = useCopilotStream({ prepId, onUpdate: handleUpdate });
+  } = useCopilotStream({ prepId, predictionAgents, onUpdate: handleUpdate });
 
   useEffect(() => { connect(sessionId); }, [connect, sessionId]);
 
@@ -807,64 +817,93 @@ function RealtimePhase({ prepId, onBack }) {
 
 function CopilotPanel({ update, riskAlert }) {
   const predictions = update?.predictions || [];
-  const hints = update?.answer_hints || [];
+  const framework = update?.answer_framework || [];
+  const fullAnswer = update?.answer_full || "";
+  const accuracy = update?.prediction_accuracy;
+  const perAgent = accuracy?.per_agent || {};
+
   return (
-    <div className="p-4 space-y-5">
+    <div className="p-4 space-y-4">
+      {/* 当前考察 */}
       <div className="rounded-2xl border border-border/75 bg-card/75 p-4">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/80 mb-2">当前考察</div>
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="blue">{update?.intent || "unknown"}</Badge>
           {update?.topic && <span className="text-sm font-medium">{update.topic}</span>}
-          {update?.confidence > 0 && <span className="text-xs text-dim ml-auto tabular-nums">{Math.round(update.confidence * 100)}%</span>}
+          {update?.confidence > 0 && (
+            <span className="text-xs text-dim ml-auto tabular-nums">{Math.round(update.confidence * 100)}%</span>
+          )}
         </div>
       </div>
 
-      {update?.prediction_accuracy && (
+      {/* 上轮命中状态 */}
+      {accuracy && (
         <div className={cn(
           "flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl",
-          update.prediction_accuracy.was_hit
-            ? "bg-green/10 text-green"
-            : "bg-amber-500/10 text-amber-400"
+          accuracy.any_hit ? "bg-green/10 text-green" : "bg-amber-500/10 text-amber-400"
         )}>
-          {update.prediction_accuracy.was_hit ? <CheckCircle2 size={12} /> : <Target size={12} />}
-          <span>
-            {update.prediction_accuracy.was_hit
-              ? "上轮预测命中"
-              : `上轮预测未命中 — 实际: ${update.prediction_accuracy.actual}`}
-          </span>
+          {accuracy.any_hit ? <CheckCircle2 size={12} /> : <Target size={12} />}
+          <span>{accuracy.any_hit ? "上轮预测命中" : "上轮预测未命中"}</span>
+          {!accuracy.any_hit && Object.values(perAgent)[0]?.actual_direction && (
+            <span className="ml-1 opacity-70">— 实际: {Object.values(perAgent)[0].actual_direction}</span>
+          )}
         </div>
       )}
 
+      {/* 追问预测 */}
       {predictions.length > 0 && (
         <div className="rounded-2xl border border-border/75 bg-card/75 p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/80 mb-3">追问预测</div>
-          <div className="space-y-2">
-            {predictions.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm rounded-xl bg-background/60 px-3 py-2">
-                <ArrowRight size={12} className="text-primary shrink-0" />
-                <span className="flex-1">{p.direction}</span>
-                <span className={cn("text-xs font-mono tabular-nums", p.probability >= 0.7 ? "text-amber-400" : "text-dim")}>
-                  {Math.round((p.probability || 0) * 100)}%
-                </span>
-              </div>
-            ))}
+          <div className="space-y-2.5">
+            {predictions.map((p) => {
+              const agentCorrection = perAgent[p.agent_id];
+              const wasHit = agentCorrection?.was_hit;
+              return (
+                <div key={p.agent_id} className={cn(
+                  "rounded-xl border px-3 py-2.5 text-sm",
+                  wasHit === true ? "border-green/20 bg-green/5"
+                  : wasHit === false ? "border-border/40 bg-background/40"
+                  : "border-border/60 bg-background/60"
+                )}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/70">{p.name}</span>
+                    {wasHit === true && <CheckCircle2 size={11} className="text-green" />}
+                  </div>
+                  <div className="font-medium">{p.direction}</div>
+                  {p.example_question && (
+                    <div className="mt-1 text-[12px] text-dim leading-5">"{p.example_question}"</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {hints.length > 0 && (
+      {/* 回答建议 */}
+      {(framework.length > 0 || fullAnswer) && (
         <div className="rounded-2xl border border-green/20 bg-green/5 p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-green/80 mb-3">回答建议</div>
-          <ul className="space-y-2">
-            {hints.map((h, i) => (
-              <li key={i} className="text-sm leading-6 flex items-start gap-2">
-                <span className="text-green mt-1 shrink-0">•</span> {h}
-              </li>
-            ))}
-          </ul>
+          {framework.length > 0 && (
+            <ol className="space-y-1.5 mb-3">
+              {framework.map((step, i) => (
+                <li key={i} className="text-sm leading-6 flex items-start gap-2">
+                  <span className="text-green/60 font-mono text-[11px] mt-1 shrink-0">{i + 1}.</span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          )}
+          {fullAnswer && (
+            <div className="border-t border-green/15 pt-3 mt-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-green/60 mb-2">示例答案</div>
+              <p className="text-sm leading-7 text-text/85">{fullAnswer}</p>
+            </div>
+          )}
         </div>
       )}
 
+      {/* 风险提示 */}
       {riskAlert && (
         <div className="rounded-2xl border border-amber-500/25 bg-amber-500/8 p-4">
           <div className="flex items-center gap-2 mb-2">

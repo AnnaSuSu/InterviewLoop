@@ -1584,7 +1584,10 @@ async def copilot_realtime_ws(ws: WebSocket, session_id: str):
             msg_type = msg.get("type", "")
 
             if msg_type == "start":
-                session = await _init_copilot_session(ws, msg.get("prep_id", ""), session_id)
+                session = await _init_copilot_session(
+                    ws, msg.get("prep_id", ""), session_id,
+                    prediction_agents=msg.get("prediction_agents"),
+                )
                 _copilot_sessions[session_id] = session
                 await ws.send_json({"type": "started", "session_id": session_id})
 
@@ -1615,7 +1618,10 @@ async def copilot_realtime_ws(ws: WebSocket, session_id: str):
         _copilot_sessions.pop(session_id, None)
 
 
-async def _init_copilot_session(ws: WebSocket, prep_id: str, session_id: str) -> dict:
+async def _init_copilot_session(
+    ws: WebSocket, prep_id: str, session_id: str,
+    prediction_agents: list[str] | None = None,
+) -> dict:
     """初始化 Copilot 实时会话。"""
     from backend.copilot.strategy_tree import StrategyTreeNavigator
 
@@ -1675,7 +1681,29 @@ async def _init_copilot_session(ws: WebSocket, prep_id: str, session_id: str) ->
         "prep": prep_result,
         "conversation": [],
         "last_predictions": None,
+        "prediction_agents": prediction_agents,
     }
+
+
+def _cosine_sim(a: list[float], b: list[float]) -> float:
+    import numpy as np
+    va, vb = np.array(a, dtype=np.float32), np.array(b, dtype=np.float32)
+    denom = np.linalg.norm(va) * np.linalg.norm(vb)
+    return float(np.dot(va, vb) / denom) if denom > 0 else 0.0
+
+
+async def _embed_predictions(predictions: list[dict]):
+    """后台计算每个 prediction direction 的 embedding，写入 dict 供下轮 correction 使用。"""
+    from backend.llm_provider import get_embedding
+    loop = asyncio.get_event_loop()
+    embed_model = get_embedding()
+    for pred in predictions:
+        try:
+            pred["direction_embedding"] = await loop.run_in_executor(
+                None, embed_model.get_text_embedding, pred["direction"]
+            )
+        except Exception:
+            pred["direction_embedding"] = None
 
 
 async def _process_hr_utterance(ws: WebSocket, session: dict, text: str):
@@ -1687,6 +1715,7 @@ async def _process_hr_utterance(ws: WebSocket, session: dict, text: str):
     navigator = session.get("navigator")
     prep = session.get("prep", {})
     conversation = session.get("conversation", [])
+    prediction_agents = session.get("prediction_agents")
 
     conversation.append({"role": "hr", "text": text})
 
@@ -1695,42 +1724,42 @@ async def _process_hr_utterance(ws: WebSocket, session: dict, text: str):
     node_id = intent_result.get("node_id")
     intent = intent_result.get("intent", "unknown")
 
-    # Step 1.5: 对比上轮预测 vs 本轮实际，构建纠偏上下文
-    correction_context = None
+    # Step 1.5: 对比上轮预测 vs 本轮实际，构建 per-agent 纠偏上下文
+    per_agent_corrections = None
+    any_hit = False
     last_preds = session.get("last_predictions")
     if last_preds and last_preds["predictions"]:
-        predicted_node_ids = [p["node_id"] for p in last_preds["predictions"]]
-        predicted_directions = [p["direction"] for p in last_preds["predictions"]]
-        hit = False
-        hit_direction = None
-        # 精确 node_id 匹配
-        if node_id and node_id in predicted_node_ids:
-            hit = True
-            hit_direction = next(
-                (p["direction"] for p in last_preds["predictions"] if p["node_id"] == node_id), None
-            )
-        # 兜底: topic 子串匹配（适配 freeform 预测 node_id 为 null 的情况）
-        if not hit and node_id:
-            actual_node = navigator.get_node(node_id)
-            actual_topic = actual_node.get("topic", "") if actual_node else ""
-            if actual_topic:
-                for p in last_preds["predictions"]:
-                    if actual_topic in p["direction"] or p["direction"] in actual_topic:
-                        hit = True
-                        hit_direction = p["direction"]
-                        break
+        utt_emb = intent_result.get("utterance_embedding")
         actual_node_info = navigator.get_node(node_id) if node_id else None
-        correction_context = {
-            "previous_utterance": last_preds["for_utterance"],
-            "predicted_directions": predicted_directions,
-            "actual_direction": actual_node_info.get("topic", text[:50]) if actual_node_info else text[:50],
-            "was_hit": hit,
-            "hit_direction": hit_direction,
-        }
+        actual_direction = actual_node_info.get("topic", text[:50]) if actual_node_info else text[:50]
+        previous_utterance = last_preds["for_utterance"]
+
+        per_agent_corrections = {}
+        for p in last_preds["predictions"]:
+            agent_id = p.get("agent_id", "unknown")
+            was_hit = False
+
+            # 主路径：embedding 相似度（覆盖 freeform agent）
+            dir_emb = p.get("direction_embedding")
+            if utt_emb and dir_emb:
+                was_hit = _cosine_sim(utt_emb, dir_emb) >= 0.5
+            # 降级：node_id 精确匹配
+            elif not was_hit and node_id and p.get("node_id") == node_id:
+                was_hit = True
+
+            if was_hit:
+                any_hit = True
+
+            per_agent_corrections[agent_id] = {
+                "previous_utterance": previous_utterance,
+                "predicted_direction": p["direction"],
+                "actual_direction": actual_direction,
+                "was_hit": was_hit,
+            }
 
     # Step 2: Predictor + Advisor 并行
     pred_task = asyncio.create_task(
-        predict_directions(navigator, node_id, conversation, correction=correction_context)
+        predict_directions(navigator, node_id, conversation, enabled_agents=prediction_agents, per_agent_corrections=per_agent_corrections)
     )
     advice_task = asyncio.create_task(
         advise_answer(text, node_id, navigator, prep)
@@ -1738,12 +1767,13 @@ async def _process_hr_utterance(ws: WebSocket, session: dict, text: str):
 
     predictions, advice = await asyncio.gather(pred_task, advice_task)
 
-    # 保存本轮预测，供下轮纠偏
+    # 保存本轮预测，供下轮纠偏；异步计算 direction embedding 供命中判断用
     session["last_predictions"] = {
         "for_node_id": node_id,
         "for_utterance": text,
         "predictions": predictions,
     }
+    asyncio.create_task(_embed_predictions(predictions))
 
     # 发送分析结果
     node = navigator.get_node(node_id) if node_id else None
@@ -1754,12 +1784,12 @@ async def _process_hr_utterance(ws: WebSocket, session: dict, text: str):
         "topic": node.get("topic", "") if node else "",
         "confidence": intent_result.get("confidence", 0),
         "predictions": predictions,
-        "answer_hints": advice.get("hints", []),
+        "answer_framework": advice.get("framework", []),
+        "answer_full": advice.get("full_answer", ""),
         "prediction_accuracy": {
-            "was_hit": correction_context["was_hit"],
-            "predicted": correction_context["predicted_directions"],
-            "actual": correction_context["actual_direction"],
-        } if correction_context else None,
+            "any_hit": any_hit,
+            "per_agent": per_agent_corrections,
+        } if per_agent_corrections else None,
     })
 
     # 风险警告单独发送（如果有）

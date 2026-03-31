@@ -156,6 +156,7 @@ class UserSettings(BaseModel):
     """Per-user training preferences."""
     num_questions: int = Field(default=10, ge=5, le=20)
     divergence: int = Field(default=3, ge=1, le=5)
+    prediction_agents: list[str] = Field(default=["tech_deep", "pressure", "project_shift"])
 
 
 class LLMSettings(BaseModel):

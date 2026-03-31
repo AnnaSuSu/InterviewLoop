@@ -8,7 +8,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
  * 2. 采集麦克风音频并转为 PCM 推流
  * 3. 接收 ASR 结果和 Agent 分析结果
  */
-export default function useCopilotStream({ prepId, onUpdate } = {}) {
+export default function useCopilotStream({ prepId, predictionAgents, onUpdate } = {}) {
   const [connected, setConnected] = useState(false);
   const [listening, setListening] = useState(false);
   const [asrText, setAsrText] = useState("");       // 中间结果（实时字幕）
@@ -31,7 +31,7 @@ export default function useCopilotStream({ prepId, onUpdate } = {}) {
 
     ws.onopen = () => {
       setConnected(true);
-      ws.send(JSON.stringify({ type: "start", prep_id: prepId }));
+      ws.send(JSON.stringify({ type: "start", prep_id: prepId, prediction_agents: predictionAgents }));
     };
 
     ws.onmessage = (e) => {

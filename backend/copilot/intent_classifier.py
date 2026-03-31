@@ -33,16 +33,17 @@ async def classify_intent(
     utterance: str,
     navigator: StrategyTreeNavigator,
 ) -> dict:
-    """分类 HR 发言意图，返回 {intent, node_id, confidence}。
+    """分类 HR 发言意图，返回 {intent, node_id, confidence, utterance_embedding}。
 
     优先 embedding 匹配策略树节点，匹配不上则规则兜底。
+    utterance_embedding 透传给调用方用于 correction 命中判断。
     """
     embed_model = get_embedding()
     try:
         utt_emb = embed_model.get_text_embedding(utterance)
     except Exception as e:
         logger.warning(f"Embedding failed, falling back to rules: {e}")
-        return {"intent": rule_based_classify(utterance), "node_id": None, "confidence": 0.0}
+        return {"intent": rule_based_classify(utterance), "node_id": None, "confidence": 0.0, "utterance_embedding": None}
 
     node_id, intent, score = navigator.match_utterance(utt_emb)
 
@@ -51,10 +52,12 @@ async def classify_intent(
             "intent": rule_based_classify(utterance),
             "node_id": None,
             "confidence": round(score, 3),
+            "utterance_embedding": utt_emb,
         }
 
     return {
         "intent": intent,
         "node_id": node_id,
         "confidence": round(score, 3),
+        "utterance_embedding": utt_emb,
     }
