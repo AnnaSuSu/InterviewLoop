@@ -160,7 +160,7 @@ export default function Home() {
             AI-Powered Mock Interview
           </div>
           <h1 className="text-3xl md:text-[44px] font-display font-bold mb-3 bg-gradient-to-r from-accent-light via-accent to-orange bg-clip-text text-transparent">
-            TechSpar
+            InterviewLoop
           </h1>
           <p className="text-base text-dim max-w-[500px]">
             越练越懂你的 AI 面试教练——追踪你的成长轨迹，精准命中薄弱点

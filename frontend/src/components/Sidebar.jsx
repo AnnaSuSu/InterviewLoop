@@ -95,7 +95,7 @@ export default function Sidebar() {
       <div className={cn("flex items-center shrink-0 py-5", collapsed ? "justify-center px-4" : "px-6 gap-2.5")}>
         <Logo className="w-7 h-7 rounded-lg shrink-0 drop-shadow-sm" />
         {!collapsed && (
-          <span className="text-lg font-display font-bold text-sidebar-foreground translate-y-[1px]">TechSpar</span>
+          <span className="text-lg font-display font-bold text-sidebar-foreground translate-y-[1px]">InterviewLoop</span>
         )}
       </div>
 
@@ -168,7 +168,7 @@ export default function Sidebar() {
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border shrink-0">
         <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate("/")}>
           <Logo className="w-7 h-7 rounded-lg drop-shadow-sm" />
-          <span className="text-base font-display font-bold text-text translate-y-[1px]">TechSpar</span>
+          <span className="text-base font-display font-bold text-text translate-y-[1px]">InterviewLoop</span>
         </div>
         <Button variant="ghost" size="icon" onClick={() => setOpen(o => !o)}>
           {open ? <X size={18} /> : <Menu size={18} />}

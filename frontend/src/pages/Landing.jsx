@@ -244,7 +244,7 @@ export default function Landing() {
           <div className="flex items-center gap-2.5">
             <Logo className="h-8 w-8 rounded-lg drop-shadow-sm" />
             <div>
-              <div className="text-lg font-display font-bold leading-none">TechSpar</div>
+              <div className="text-lg font-display font-bold leading-none">InterviewLoop</div>
               <div className="mt-1 text-[11px] uppercase tracking-[0.24em] text-dim">From Practice To Real Interview</div>
             </div>
           </div>
@@ -281,7 +281,7 @@ export default function Landing() {
                 </h1>
 
                 <p className="mt-6 max-w-2xl text-base leading-8 text-dim md:text-lg animate-fade-in-up [animation-delay:0.08s]">
-                  TechSpar 不只是生成一轮题，也不只是做一次模拟面试。它把专项训练、简历面试、JD 备面、实时
+                  InterviewLoop 不只是生成一轮题，也不只是做一次模拟面试。它把专项训练、简历面试、JD 备面、实时
                   Copilot 和录音复盘接进同一套长期记忆里，让每一轮训练、实战辅助和复盘结果都会反哺下一轮。
                 </p>
 
@@ -442,7 +442,7 @@ export default function Landing() {
               <SectionHeading
                 label="长期记忆"
                 title="系统为什么会越练越懂你"
-                desc="TechSpar 的关键不在于再生成一组题，而在于把不同场景里的信号整合成同一套长期画像，并持续拿它驱动下一轮。"
+                desc="InterviewLoop 的关键不在于再生成一组题，而在于把不同场景里的信号整合成同一套长期画像，并持续拿它驱动下一轮。"
               />
             </div>
 
@@ -560,7 +560,7 @@ export default function Landing() {
       </main>
 
       <footer className="border-t border-border/70 px-6 py-6 text-center text-xs text-dim md:px-10">
-        TechSpar · 从刷题到实战的 AI 技术面试陪练系统
+        InterviewLoop · 从刷题到实战的 AI 技术面试陪练系统
       </footer>
     </div>
   );
