@@ -325,79 +325,98 @@ function CrossBlockerList({ items }) {
   );
 }
 
-function DomainZoneColumn({ zone, items, onSelect }) {
-  const meta = ZONE_META[zone];
+const ZONE_FILTERS = [
+  { key: "all", label: "全部" },
+  { key: "focus", label: "补课区" },
+  { key: "build", label: "过渡区" },
+  { key: "strong", label: "优势区" },
+];
+
+function DomainTable({ items, onSelect }) {
+  const [zoneFilter, setZoneFilter] = useState("all");
+
+  const filtered = zoneFilter === "all" ? items : items.filter((item) => item.zone === zoneFilter);
+  const zoneCounts = { focus: 0, build: 0, strong: 0 };
+  items.forEach((item) => { if (zoneCounts[item.zone] != null) zoneCounts[item.zone]++; });
+
+  const dotColor = { focus: "bg-primary", build: "bg-info", strong: "bg-green" };
+  const scoreColor = { focus: "text-primary", build: "text-info", strong: "text-green" };
+  const barGradient = { focus: "from-primary to-orange", build: "from-info to-teal", strong: "from-green to-teal" };
 
   return (
-    <div className={cn("rounded-[24px] border p-4", meta.panelClassName)}>
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold">{meta.title}</div>
-          <div className="mt-1 text-xs leading-5 text-dim">{meta.description}</div>
-        </div>
-        <div className={cn("rounded-full px-2.5 py-1 text-xs font-medium", meta.pillClassName)}>
-          {items.length}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {items.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border/80 bg-card/70 px-4 py-6 text-sm text-dim">
-            {meta.empty}
-          </div>
-        )}
-
-        {items.map((item) => {
-          const clickable = Boolean(onSelect);
+    <div className="mt-5 space-y-3">
+      {/* Zone filter chips */}
+      <div className="flex flex-wrap gap-2">
+        {ZONE_FILTERS.map(({ key, label }) => {
+          const active = zoneFilter === key;
+          const count = key === "all" ? items.length : zoneCounts[key];
           return (
             <button
-              key={item.topic}
-              type="button"
-              onClick={() => clickable && onSelect(item.topic)}
+              key={key}
+              onClick={() => setZoneFilter(key)}
               className={cn(
-                "w-full rounded-2xl border border-border/80 bg-card/88 p-4 text-left transition-all",
-                clickable && "cursor-pointer hover:-translate-y-px hover:border-primary/30 hover:shadow-sm"
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer",
+                active
+                  ? "bg-primary/15 text-primary border border-primary/30"
+                  : "bg-card border border-border text-dim hover:border-primary/20 hover:text-text"
               )}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold">{item.topic}</div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {item.weakCount > 0 && <Badge variant="destructive">弱项 {item.weakCount}</Badge>}
-                    {item.strongCount > 0 && <Badge variant="success">强项 {item.strongCount}</Badge>}
-                  </div>
-                </div>
-                <div className={cn("shrink-0 text-sm font-semibold", meta.accentClassName)}>
-                  {item.score != null ? `${item.score}/100` : "待评估"}
-                </div>
-              </div>
-
-              {item.score != null ? (
-                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-border">
-                  <div
-                    className={cn("h-full rounded-full bg-gradient-to-r", meta.progressClassName)}
-                    style={{ width: `${item.score}%` }}
-                  />
-                </div>
-              ) : (
-                <div className="mt-4 text-xs text-dim">暂无掌握度评分，先按观察信号推进。</div>
-              )}
-
-              <div className="mt-3 flex items-end justify-between gap-3">
-                <div className="text-xs leading-5 text-dim">
-                  {item.note || `已累计 ${item.weakCount + item.strongCount} 条观察信号。`}
-                </div>
-                {clickable && (
-                  <div className="flex items-center gap-1 text-xs font-medium text-primary">
-                    查看
-                    <ChevronRight size={14} />
-                  </div>
-                )}
-              </div>
+              {label}
+              <span className={cn("text-[11px]", active ? "text-primary/70" : "text-dim/60")}>{count}</span>
             </button>
           );
         })}
       </div>
+
+      {/* Domain rows */}
+      {filtered.length === 0 ? (
+        <div className="py-6 text-center text-sm text-dim">暂无匹配的领域。</div>
+      ) : (
+        <div className="rounded-lg border border-border overflow-hidden">
+          {filtered.map((item, i) => (
+            <button
+              key={item.topic}
+              type="button"
+              onClick={() => onSelect?.(item.topic)}
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors",
+                "cursor-pointer hover:bg-card/60",
+                i > 0 && "border-t border-border"
+              )}
+            >
+              <span className={cn("w-2 h-2 rounded-full shrink-0", dotColor[item.zone])} />
+              <span className="font-medium shrink-0">{item.topic}</span>
+
+              {/* Inline progress bar */}
+              <div className="hidden md:block flex-1 min-w-0">
+                {item.score != null ? (
+                  <div className="h-1.5 overflow-hidden rounded-full bg-border">
+                    <div
+                      className={cn("h-full rounded-full bg-gradient-to-r", barGradient[item.zone])}
+                      style={{ width: `${item.score}%` }}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-1.5 rounded-full bg-border" />
+                )}
+              </div>
+
+              <span className={cn("shrink-0 text-xs font-semibold w-10 text-right", scoreColor[item.zone])}>
+                {item.score != null ? item.score : "—"}
+              </span>
+
+              {item.weakCount > 0 && (
+                <span className="shrink-0 text-[11px] text-red">{item.weakCount}弱</span>
+              )}
+              {item.strongCount > 0 && (
+                <span className="shrink-0 text-[11px] text-green">{item.strongCount}强</span>
+              )}
+
+              <ChevronRight size={14} className="shrink-0 text-dim/40" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1207,11 +1226,10 @@ export default function Profile() {
             caption="这里只显示真实训练主题，不再把画像标签误当成领域。"
           />
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            <DomainZoneColumn zone="focus" items={focusDomains} onSelect={(topic) => navigate(`/profile/topic/${topic}`)} />
-            <DomainZoneColumn zone="build" items={buildDomains} onSelect={(topic) => navigate(`/profile/topic/${topic}`)} />
-            <DomainZoneColumn zone="strong" items={strongDomains} onSelect={(topic) => navigate(`/profile/topic/${topic}`)} />
-          </div>
+          <DomainTable
+            items={topicPriorities}
+            onSelect={(topic) => navigate(`/profile/topic/${topic}`)}
+          />
         </CardContent>
       </Card>
 
