@@ -10,6 +10,7 @@
 * [简历模拟面试](resume-mock.md)
 * [JD 定向备面](jd-preparation.md)
 * [面试 Copilot](copilot.md)
+* [MCTS 动态策略引擎](mcts-strategy.md)
 * [录音复盘](recording-review.md)
 * [我的画像与领域回顾](profile-retrospective.md)
 * [题目图谱](graph.md)

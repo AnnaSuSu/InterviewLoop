@@ -96,19 +96,20 @@ class CopilotASR:
             on_error=self._on_error,
             on_close=self._on_close,
         )
-        ok = self._transcriber.start(
-            aformat="pcm",
-            sample_rate=16000,
-            enable_intermediate_result=True,
-            enable_punctuation_prediction=True,
-            enable_inverse_text_normalization=True,
-        )
-        if ok:
+        try:
+            self._transcriber.start(
+                aformat="pcm",
+                sample_rate=16000,
+                enable_intermediate_result=True,
+                enable_punctuation_prediction=True,
+                enable_inverse_text_normalization=True,
+            )
             self._started = True
             logger.info("NLS ASR started")
-        else:
-            logger.error("NLS ASR failed to start")
-        return ok
+            return True
+        except Exception as e:
+            logger.error(f"NLS ASR failed to start: {e}")
+            return False
 
     def send_audio(self, pcm_data: bytes) -> bool:
         if self._transcriber and self._started:

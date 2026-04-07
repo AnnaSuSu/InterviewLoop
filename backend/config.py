@@ -36,6 +36,19 @@ class Settings(BaseSettings):
     nls_access_key_id: str = ""
     nls_access_key_secret: str = ""
 
+    # MCTS 动态策略引擎
+    mcts_enabled: bool = False
+    mcts_iterations: int = 8
+    mcts_branch_factor: int = 3
+    mcts_rollout_depth: int = 2
+    mcts_c_puct: float = 1.4
+    mcts_max_tree_nodes: int = 200
+    mcts_merge_threshold: float = 0.8
+    mcts_search_timeout: float = 25.0
+    mcts_rollout_api_base: str = ""
+    mcts_rollout_api_key: str = ""
+    mcts_rollout_model: str = ""
+
     # Copilot — Tavily Web Search
     tavily_api_key: str = ""
 

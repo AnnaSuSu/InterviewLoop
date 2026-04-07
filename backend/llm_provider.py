@@ -87,6 +87,19 @@ def get_embedding():
     return _embedding_instance
 
 
+def get_mcts_rollout_llm():
+    """MCTS Rollout 用轻量 LLM，未配置则返回 None（降级到纯 Reward 评估）。"""
+    if not settings.mcts_rollout_model:
+        return None
+    return ChatOpenAI(
+        model=settings.mcts_rollout_model,
+        api_key=settings.mcts_rollout_api_key or settings.copilot_api_key or settings.api_key,
+        base_url=settings.mcts_rollout_api_base or settings.copilot_api_base or settings.api_base,
+        temperature=0.7,
+        max_tokens=100,
+    )
+
+
 def _reset_llama_singleton():
     """Reset LlamaIndex LLM singleton so next call picks up new settings."""
     global _llama_llm_instance

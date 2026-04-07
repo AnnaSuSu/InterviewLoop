@@ -69,6 +69,7 @@ export default function useCopilotStream({ prepId, onUpdate } = {}) {
           case "answer_done":
           case "hr_profile_update":
           case "monitor_update":
+          case "strategy_recommendation":
           case "progress":
           case "started":
           case "stopped":

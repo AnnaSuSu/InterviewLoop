@@ -1644,6 +1644,11 @@ async def copilot_realtime_ws(ws: WebSocket, session_id: str):
                 text = msg.get("text", "").strip()
                 if text:
                     session.get("conversation", []).append({"role": "candidate", "text": text})
+                    # 通知 MCTS 引擎候选人回答（仅更新对话历史，不触发搜索；
+                    # 搜索在下一轮 HR 发言时由 on_hr_utterance 触发）
+                    mcts = session.get("mcts_engine")
+                    if mcts:
+                        await mcts.on_candidate_response(text)
                     # 候选人回答后触发 Interview Monitor（后台）
                     asyncio.create_task(_run_interview_monitor(ws, session))
 
@@ -1669,6 +1674,8 @@ async def copilot_realtime_ws(ws: WebSocket, session_id: str):
     finally:
         if session and session.get("asr"):
             session["asr"].shutdown()
+        if session and session.get("mcts_engine"):
+            await session["mcts_engine"].stop()
         _copilot_sessions.pop(session_id, None)
 
 
@@ -1735,6 +1742,7 @@ async def _init_copilot_session(
         "conversation": [],
         "last_node_id": None,
         "turn_count": 0,
+        "mcts_engine": await _init_mcts_engine(ws, navigator, prep_result),
     }
 
 
@@ -1815,10 +1823,17 @@ async def _process_hr_utterance(ws: WebSocket, session: dict, text: str):
 
     # Agent 2: HR Profiler (后台, 每 3 轮触发)
     # Agent 3: Interview Monitor (后台, 每轮触发)
+    # Agent 4: MCTS 动态策略搜索 (后台)
     # 后台 agent 用 create_task 并发，不阻塞 Answer Coach
     if hr_profiler.should_run(session["turn_count"]):
         asyncio.create_task(_run_hr_profiler(ws, session))
     asyncio.create_task(_run_interview_monitor(ws, session))
+
+    # MCTS: 通知 HR 发言 + 后台搜索
+    mcts = session.get("mcts_engine")
+    if mcts:
+        await mcts.on_hr_utterance(text, node_id)
+        asyncio.create_task(_run_mcts_and_push(ws, session))
 
     # Answer Coach 流式推送（主流程等待）
     await run_answer_coach()
@@ -1877,6 +1892,65 @@ async def _run_interview_monitor(ws: WebSocket, session: dict):
             await ws.send_json({"type": "monitor_update", **result})
     except Exception as e:
         logger.error(f"Interview Monitor task error: {e}")
+
+
+async def _init_mcts_engine(ws: WebSocket, navigator, prep_result: dict):
+    """初始化 MCTS 引擎（如已启用）。"""
+    if not settings.mcts_enabled:
+        return None
+    try:
+        from backend.copilot.mcts_engine import MCTSEngine
+        from backend.copilot.reward_model import RewardModel
+        from backend.copilot.simulation_engine import SimulationEngine
+        from backend.copilot.mcts_config import MCTSConfig
+        from backend.llm_provider import get_mcts_rollout_llm
+
+        reward_model = RewardModel(
+            jd_analysis=prep_result.get("jd_analysis", {}),
+            candidate_profile=prep_result.get("profile", {}),
+            fit_report=prep_result.get("fit_report", {}),
+        )
+        await reward_model.precompute_embeddings()
+
+        sim_engine = SimulationEngine(
+            reward_model=reward_model,
+            rollout_llm=get_mcts_rollout_llm(),
+        )
+
+        engine = MCTSEngine(
+            strategy_navigator=navigator,
+            reward_model=reward_model,
+            simulation_engine=sim_engine,
+            prep_state=prep_result,
+            config=MCTSConfig.from_settings(settings),
+        )
+        await ws.send_json({"type": "progress", "message": "MCTS 博弈引擎已就绪"})
+        return engine
+    except Exception as e:
+        logger.warning(f"MCTS engine init failed (will continue without): {e}")
+        return None
+
+
+async def _run_mcts_and_push(ws: WebSocket, session: dict):
+    """后台运行 MCTS 搜索，完成后推送最优策略。"""
+    mcts = session.get("mcts_engine")
+    if not mcts:
+        return
+    try:
+        await mcts.search()
+        rec = mcts.get_recommendation()
+        await ws.send_json({
+            "type": "strategy_recommendation",
+            "optimal_strategy": rec.optimal_response_strategy,
+            "predicted_followups": rec.predicted_followups,
+            "danger_zones": rec.danger_zones,
+            "win_rate": rec.win_rate,
+            "best_path": rec.best_path,
+            "confidence": rec.confidence,
+            "iterations_completed": rec.iterations_completed,
+        })
+    except Exception as e:
+        logger.warning(f"MCTS search failed: {e}")
 
 
 app.include_router(router)
