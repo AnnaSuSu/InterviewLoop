@@ -322,28 +322,40 @@ function DetailView({ prepId: initialPrepId, onBack, onStartInterview }) {
                 </div>
 
                 {/* Company + Position */}
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/80">目标公司</Label>
-                    <Input
-                      className="h-12 rounded-2xl bg-card/90"
-                      placeholder="例：字节跳动"
-                      value={company}
-                      onChange={(e) => setCompany(e.target.value)}
-                      disabled={!!prepId}
-                    />
+                {prepId ? (
+                  <div className="flex flex-wrap items-center gap-6 rounded-2xl border border-border/40 bg-black/[0.01] dark:bg-white/[0.01] px-5 py-4">
+                    <div className="flex flex-col gap-1 min-w-[120px]">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/70">目标公司</span>
+                      <span className="text-[17px] font-semibold leading-none">{company || "---"}</span>
+                    </div>
+                    <div className="h-8 w-px bg-border/60 hidden md:block" />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/70">目标岗位</span>
+                      <span className="text-[17px] font-semibold leading-none">{position || "---"}</span>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/80">目标岗位</Label>
-                    <Input
-                      className="h-12 rounded-2xl bg-card/90"
-                      placeholder="例：AI 后台开发实习生"
-                      value={position}
-                      onChange={(e) => setPosition(e.target.value)}
-                      disabled={!!prepId}
-                    />
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/80">目标公司</Label>
+                      <Input
+                        className="h-12 rounded-2xl border-border/60 bg-background/50 hover:bg-background focus-visible:bg-background transition-colors px-4"
+                        placeholder="例：字节跳动"
+                        value={company}
+                        onChange={(e) => setCompany(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-dim/80">目标岗位</Label>
+                      <Input
+                        className="h-12 rounded-2xl border-border/60 bg-background/50 hover:bg-background focus-visible:bg-background transition-colors px-4"
+                        placeholder="例：AI 后台开发实习生"
+                        value={position}
+                        onChange={(e) => setPosition(e.target.value)}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* JD */}
                 {isNew && (
@@ -372,57 +384,72 @@ function DetailView({ prepId: initialPrepId, onBack, onStartInterview }) {
                   </div>
                 )}
 
-                {/* Resume */}
-                <Card className="border-border/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(244,247,255,0.92))] dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.96),rgba(30,41,59,0.72))]">
-                  <CardContent className="p-4 md:p-5">
-                    <div className="flex items-start gap-3">
-                      <FileText size={20} className={cn("mt-0.5 shrink-0", resumeReady ? "text-blue-400" : "text-dim")} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-sm font-semibold">简历联动</div>
-                          <Badge variant={resumeReady ? "blue" : "secondary"}>
-                            {loadingResume ? "检查中" : resumeReady ? "已可用" : "未上传简历"}
-                          </Badge>
-                          {resumeFile?.size && <Badge variant="outline">{formatFileSize(resumeFile.size)}</Badge>}
-                        </div>
-                        <div className="mt-2 text-[13px] leading-6 text-dim">
-                          {resumeReady
-                            ? `已检测到简历：${resumeFile.filename}。Copilot 会对照你的项目经历和岗位要求来生成策略树。`
-                            : "当前没有可用简历。不影响核心功能，但会缺少简历-JD 匹配分析。可在首页上传。"}
-                        </div>
+                {/* Context Status Links */}
+                <div className="mt-1 flex flex-col gap-1 rounded-2xl border border-border/40 bg-card/20 p-1.5">
+                  {/* Resume Row */}
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-3.5">
+                      <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", resumeReady ? "bg-blue-500/10 text-blue-500" : "bg-dim/10 text-dim")}>
+                        <FileText size={16} />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[13px] font-semibold text-text">简历联动</span>
+                        <span className="text-[12px] text-dim">
+                          {resumeReady ? `对照经历生成策略树 · ${formatFileSize(resumeFile.size)}` : "未上传简历，将缺少匹配对照"}
+                        </span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    <Badge variant={resumeReady ? "blue" : "secondary"} className="h-6 rounded-md px-2 text-[10px] uppercase font-bold tracking-wider shadow-sm">
+                      {loadingResume ? "Checking" : resumeReady ? "Active" : "Disabled"}
+                    </Badge>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="mx-4 h-px bg-border/40" />
 
-                {/* Profile */}
-                <Card className="border-border/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(250,245,255,0.92))] dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.96),rgba(41,30,59,0.72))]">
-                  <CardContent className="p-4 md:p-5">
-                    <div className="flex items-start gap-3">
-                      <User size={20} className={cn("mt-0.5 shrink-0", topicCount > 0 ? "text-purple-400" : "text-dim")} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-sm font-semibold">画像联动</div>
-                          <Badge variant={topicCount > 0 ? "purple" : "secondary"}>
-                            {loadingProfile ? "加载中" : topicCount > 0 ? `${topicCount} 个领域` : "暂无画像"}
-                          </Badge>
-                          {weakPointCount > 0 && <Badge variant="outline">{weakPointCount} 个弱点</Badge>}
-                        </div>
-                        <div className="mt-2 text-[13px] leading-6 text-dim">
-                          {topicCount > 0
-                            ? `已有 ${topicCount} 个领域的掌握度数据和 ${weakPointCount} 个弱点标记。Copilot 会据此标注策略树上的高危路径。`
-                            : "暂无画像数据。多做几次模拟面试后会自动积累。不影响使用。"}
-                        </div>
+                  {/* Profile Row */}
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-3.5">
+                      <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", topicCount > 0 ? "bg-purple-500/10 text-purple-500" : "bg-dim/10 text-dim")}>
+                        <User size={16} />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[13px] font-semibold text-text">画像联动</span>
+                        <span className="text-[12px] text-dim">
+                          {topicCount > 0 ? `引入 ${topicCount} 个领域数据及 ${weakPointCount} 个弱点标记` : "暂无画像数据，完成模拟后累积"}
+                        </span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    <Badge variant={topicCount > 0 ? "purple" : "secondary"} className="h-6 rounded-md px-2 text-[10px] uppercase font-bold tracking-wider shadow-sm">
+                      {loadingProfile ? "Loading" : topicCount > 0 ? "Active" : "Disabled"}
+                    </Badge>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           {error && (
             <div className="rounded-2xl border border-red/20 bg-red/10 px-4 py-3 text-sm text-red">{error}</div>
+          )}
+
+          {/* Results Block moved inside Left Column */}
+          {isDone && status ? (
+            <div className="space-y-5">
+              <PrepResultCards status={status} />
+            </div>
+          ) : !prepId && isNew && (
+            <Card className="border-dashed border-border/80 bg-card/55">
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Brain size={20} />
+                </div>
+                <div className="mt-4 text-lg font-semibold">分析结果会在这里展开</div>
+                <div className="mt-2 text-sm leading-6 text-dim">
+                  包括公司面试风格、岗位匹配度、HR 提问策略树和高危路径标注。
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
 
@@ -525,24 +552,7 @@ function DetailView({ prepId: initialPrepId, onBack, onStartInterview }) {
         </div>
       </div>
 
-      {/* Results */}
-      {isDone && status ? (
-        <div className="mt-6 space-y-5">
-          <PrepResultCards status={status} />
-        </div>
-      ) : !prepId && isNew && (
-        <Card className="mt-6 border-dashed border-border/80 bg-card/55">
-          <CardContent className="p-8 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <Brain size={20} />
-            </div>
-            <div className="mt-4 text-lg font-semibold">分析结果会在这里展开</div>
-            <div className="mt-2 text-sm leading-6 text-dim">
-              包括公司面试风格、岗位匹配度、HR 提问策略树和高危路径标注。
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </div>
   );
 }
@@ -893,74 +903,89 @@ function RealtimePhase({ prepId, onBack }) {
             </div>
           )}
 
-          {/* Sticky 横条：面试动态 + HR 画像（始终显示） */}
-          <div className="px-4 py-2.5 border-b border-border/50 bg-card/30 shrink-0 flex gap-3 overflow-x-auto">
-            <div className="flex items-center gap-2 text-[12px] min-w-0">
-              <Badge variant="outline" className="text-[10px] shrink-0 border-cyan-500/30 text-cyan-400">
-                {monitorData?.phase || "等待中"}
-              </Badge>
-              <span className={cn("truncate", monitorData?.strategy_tip ? "text-cyan-300/80" : "text-dim/40")}>
-                {monitorData?.strategy_tip || "面试开始后显示战略建议"}
+          {/* Sticky 横条：顶部全息雷达区 (Top HUD) */}
+          <div className="px-6 py-4 border-b border-border/40 bg-background/40 backdrop-blur-md shrink-0 flex gap-8 overflow-x-auto relative shadow-[0_1px_15px_rgba(0,0,0,0.02)] z-10">
+            {/* Phase Radar */}
+            <div className="flex items-center gap-3.5 min-w-0">
+              <span className="flex items-center gap-2">
+                <span className={cn("inline-block w-2.5 h-2.5 rounded-full", monitorData?.phase ? "bg-cyan-500 animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)]" : "bg-dim/30")} />
+                <span className="font-bold text-text uppercase tracking-widest text-[13px]">
+                  {monitorData?.phase || "监听引擎"}
+                </span>
+              </span>
+              <span className={cn("truncate text-[14px] max-w-[320px]", monitorData?.strategy_tip ? "text-cyan-400 font-medium" : "text-dim/40")}>
+                {monitorData?.strategy_tip || "等待对话启动分析..."}
               </span>
             </div>
-            <div className="w-px bg-border/50 shrink-0" />
-            <div className="flex items-center gap-2 text-[12px] min-w-0">
-              <span className="text-violet-400/70 font-semibold shrink-0">HR</span>
-              <span className={cn("truncate", hrProfile ? "text-violet-300/70" : "text-dim/40")}>
-                {hrProfile?.advice || hrProfile?.style || "3 轮对话后分析 HR 风格"}
+            
+            <div className="w-px h-5 bg-border/60 shrink-0 self-center" />
+            
+            {/* HR Baseline Tracker */}
+            <div className="flex items-center gap-3.5 min-w-0">
+              <span className="flex items-center gap-2">
+                <span className={cn("inline-block w-2.5 h-2.5 rounded-full", hrProfile ? "bg-violet-500 animate-pulse shadow-[0_0_8px_rgba(139,92,246,0.8)]" : "bg-dim/30")} />
+                <span className="font-bold text-text uppercase tracking-widest text-[13px]">HR 行为基线</span>
+              </span>
+              <span className={cn("truncate text-[14px]", hrProfile ? "text-violet-400 font-medium" : "text-dim/40")}>
+                {hrProfile ? `${hrProfile.style} · ${hrProfile.advice}` : "数据采集中 (0/3 轮)"}
               </span>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 relative bg-card/10">
             {conversation.length === 0 && started && (
-              <div className="flex flex-col items-center justify-center h-full text-dim text-sm">
-                <div className="relative mb-4">
-                  <Mic size={32} className="text-primary/25" />
-                  <span className="absolute -top-1 -right-1 inline-block w-3 h-3 rounded-full bg-primary/30 copilot-breathe" />
+              <div className="flex flex-col items-center justify-center h-full text-dim text-sm relative">
+                {/* Core Pulse Animation */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 dark:opacity-30">
+                  <div className="w-[120px] h-[120px] rounded-full border border-primary/20 animate-ping" style={{ animationDuration: '3s' }} />
+                  <div className="absolute w-[240px] h-[240px] rounded-full border border-primary/10 animate-ping" style={{ animationDuration: '4s' }} />
                 </div>
-                <p className="font-medium">开始录音或手动输入 HR 的问题</p>
-                <p className="text-xs text-dim/40 mt-1">Copilot 将实时分析并生成回答建议</p>
+                
+                <div className="relative mb-6 z-10 flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.15)]">
+                  <Mic size={28} className="animate-pulse" />
+                </div>
+                <p className="font-medium tracking-widest uppercase text-[12px] z-10 text-text/80">AI Copilot 雷达已开启</p>
+                <p className="text-[12px] text-dim/50 mt-1.5 z-10">开始录音或在下方手动输入 HR 的开场白...</p>
               </div>
             )}
             {conversation.length === 0 && !started && (
               <div className="flex flex-col items-center justify-center h-full">
                 <Loader2 size={28} className="animate-spin text-primary/30 mb-3" />
-                <p className="text-sm text-dim/50">正在连接面试辅助引擎...</p>
+                <p className="text-sm text-dim/50 uppercase tracking-widest text-[10px] font-bold">Initializing Engine...</p>
               </div>
             )}
             {conversation.map((msg, i) => (
               <div key={i} className={cn(
-                "text-sm rounded-2xl px-4 py-3 max-w-[85%]",
-                msg.role === "hr" ? "bg-card border border-border/50" : "bg-primary/10 ml-auto"
+                "text-sm rounded-2xl px-4 py-3 max-w-[85%] shadow-sm",
+                msg.role === "hr" ? "bg-background border border-border/60" : "bg-primary/15 ml-auto border border-primary/10"
               )}>
-                <span className="text-[11px] uppercase tracking-[0.12em] text-dim/80 font-semibold block mb-1">
+                <span className="text-[10px] uppercase tracking-widest text-dim/70 font-bold block mb-1">
                   {msg.role === "hr" ? "HR" : "You"}
                 </span>
-                {msg.text}
+                <span className="leading-relaxed">{msg.text}</span>
               </div>
             ))}
             <div ref={chatEndRef} />
           </div>
-          <div className="px-4 py-3 border-t border-border shrink-0 flex gap-2">
+          <div className="px-5 py-4 border-t border-border shrink-0 flex gap-3 bg-card/20 md:px-6">
             <Button
               size="sm"
               variant={inputRole === "hr" ? "outline" : "secondary"}
-              className="rounded-2xl h-11 px-3 shrink-0 text-xs font-semibold min-w-[52px]"
+              className="rounded-xl h-[46px] px-3 shrink-0 text-xs font-semibold min-w-[56px] shadow-sm transition-all"
               onClick={() => setInputRole(inputRole === "hr" ? "candidate" : "hr")}
               disabled={!connected || !started}
             >
               {inputRole === "hr" ? "HR" : "You"}
             </Button>
-            <Input className="h-11 rounded-2xl" placeholder={inputRole === "hr" ? "手动输入 HR 的问题..." : "记录你的回答..."} value={manualInput} onChange={(e) => setManualInput(e.target.value)} onKeyDown={handleKeyDown} disabled={!connected || !started} />
-            <Button size="icon" className="rounded-2xl h-11 w-11 shrink-0" onClick={handleManualSend} disabled={!manualInput.trim() || !started}>
+            <Input className="h-[46px] rounded-xl border-border/80 bg-background shadow-sm px-4 focus-visible:bg-card/50" placeholder={inputRole === "hr" ? "手动输入 HR 的问题..." : "记录你的回答..."} value={manualInput} onChange={(e) => setManualInput(e.target.value)} onKeyDown={handleKeyDown} disabled={!connected || !started} />
+            <Button size="icon" className="rounded-xl h-[46px] w-[46px] shrink-0 shadow-sm" onClick={handleManualSend} disabled={!manualInput.trim() || !started}>
               <Send size={16} />
             </Button>
           </div>
         </div>
 
         {/* ── Right: Copilot Panel (始终显示) ── */}
-        <div className="w-[340px] xl:w-[400px] shrink-0 overflow-y-auto bg-card/30">
+        <div className="w-[340px] xl:w-[420px] shrink-0 overflow-y-auto bg-card/[0.03] border-l border-border/50">
           <CopilotPanel update={currentUpdate} riskAlert={riskAlert} streamingAnswer={streamingAnswer} answerLoading={answerLoading} monitorData={monitorData} />
         </div>
       </div>
@@ -968,12 +993,18 @@ function RealtimePhase({ prepId, onBack }) {
   );
 }
 
-function PanelEmptyState({ text }) {
+function PanelEmptyState({ active = false }) {
+  if (active) {
+    return (
+      <div className="space-y-2 mt-2">
+        <div className="h-2 w-full rounded-full bg-primary/20 copilot-shimmer-bg" />
+        <div className="h-2 w-2/3 rounded-full bg-primary/10 copilot-shimmer-bg" style={{ animationDelay: '0.2s' }} />
+      </div>
+    );
+  }
   return (
-    <div className="space-y-2">
-      <div className="h-3 w-3/4 rounded-full bg-dim/8 copilot-shimmer-bg" />
-      <div className="h-3 w-1/2 rounded-full bg-dim/6 copilot-shimmer-bg" style={{ animationDelay: '0.3s' }} />
-      <p className="text-[12px] text-dim/35 mt-2">{text}</p>
+    <div className="h-4 w-full flex items-center">
+      <div className="h-[2px] w-full bg-dim/10 rounded-full" />
     </div>
   );
 }
@@ -985,125 +1016,165 @@ function CopilotPanel({ update, riskAlert, streamingAnswer, answerLoading, monit
   const hasData = !!update;
 
   return (
-    <div className="p-4 space-y-3">
-      {/* 回答评价 */}
-      <div className="copilot-fade-up rounded-2xl border-2 border-cyan-500/25 bg-gradient-to-br from-cyan-500/10 to-cyan-500/3 p-3.5">
-        <div className="flex items-center gap-1.5 mb-2">
-          <Eye size={13} className="text-cyan-400" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-400/90">回答评价</span>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between pb-2 border-b border-border/40">
+        <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-dim/50">Console Uplink</span>
+        <div className="flex gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-red/40" />
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500/40" />
+          <span className="w-1.5 h-1.5 rounded-full bg-green/40" />
         </div>
-        {monitorData?.last_answer_feedback ? (
-          <>
-            <p className="text-sm leading-6 text-text/85">{monitorData.last_answer_feedback}</p>
-            {monitorData.uncovered_topics?.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-cyan-500/15">
-                <span className="text-[11px] text-dim/60">未覆盖：</span>
-                <span className="text-[12px] text-dim/80">{monitorData.uncovered_topics.join("、")}</span>
-              </div>
-            )}
-          </>
-        ) : (
-          <PanelEmptyState text="候选人回答后自动评价" />
-        )}
       </div>
+
+      {/* 回答评价 */}
+      <div className="copilot-fade-up group">
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className={cn("flex items-center justify-center w-6 h-6 rounded-md", monitorData?.last_answer_feedback ? "bg-cyan-500/10 text-cyan-400" : "bg-dim/10 text-dim/40")}>
+            <Eye size={12} />
+          </div>
+          <span className={cn("text-[11px] font-bold uppercase tracking-[0.15em]", monitorData?.last_answer_feedback ? "text-cyan-400/90" : "text-dim/40")}>回答评价</span>
+        </div>
+        <div className="pl-[34px]">
+          {monitorData?.last_answer_feedback ? (
+            <>
+              <p className="text-[13px] leading-6 text-text/90 font-medium">{monitorData.last_answer_feedback}</p>
+              {monitorData.uncovered_topics?.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border/30">
+                  <span className="text-[11px] text-dim/60 mr-1.5">未覆盖:</span>
+                  <span className="text-[11px] text-dim/80 font-medium">{monitorData.uncovered_topics.join("、")}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <PanelEmptyState active={false} />
+          )}
+        </div>
+      </div>
+
+      <div className="w-full h-px bg-border/40 ml-[34px] my-4" />
 
       {/* 当前考察 */}
-      <div className="copilot-fade-up copilot-stagger-1 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/8 to-transparent p-4">
-        <div className="flex items-center gap-1.5 mb-2">
-          <Target size={13} className="text-violet-400" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-400/80">当前考察</span>
-        </div>
-        {hasData ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="blue">{update.intent || "unknown"}</Badge>
-            {update.topic && <span className="text-sm font-medium">{update.topic}</span>}
-            {update.confidence > 0 && (
-              <span className="text-xs text-dim ml-auto tabular-nums">{Math.round(update.confidence * 100)}%</span>
-            )}
+      <div className="copilot-fade-up copilot-stagger-1 group">
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className={cn("flex items-center justify-center w-6 h-6 rounded-md", hasData ? "bg-violet-500/10 text-violet-400" : "bg-dim/10 text-dim/40")}>
+            <Target size={12} />
           </div>
-        ) : (
-          <PanelEmptyState text="等待 HR 提问..." />
-        )}
+          <span className={cn("text-[11px] font-bold uppercase tracking-[0.15em]", hasData ? "text-violet-400/90" : "text-dim/40")}>当前考察</span>
+        </div>
+        <div className="pl-[34px]">
+          {hasData ? (
+            <div className="flex items-center gap-3 flex-wrap">
+              <Badge variant="outline" className="border-violet-500/30 text-violet-400 bg-violet-500/5 h-[22px] px-2 shadow-sm rounded-md uppercase tracking-wider text-[10px]">{update.intent || "unknown"}</Badge>
+              {update.topic && <span className="text-[13px] font-semibold">{update.topic}</span>}
+              {update.confidence > 0 && (
+                <span className="text-[11px] text-violet-400/60 ml-auto tabular-nums font-bold">{Math.round(update.confidence * 100)}% Match</span>
+              )}
+            </div>
+          ) : (
+            <PanelEmptyState active={false} />
+          )}
+        </div>
       </div>
+
+      <div className="w-full h-px bg-border/40 ml-[34px] my-4" />
 
       {/* 回答要点 */}
-      <div className="copilot-fade-up copilot-stagger-2 rounded-2xl border-2 border-primary/25 bg-gradient-to-br from-primary/10 to-primary/3 p-4">
-        <div className="flex items-center gap-1.5 mb-3">
-          <Sparkles size={13} className="text-primary" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/90">回答要点</span>
+      <div className="copilot-fade-up copilot-stagger-2 group">
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className={cn("flex items-center justify-center w-6 h-6 rounded-md", recommendedPoints.length > 0 ? "bg-primary/10 text-primary" : "bg-dim/10 text-dim/40")}>
+            <Sparkles size={12} />
+          </div>
+          <span className={cn("text-[11px] font-bold uppercase tracking-[0.15em]", recommendedPoints.length > 0 ? "text-primary/90" : "text-dim/40")}>核心要点建议</span>
         </div>
-        {recommendedPoints.length > 0 ? (
-          <>
-            <ul className="space-y-1.5">
-              {recommendedPoints.map((point, i) => (
-                <li key={i} className="text-sm leading-6 flex items-start gap-2">
-                  <span className="text-primary/60 mt-1.5 shrink-0">•</span>
-                  {point}
-                </li>
-              ))}
-            </ul>
-            {prepHint?.redirect_suggestion && (
-              <div className="mt-3 pt-3 border-t border-primary/15 text-[12px] text-primary/70 leading-5">
-                <span className="font-semibold">引导方向：</span>{prepHint.redirect_suggestion}
-              </div>
-            )}
-          </>
-        ) : (
-          <PanelEmptyState text="策略树匹配后瞬间出现" />
-        )}
+        <div className="pl-[34px]">
+          {recommendedPoints.length > 0 ? (
+            <>
+              <ul className="space-y-2">
+                {recommendedPoints.map((point, i) => (
+                  <li key={i} className="text-[13px] leading-6 flex items-start gap-2.5 text-text/90">
+                    <span className="text-primary/60 mt-1 shrink-0">-</span>
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              {prepHint?.redirect_suggestion && (
+                <div className="mt-3.5 pt-3 border-t border-border/30 text-[12px] leading-5 bg-primary/5 rounded-lg p-2.5">
+                  <span className="font-bold text-primary/80 mr-2 uppercase tracking-wide text-[10px]">引导方向</span>
+                  <span className="text-text/80">{prepHint.redirect_suggestion}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <PanelEmptyState active={false} />
+          )}
+        </div>
       </div>
+
+      <div className="w-full h-px bg-border/40 ml-[34px] my-4" />
 
       {/* 参考答案 */}
-      <div className="copilot-fade-up copilot-stagger-3 rounded-2xl border-2 border-green/25 bg-gradient-to-br from-green/10 to-green/3 p-4">
-        <div className="flex items-center gap-1.5 mb-3">
-          <CheckCircle2 size={13} className="text-green" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-green/90">参考答案</span>
-        </div>
-        {answerLoading && !streamingAnswer ? (
-          <div className="space-y-2">
-            <div className="h-3 w-full rounded-full bg-green/10 copilot-shimmer-bg" />
-            <div className="h-3 w-4/5 rounded-full bg-green/8 copilot-shimmer-bg" style={{ animationDelay: '0.2s' }} />
-            <div className="h-3 w-3/5 rounded-full bg-green/6 copilot-shimmer-bg" style={{ animationDelay: '0.4s' }} />
-            <p className="text-[12px] text-green/50 mt-1">AI 正在生成...</p>
+      <div className="copilot-fade-up copilot-stagger-3 group">
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className={cn("flex items-center justify-center w-6 h-6 rounded-md", (answerLoading || streamingAnswer) ? "bg-green/10 text-green" : "bg-dim/10 text-dim/40")}>
+            <CheckCircle2 size={12} />
           </div>
-        ) : streamingAnswer ? (
-          <p className="text-sm leading-7 text-text/88">{streamingAnswer}</p>
-        ) : (
-          <PanelEmptyState text="Answer Coach 流式生成" />
-        )}
+          <span className={cn("text-[11px] font-bold uppercase tracking-[0.15em]", (answerLoading || streamingAnswer) ? "text-green/90" : "text-dim/40")}>流式参考打样</span>
+        </div>
+        <div className="pl-[34px]">
+          {answerLoading && !streamingAnswer ? (
+            <PanelEmptyState active={true} />
+          ) : streamingAnswer ? (
+            <p className="text-[13px] leading-7 text-text/90 whitespace-pre-wrap font-medium">{streamingAnswer}</p>
+          ) : (
+            <PanelEmptyState active={false} />
+          )}
+        </div>
       </div>
 
+      <div className="w-full h-px bg-border/40 ml-[34px] my-4" />
+
       {/* 可能追问 */}
-      <div className="copilot-fade-up copilot-stagger-4 rounded-2xl border border-amber-500/15 bg-gradient-to-br from-amber-500/6 to-transparent p-4">
-        <div className="flex items-center gap-1.5 mb-3">
-          <ChevronRight size={13} className="text-amber-400" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400/80">可能追问</span>
-        </div>
-        {children.length > 0 ? (
-          <div className="space-y-2.5">
-            {children.map((c, i) => (
-              <div key={i} className="rounded-xl border border-amber-500/15 bg-amber-500/5 px-3 py-2.5 text-sm">
-                <div className="font-medium">{c.topic}</div>
-                {c.question && (
-                  <div className="mt-1 text-[12px] text-dim leading-5">"{c.question}"</div>
-                )}
-              </div>
-            ))}
+      <div className="copilot-fade-up copilot-stagger-4 group">
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className={cn("flex items-center justify-center w-6 h-6 rounded-md", children.length > 0 ? "bg-amber-500/10 text-amber-500" : "bg-dim/10 text-dim/40")}>
+            <ChevronRight size={12} />
           </div>
-        ) : (
-          <PanelEmptyState text="策略树子节点预测" />
-        )}
+          <span className={cn("text-[11px] font-bold uppercase tracking-[0.15em]", children.length > 0 ? "text-amber-500/90" : "text-dim/40")}>预测追问方向</span>
+        </div>
+        <div className="pl-[34px]">
+          {children.length > 0 ? (
+            <div className="space-y-3">
+              {children.map((c, i) => (
+                <div key={i} className="rounded-xl border border-border/60 bg-background/40 px-3.5 py-3 shadow-sm">
+                  <div className="font-bold text-[12px] text-text border-b border-border/40 pb-1.5 mb-1.5">{c.topic}</div>
+                  {c.question && (
+                    <div className="text-[12px] text-dim/80 leading-5 italic">"{c.question}"</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <PanelEmptyState active={false} />
+          )}
+        </div>
       </div>
 
       {/* 风险提示 */}
       {riskAlert && (
-        <div className="copilot-fade-up copilot-danger-glow rounded-2xl border-2 border-amber-500/30 bg-gradient-to-br from-amber-500/12 to-amber-500/4 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={14} className="text-amber-400" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400">注意</span>
+        <>
+          <div className="w-full h-px bg-border/40 ml-[34px] my-4" />
+          <div className="copilot-fade-up copilot-danger-glow group">
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-500/10 text-amber-400">
+                <AlertTriangle size={12} />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-amber-400">注意</span>
+            </div>
+            <div className="pl-[34px]">
+              <p className="text-[13px] leading-6 text-amber-500 font-medium">{riskAlert.message}</p>
+            </div>
           </div>
-          <p className="text-sm leading-6 text-amber-200/90">{riskAlert.message}</p>
-        </div>
+        </>
       )}
     </div>
   );
