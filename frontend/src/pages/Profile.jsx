@@ -19,9 +19,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import DomainTable from "./profile/DomainTable";
 import EvidenceTable from "./profile/EvidenceTable";
 import {
-  CrossBlockerList,
   HabitTagList,
   PatternColumn,
+  PerformanceDimCard,
   ScoreChart,
   SectionHeader,
   TopicPriorityCard,
@@ -29,6 +29,7 @@ import {
 import {
   buildDomainInsights,
   buildModeCounts,
+  buildPerformanceSummary,
   buildPriorityWeaknesses,
   buildTrainingModeStats,
   formatMinute,
@@ -37,8 +38,9 @@ import {
   getRealTopicSet,
   getTrendDelta,
   sortByDateDesc,
+  splitByAxis,
 } from "./profile/derive";
-import { MODE_META, PAGE_CLASS } from "./profile/meta";
+import { MODE_META, PAGE_CLASS, PERFORMANCE_DIMENSIONS } from "./profile/meta";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
@@ -112,14 +114,23 @@ export default function Profile() {
     "improved_at",
     "last_seen"
   );
-  const strongPoints = sortByDateDesc(profile.strong_points || [], "first_seen", "first_seen");
+  const allStrong = sortByDateDesc(profile.strong_points || [], "first_seen", "first_seen");
   const thinkingStrengths = profile.thinking_patterns?.strengths || [];
   const thinkingGaps = profile.thinking_patterns?.gaps || [];
   const communicationHabits = profile.communication?.habits || [];
   const communicationSuggestions = profile.communication?.suggestions || [];
   const masteryMap = profile.topic_mastery || {};
   const realTopicSet = getRealTopicSet(profile, scoreHistory, canonicalTopics);
-  const priorityWeaknesses = buildPriorityWeaknesses(weakActive, masteryMap);
+
+  const { knowledge: knowledgeWeak, performance: performanceWeak } = splitByAxis(weakActive);
+  const { knowledge: knowledgeStrong, performance: performanceStrong } = splitByAxis(allStrong);
+
+  const priorityWeaknesses = buildPriorityWeaknesses(knowledgeWeak, masteryMap);
+  const perfPriority = buildPriorityWeaknesses(performanceWeak, {});
+  const featuredPerfItem = perfPriority[0] || null;
+  const performanceDims = buildPerformanceSummary(perfPriority.slice(1), performanceStrong);
+  const activePerfDims = performanceDims.filter((d) => d.weakCount > 0 || d.strongCount > 0);
+
   const domains = buildDomainInsights(profile, realTopicSet);
   const focusDomains = domains.filter((item) => item.zone === "focus");
   const buildDomains = domains.filter((item) => item.zone === "build");
@@ -131,11 +142,6 @@ export default function Profile() {
   const featuredTopic = topicPriorities[0] || null;
   const secondaryTopic = topicPriorities[1] || null;
   const extraTopicCount = Math.max(topicPriorities.length - 2, 0);
-  const crossBlockers = priorityWeaknesses
-    .filter((item) => !(item.topic && realTopicSet.has(item.topic)))
-    .slice(0, 4);
-  const visibleCrossBlockers = crossBlockers.slice(0, 2);
-  const hiddenCrossBlockerCount = Math.max(crossBlockers.length - visibleCrossBlockers.length, 0);
   const modeCounts = buildModeCounts(stats, scoreHistory);
   const trainingModeStats = buildTrainingModeStats(stats, scoreHistory);
   const latestEntry = getLatestEntry(scoreHistory);
@@ -203,13 +209,13 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.38fr)_minmax(360px,0.82fr)] 2xl:grid-cols-[minmax(0,1.5fr)_minmax(400px,0.86fr)]">
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <Card className="animate-fade-in-up [animation-delay:0.08s]">
           <CardContent className="p-5 md:p-6">
             <SectionHeader
               icon={<Target size={18} />}
-              title="当前重点"
-              caption="把真实训练领域和跨领域阻塞拆开，避免继续混成同一类卡片。"
+              title="知识短板"
+              caption="按训练领域排列，聚焦当前最该补的方向。"
               action={(
                 <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
                   查看全部记录
@@ -231,176 +237,194 @@ export default function Profile() {
                 </div>
               )}
 
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
-                <div>
-                  <div className="mb-3 flex items-center gap-2">
-                    <div className="text-sm font-semibold">下一顺位</div>
-                    <Badge variant="secondary">{secondaryTopic ? 1 : 0}</Badge>
-                  </div>
+              {secondaryTopic && (
+                <TopicPriorityCard
+                  item={secondaryTopic}
+                  onSelect={(topic) => navigate(`/profile/topic/${topic}`)}
+                  label="次推荐"
+                />
+              )}
 
-                  {secondaryTopic ? (
-                    <TopicPriorityCard
-                      item={secondaryTopic}
-                      onSelect={(topic) => navigate(`/profile/topic/${topic}`)}
-                      label="次推荐"
-                    />
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-border/80 px-4 py-8 text-sm text-dim">
-                      当前没有第二优先级领域，先把主推荐打透。
+              {extraTopicCount > 0 && (
+                <div className="rounded-2xl border border-border/70 bg-black/[0.02] px-4 py-3 text-xs leading-5 text-dim dark:bg-white/[0.02]">
+                  还有 {extraTopicCount} 个领域在排队，完整列表见下方能力地图。
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="animate-fade-in-up [animation-delay:0.12s]">
+          <CardContent className="p-5 md:p-6">
+            <SectionHeader
+              icon={<Brain size={18} />}
+              title="表现特征"
+              caption="独立于知识掌握度，描述你作为面试者的表达、推导和叙事特征。"
+            />
+
+            {featuredPerfItem ? (
+              <div className="mt-5 rounded-[20px] border border-amber-500/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.06),rgba(251,191,36,0.03))] p-5 md:p-6 dark:bg-[linear-gradient(135deg,rgba(245,158,11,0.10),rgba(251,191,36,0.04))]">
+                <div className="inline-flex rounded-full bg-amber-500/12 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  最突出的表现问题
+                </div>
+                <div className="mt-3 text-lg font-semibold leading-relaxed md:text-xl">
+                  {featuredPerfItem.point}
+                </div>
+                <div className="mt-2 text-xs text-dim">
+                  {PERFORMANCE_DIMENSIONS[featuredPerfItem.topic]?.label || featuredPerfItem.topic} · {featuredPerfItem.reason}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 text-sm leading-7 text-dim">
+                {profile.communication?.style || "暂时没有形成明确的表达侧总结。"}
+              </div>
+            )}
+
+            {activePerfDims.length > 0 && (
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                {activePerfDims.map((dim) => (
+                  <PerformanceDimCard key={dim.key} dim={dim} />
+                ))}
+              </div>
+            )}
+
+            {featuredPerfItem && profile.communication?.style && (
+              <div className="mt-5 rounded-2xl bg-black/[0.02] p-4 dark:bg-white/[0.02]">
+                <div className="text-sm leading-7 text-dim">{profile.communication.style}</div>
+              </div>
+            )}
+
+            {communicationHabits.length > 0 && (
+              <div className="mt-4">
+                <HabitTagList items={communicationHabits} />
+              </div>
+            )}
+
+            {(thinkingGaps.length > 0 || thinkingStrengths.length > 0 || communicationSuggestions.length > 0) && (
+              <div className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                <PatternColumn title="风险" color="text-red" items={thinkingGaps} />
+                <PatternColumn title="优势" color="text-green" items={thinkingStrengths} />
+                {communicationSuggestions.length > 0 && (
+                  <PatternColumn title="训练建议" color="text-primary" items={communicationSuggestions} />
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <Card className="animate-fade-in-up [animation-delay:0.16s]">
+          <CardContent className="p-5">
+            <SectionHeader
+              icon={<Sparkles size={18} />}
+              title="最近信号"
+            />
+            <div className="mt-5 space-y-4">
+              <div className="rounded-2xl bg-green/8 p-4">
+                <div className="text-sm font-semibold text-green">最近改善</div>
+                <div className="mt-3 space-y-2">
+                  {weakImproved.slice(0, 2).map((item) => (
+                    <div key={item.point} className="rounded-xl bg-card/90 px-3 py-2 text-sm leading-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>{item.point}</span>
+                        <Badge variant="success">已改善</Badge>
+                      </div>
                     </div>
-                  )}
-
-                  {extraTopicCount > 0 && (
-                    <div className="mt-3 rounded-2xl border border-border/70 bg-black/[0.02] px-4 py-3 text-xs leading-5 text-dim dark:bg-white/[0.02]">
-                      还有 {extraTopicCount} 个领域在排队，完整列表放在下方能力地图，不再挤进首页主视图。
+                  ))}
+                  {weakImproved.length === 0 && (
+                    <div className="rounded-xl bg-card/90 px-3 py-2 text-sm text-dim">
+                      还没有形成明确的改善闭环。
                     </div>
                   )}
                 </div>
+              </div>
 
-                <div className="rounded-[24px] border border-border/80 bg-card/70 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold">共性阻塞</div>
-                      <div className="mt-1 text-xs leading-5 text-dim">
-                        这些问题会跨多个场景反复出现，不属于单一领域，所以单独收口，不再伪装成可点击的 topic。
+              <div className="rounded-2xl bg-primary/8 p-4">
+                <div className="text-sm font-semibold text-primary">稳定得分点</div>
+                <div className="mt-3 space-y-2">
+                  {knowledgeStrong.slice(0, 3).map((item) => (
+                    <div key={item.point} className="rounded-xl bg-card/90 px-3 py-2 text-sm leading-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>{item.point}</span>
+                        {item.topic && <Badge variant="outline">{item.topic}</Badge>}
                       </div>
                     </div>
-                    <Badge variant="destructive">{crossBlockers.length}</Badge>
-                  </div>
-
-                  <div className="mt-4">
-                    <CrossBlockerList items={visibleCrossBlockers} />
-                  </div>
-
-                  {hiddenCrossBlockerCount > 0 && (
-                    <div className="mt-3 text-xs leading-5 text-dim">
-                      其余 {hiddenCrossBlockerCount} 条保留在证据库里，避免首页继续堆叠重复诊断。
+                  ))}
+                  {knowledgeStrong.length === 0 && (
+                    <div className="rounded-xl bg-card/90 px-3 py-2 text-sm text-dim">
+                      还没有记录到稳定的优势信号。
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-border/80 bg-card/80 p-4">
+                  <div className="text-xs font-medium text-dim">最近一次评分</div>
+                  <div className="mt-2 text-2xl font-semibold">
+                    {latestEntry?.avg_score != null ? `${latestEntry.avg_score}/10` : "--"}
+                  </div>
+                  <div className="mt-2 text-xs text-dim">
+                    {latestEntry ? `${(MODE_META[latestEntry.mode] || MODE_META.topic_drill).label} · ${formatShortDate(latestEntry.date)}` : "暂无评分记录"}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-border/80 bg-card/80 p-4">
+                  <div className="text-xs font-medium text-dim">趋势变化</div>
+                  <div className={cn(
+                    "mt-2 text-2xl font-semibold",
+                    trendDelta == null ? "text-text" : trendDelta >= 0 ? "text-green" : "text-red"
+                  )}>
+                    {trendDelta == null ? "--" : trendDelta > 0 ? `+${trendDelta}` : trendDelta}
+                  </div>
+                  <div className="mt-2 text-xs text-dim">相比上一条评分记录</div>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="space-y-4 animate-fade-in-up [animation-delay:0.12s]">
-          <Card>
-            <CardContent className="p-5">
-              <SectionHeader
-                icon={<Sparkles size={18} />}
-                title="最近信号"
-                caption="把进步、稳定得分点和最新表现放在同一侧栏里。"
-              />
-
-              <div className="mt-5 space-y-4">
-                <div className="rounded-2xl bg-green/8 p-4">
-                  <div className="text-sm font-semibold text-green">最近改善</div>
-                  <div className="mt-3 space-y-2">
-                    {weakImproved.slice(0, 2).map((item) => (
-                      <div key={item.point} className="rounded-xl bg-card/90 px-3 py-2 text-sm leading-6">
-                        <div className="flex items-center justify-between gap-3">
-                          <span>{item.point}</span>
-                          <Badge variant="success">已改善</Badge>
-                        </div>
-                      </div>
-                    ))}
-                    {weakImproved.length === 0 && (
-                      <div className="rounded-xl bg-card/90 px-3 py-2 text-sm text-dim">
-                        还没有形成明确的改善闭环。
-                      </div>
-                    )}
+        <Card className="animate-fade-in-up [animation-delay:0.18s]">
+          <CardContent className="p-5">
+            <SectionHeader
+              icon={<Activity size={18} />}
+              title="训练结构"
+            />
+            <div className="mt-5 space-y-3">
+              {modeCounts.length > 0 ? modeCounts.map((item) => (
+                <div key={item.mode}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span>{item.label}</span>
+                    <span className="text-dim">{item.count} 次</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${item.percent}%`, backgroundColor: item.color }}
+                    />
                   </div>
                 </div>
-
-                <div className="rounded-2xl bg-primary/8 p-4">
-                  <div className="text-sm font-semibold text-primary">稳定得分点</div>
-                  <div className="mt-3 space-y-2">
-                    {strongPoints.slice(0, 3).map((item) => (
-                      <div key={item.point} className="rounded-xl bg-card/90 px-3 py-2 text-sm leading-6">
-                        <div className="flex items-center justify-between gap-3">
-                          <span>{item.point}</span>
-                          {item.topic && <Badge variant="outline">{item.topic}</Badge>}
-                        </div>
-                      </div>
-                    ))}
-                    {strongPoints.length === 0 && (
-                      <div className="rounded-xl bg-card/90 px-3 py-2 text-sm text-dim">
-                        还没有记录到稳定的优势信号。
-                      </div>
-                    )}
-                  </div>
+              )) : (
+                <div className="rounded-xl border border-dashed border-border/80 px-3 py-4 text-sm text-dim">
+                  暂无训练分布数据。
                 </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-border/80 bg-card/80 p-4">
-                    <div className="text-xs font-medium text-dim">最近一次评分</div>
-                    <div className="mt-2 text-2xl font-semibold">
-                      {latestEntry?.avg_score != null ? `${latestEntry.avg_score}/10` : "--"}
-                    </div>
-                    <div className="mt-2 text-xs text-dim">
-                      {latestEntry ? `${(MODE_META[latestEntry.mode] || MODE_META.topic_drill).label} · ${formatShortDate(latestEntry.date)}` : "暂无评分记录"}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-border/80 bg-card/80 p-4">
-                    <div className="text-xs font-medium text-dim">趋势变化</div>
-                    <div className={cn(
-                      "mt-2 text-2xl font-semibold",
-                      trendDelta == null ? "text-text" : trendDelta >= 0 ? "text-green" : "text-red"
-                    )}>
-                      {trendDelta == null ? "--" : trendDelta > 0 ? `+${trendDelta}` : trendDelta}
-                    </div>
-                    <div className="mt-2 text-xs text-dim">相比上一条评分记录</div>
-                  </div>
-                </div>
+              )}
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-black/4 px-4 py-3 dark:bg-white/[0.04]">
+                <div className="text-xs text-dim">回答分析</div>
+                <div className="mt-1 text-xl font-semibold">{stats.total_answers || 0}</div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5">
-              <SectionHeader
-                icon={<Activity size={18} />}
-                title="训练结构"
-                caption="训练类型分布决定了画像的信号来源。"
-              />
-
-              <div className="mt-5 space-y-3">
-                {modeCounts.length > 0 ? modeCounts.map((item) => (
-                  <div key={item.mode}>
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span>{item.label}</span>
-                      <span className="text-dim">{item.count} 次</span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-border">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${item.percent}%`, backgroundColor: item.color }}
-                      />
-                    </div>
-                  </div>
-                )) : (
-                  <div className="rounded-xl border border-dashed border-border/80 px-3 py-4 text-sm text-dim">
-                    暂无训练分布数据。
-                  </div>
-                )}
+              <div className="rounded-2xl bg-black/4 px-4 py-3 dark:bg-white/[0.04]">
+                <div className="text-xs text-dim">覆盖主题</div>
+                <div className="mt-1 text-xl font-semibold">{domains.length}</div>
               </div>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl bg-black/4 px-4 py-3 dark:bg-white/[0.04]">
-                  <div className="text-xs text-dim">回答分析</div>
-                  <div className="mt-1 text-xl font-semibold">{stats.total_answers || 0}</div>
-                </div>
-                <div className="rounded-2xl bg-black/4 px-4 py-3 dark:bg-white/[0.04]">
-                  <div className="text-xs text-dim">覆盖主题</div>
-                  <div className="mt-1 text-xl font-semibold">{domains.length}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card className="mt-5 animate-fade-in-up [animation-delay:0.16s]">
+      <Card className="mt-5 animate-fade-in-up [animation-delay:0.22s]">
         <CardContent className="p-5 md:p-6">
           <SectionHeader
             icon={<Clock3 size={18} />}
@@ -409,18 +433,18 @@ export default function Profile() {
           />
           <EvidenceTable
             weakItems={priorityWeaknesses}
-            strongItems={strongPoints}
+            strongItems={knowledgeStrong}
             improvedItems={weakImproved}
           />
         </CardContent>
       </Card>
 
-      <Card className="mt-5 animate-fade-in-up [animation-delay:0.2s]">
+      <Card className="mt-5 animate-fade-in-up [animation-delay:0.26s]">
         <CardContent className="p-5 md:p-6">
           <SectionHeader
             icon={<Target size={18} />}
             title="能力地图"
-            caption="这里只显示真实训练主题，不再把画像标签误当成领域。"
+            caption="只显示真实训练主题，表现类观察已归入上方表现特征。"
           />
           <DomainTable
             items={topicPriorities}
@@ -429,40 +453,12 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      <Card className="mt-5 animate-fade-in-up [animation-delay:0.24s]">
-        <CardContent className="p-5 md:p-6">
-          <SectionHeader
-            icon={<Brain size={18} />}
-            title="答题模式"
-            caption="模式层解释，不再拆成四张一级卡片和前面的诊断抢权重。"
-          />
-
-          <div className="mt-5 text-sm leading-7 text-dim">
-            {profile.communication?.style || "暂时没有形成明确的表达侧总结。"}
-          </div>
-          {communicationHabits.length > 0 && (
-            <div className="mt-3">
-              <HabitTagList items={communicationHabits} />
-            </div>
-          )}
-
-          {(thinkingGaps.length > 0 || thinkingStrengths.length > 0 || communicationSuggestions.length > 0) && (
-            <div className="mt-5 grid gap-x-6 gap-y-4 md:grid-cols-3">
-              <PatternColumn title="风险" color="text-red" items={thinkingGaps} />
-              <PatternColumn title="优势" color="text-green" items={thinkingStrengths} />
-              <PatternColumn title="训练" color="text-primary" items={communicationSuggestions} />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {scoreHistory.length >= 2 && (
-        <Card className="mt-5 animate-fade-in-up [animation-delay:0.28s]">
+        <Card className="mt-5 animate-fade-in-up [animation-delay:0.3s]">
           <CardContent className="p-5 md:p-6">
             <SectionHeader
               icon={<TrendingUp size={18} />}
               title="成长趋势"
-              caption="趋势保留在后面，作为历史参考，而不是首页主判断。"
             />
             <div className="mt-5 rounded-[24px] border border-border/70 bg-black/[0.02] p-3 dark:bg-white/[0.02] md:p-4">
               <ScoreChart history={scoreHistory} />

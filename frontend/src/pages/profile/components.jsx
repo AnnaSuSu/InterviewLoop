@@ -198,6 +198,26 @@ export function CrossBlockerList({ items }) {
   );
 }
 
+export function PerformanceDimCard({ dim }) {
+  const hasItems = dim.weakCount > 0 || dim.strongCount > 0;
+  if (!hasItems) return null;
+
+  return (
+    <div className={cn("rounded-xl border border-border/60 p-3.5", dim.bg)}>
+      <div className={cn("text-xs font-semibold", dim.color)}>{dim.label}</div>
+      <div className="mt-2 flex gap-2">
+        {dim.weakCount > 0 && <Badge variant="destructive">{dim.weakCount}</Badge>}
+        {dim.strongCount > 0 && <Badge variant="success">{dim.strongCount}</Badge>}
+      </div>
+      {dim.items.length > 0 && (
+        <div className="mt-2.5 text-xs leading-5 text-dim line-clamp-2">
+          {dim.items[0].point}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PatternColumn({ title, color, items }) {
   if (items.length === 0) return null;
 

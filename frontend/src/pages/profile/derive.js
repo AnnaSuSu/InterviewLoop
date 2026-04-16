@@ -1,4 +1,4 @@
-import { MODE_META, TRAINING_MODE_META } from "./meta";
+import { MODE_META, TRAINING_MODE_META, PERFORMANCE_DIMENSIONS } from "./meta";
 
 export function getMasteryScore(data) {
   const value = data?.score ?? (data?.level ? data.level * 20 : null);
@@ -57,6 +57,40 @@ export function buildPriorityWeaknesses(weakPoints, masteryMap) {
 
       return toTimestamp(b.last_seen || b.first_seen) - toTimestamp(a.last_seen || a.first_seen);
     });
+}
+
+export function splitByAxis(items) {
+  const knowledge = [];
+  const performance = [];
+  for (const item of items) {
+    if (item.axis === "performance") {
+      performance.push(item);
+    } else {
+      knowledge.push(item);
+    }
+  }
+  return { knowledge, performance };
+}
+
+export function buildPerformanceSummary(perfWeak, perfStrong) {
+  const dims = {};
+  for (const key of Object.keys(PERFORMANCE_DIMENSIONS)) {
+    dims[key] = { weakCount: 0, strongCount: 0, items: [] };
+  }
+  for (const item of perfWeak) {
+    const d = dims[item.topic] || dims.communication;
+    d.weakCount += 1;
+    d.items.push(item);
+  }
+  for (const item of perfStrong) {
+    const d = dims[item.topic] || dims.communication;
+    d.strongCount += 1;
+  }
+  return Object.entries(PERFORMANCE_DIMENSIONS).map(([key, meta]) => ({
+    key,
+    ...meta,
+    ...dims[key],
+  }));
 }
 
 export function getRealTopicSet(profile, history, canonicalTopics) {

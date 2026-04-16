@@ -8,6 +8,7 @@
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -18,6 +19,62 @@ from backend.config import settings
 from backend.llm_provider import get_langchain_llm
 
 logger = logging.getLogger("uvicorn")
+
+# Strip "(领域：xxx)" suffix that LLM sometimes copies from format hints
+_TOPIC_SUFFIX_RE = re.compile(r'\s*[（(]领域[：:]\s*[^）)]+[）)]\s*$')
+
+PERFORMANCE_DIMENSIONS = {"communication", "reasoning", "narrative", "metacognition"}
+
+
+def _clean_point_text(text: str) -> str:
+    return _TOPIC_SUFFIX_RE.sub('', text).strip()
+
+
+def _get_canonical_topic_keys(user_id: str) -> set[str]:
+    from backend.indexer import load_topics
+    return set(load_topics(user_id).keys())
+
+
+def _normalize_extraction_topics(extraction: dict, canonical: set, fallback_topic: str):
+    """Normalize axis + topic for each weak/strong point.
+
+    - axis=performance → topic must be in PERFORMANCE_DIMENSIONS
+    - axis=knowledge (or missing) → topic must be in canonical drill topics
+    """
+    for item in extraction.get("weak_points", []) + extraction.get("strong_points", []):
+        if not isinstance(item, dict):
+            continue
+        item["point"] = _clean_point_text(item.get("point", ""))
+        axis = item.get("axis", "")
+        topic = item.get("topic", "")
+
+        if axis == "performance":
+            if topic not in PERFORMANCE_DIMENSIONS:
+                item["topic"] = _guess_performance_dimension(topic)
+        else:
+            item["axis"] = "knowledge"
+            if topic in PERFORMANCE_DIMENSIONS:
+                item["axis"] = "performance"
+            elif topic not in canonical:
+                item["topic"] = fallback_topic
+
+
+def _guess_performance_dimension(raw: str) -> str:
+    """Best-effort map of free-form text to a canonical performance dimension."""
+    low = raw.lower()
+    for keyword, dim in [
+        ("表达", "communication"), ("沟通", "communication"), ("口误", "communication"),
+        ("发音", "communication"), ("语速", "communication"), ("communi", "communication"),
+        ("推导", "reasoning"), ("思维", "reasoning"), ("逻辑", "reasoning"),
+        ("reason", "reasoning"), ("分析", "reasoning"),
+        ("叙事", "narrative"), ("项目描述", "narrative"), ("量化", "narrative"),
+        ("STAR", "narrative"), ("narrat", "narrative"),
+        ("元认知", "metacognition"), ("自评", "metacognition"), ("meta", "metacognition"),
+    ]:
+        if keyword in low:
+            return dim
+    return "communication"
+
 
 # Per-user locks to prevent concurrent read-modify-write on profile.json
 _profile_locks: dict[str, asyncio.Lock] = {}
@@ -84,16 +141,27 @@ EXTRACT_PROMPT = """你是一个面试教练的分析引擎。根据面试对话
 ## 评分记录（如有）
 {scores}
 
+## 合法领域列表
+{allowed_topics}
+
+## 两条轴
+每个 weak_point / strong_point 必须标注 axis:
+- axis="knowledge": 知识类观察（某个技术点不懂/懂），topic 从「合法领域列表」选
+- axis="performance": 表现类观察（表达、推导、叙事、元认知），topic 从以下四个维度选:
+  communication（表达沟通）/ reasoning（推导思维）/ narrative（叙事项目描述）/ metacognition（元认知）
+
 ## 任务
 分析这次面试，提取以下信息，返回 JSON：
 
 ```json
 {{
     "weak_points": [
-        {{"point": "对 Python GIL 的理解停留在表面", "topic": "python"}}
+        {{"point": "对 Python GIL 的理解停留在表面", "topic": "python", "axis": "knowledge"}},
+        {{"point": "被追问 why 时跳过推导直接给结论", "topic": "reasoning", "axis": "performance"}}
     ],
     "strong_points": [
-        {{"point": "RAG 架构描述清晰，有实战数据支撑", "topic": "rag"}}
+        {{"point": "RAG 架构描述清晰，有实战数据支撑", "topic": "rag", "axis": "knowledge"}},
+        {{"point": "遇到不会的题能坦诚说不确定并尝试推导", "topic": "reasoning", "axis": "performance"}}
     ],
     "topic_mastery": {{
         "python": {{"notes": "基础扎实但高级特性（元类、描述符）薄弱"}}
@@ -128,6 +196,11 @@ EXTRACT_PROMPT = """你是一个面试教练的分析引擎。根据面试对话
 规则：
 - 只提取本次面试中明确暴露的信息，不要猜测
 - 薄弱点要具体，不要泛泛说"XX不好"
+- 每条 weak_point / strong_point 必须带 axis 和 topic
+- axis="knowledge" 时 topic 必须从「合法领域列表」选，禁止自创领域（如 DevOps、System Design）
+- axis="performance" 时 topic 只能是 communication / reasoning / narrative / metacognition 之一
+- 知识类观察不属于任何领域时，使用本次面试的领域 "{topic}"
+- 表达习惯、推导方式、项目描述结构等属于 performance 轴，不要放进 knowledge
 - 如果候选人对某个之前的薄弱点表现出了进步，在 strong_points 里标注
 - topic_mastery 只需提供 notes（一句话描述掌握情况），score 由算法计算，不需要你判断
 - 专项训练模式下 dimension_scores 可省略，只需给 avg_score
@@ -362,18 +435,33 @@ def get_profile_summary_for_drill(user_id: str) -> str:
 from backend.utils import parse_json_response as _parse_json_safe  # noqa: E402
 
 
-def _apply_memory_ops(profile: dict, ops: dict, topic: str | None, now: str, user_id: str = ""):
-    """Execute LLM-decided ADD/UPDATE/NOOP/IMPROVE operations on profile."""
+def _apply_memory_ops(profile: dict, ops: dict, topic: str | None, now: str, user_id: str = "",
+                      new_weak_points: list | None = None, new_strong_points: list | None = None):
+    """Execute LLM-decided ADD/UPDATE/NOOP/IMPROVE operations on profile.
+
+    Topic for ADD ops comes from Stage 1 extraction (new_weak_points/new_strong_points),
+    not from Stage 2 LLM output, to prevent topic hallucination.
+    """
     from backend.vector_memory import upsert_weak_point_vector
 
     weak_points = profile.setdefault("weak_points", [])
 
-    for op in ops.get("weak_point_ops", []):
+    for i, op in enumerate(ops.get("weak_point_ops", [])):
         action = op.get("action", "NOOP")
         if action == "ADD":
+            # Prefer topic from Stage 1 extraction (already normalized)
+            add_topic = topic or ""
+            if new_weak_points and i < len(new_weak_points):
+                nwp = new_weak_points[i]
+                add_topic = (nwp.get("topic", topic) if isinstance(nwp, dict) else topic) or ""
+            add_axis = "knowledge"
+            if new_weak_points and i < len(new_weak_points):
+                add_axis = (new_weak_points[i].get("axis", "knowledge")
+                            if isinstance(new_weak_points[i], dict) else "knowledge")
             weak_points.append({
-                "point": op["point"],
-                "topic": op.get("topic", topic or ""),
+                "point": _clean_point_text(op["point"]),
+                "topic": add_topic,
+                "axis": add_axis,
                 "source": op.get("source", "observed"),
                 "first_seen": now, "last_seen": now,
                 "times_seen": 1, "improved": False,
@@ -382,15 +470,15 @@ def _apply_memory_ops(profile: dict, ops: dict, topic: str | None, now: str, use
             idx = op.get("index")
             if idx is not None and 0 <= idx < len(weak_points):
                 wp = weak_points[idx]
-                if op.get("new_point") and op["new_point"] != wp.get("point"):
+                new_text = _clean_point_text(op.get("new_point", ""))
+                if new_text and new_text != wp.get("point"):
                     old_text = wp["point"]
                     history = wp.setdefault("history", [])
                     history.append({"point": old_text, "date": wp.get("last_seen", now)})
-                    wp["point"] = op["new_point"]
-                    # Sync vector index with updated text
+                    wp["point"] = new_text
                     if user_id:
                         try:
-                            upsert_weak_point_vector(old_text, op["new_point"], wp.get("topic", topic), user_id)
+                            upsert_weak_point_vector(old_text, new_text, wp.get("topic", topic), user_id)
                         except Exception as e:
                             logger.warning(f"Failed to sync vector for updated weak point: {e}")
                 wp["times_seen"] = wp.get("times_seen", 1) + 1
@@ -410,11 +498,20 @@ def _apply_memory_ops(profile: dict, ops: dict, topic: str | None, now: str, use
             wp["improved_at"] = now
 
     existing_strong = {s["point"] for s in profile.get("strong_points", [])}
-    for op in ops.get("strong_point_ops", []):
+    for i, op in enumerate(ops.get("strong_point_ops", [])):
         if op.get("action") == "ADD" and op.get("point") and op["point"] not in existing_strong:
+            add_topic = topic or ""
+            if new_strong_points and i < len(new_strong_points):
+                nsp = new_strong_points[i]
+                add_topic = (nsp.get("topic", topic) if isinstance(nsp, dict) else topic) or ""
+            add_axis = "knowledge"
+            if new_strong_points and i < len(new_strong_points):
+                add_axis = (new_strong_points[i].get("axis", "knowledge")
+                            if isinstance(new_strong_points[i], dict) else "knowledge")
             profile.setdefault("strong_points", []).append({
-                "point": op["point"],
-                "topic": op.get("topic", topic or ""),
+                "point": _clean_point_text(op["point"]),
+                "topic": add_topic,
+                "axis": add_axis,
                 "first_seen": now,
             })
 
@@ -425,7 +522,7 @@ def _deterministic_update(profile: dict, new_weak: list, new_strong: list,
     from backend.vector_memory import find_similar_weak_point
 
     for wp in new_weak:
-        point = wp.get("point", wp) if isinstance(wp, dict) else str(wp)
+        point = _clean_point_text(wp.get("point", wp) if isinstance(wp, dict) else str(wp))
         match_idx = find_similar_weak_point(point, profile.get("weak_points", []), user_id=user_id)
         if match_idx is not None:
             matched = profile["weak_points"][match_idx]
@@ -439,6 +536,7 @@ def _deterministic_update(profile: dict, new_weak: list, new_strong: list,
             profile.setdefault("weak_points", []).append({
                 "point": point,
                 "topic": wp.get("topic", topic) if isinstance(wp, dict) else (topic or ""),
+                "axis": wp.get("axis", "knowledge") if isinstance(wp, dict) else "knowledge",
                 "source": wp.get("source", "observed") if isinstance(wp, dict) else "observed",
                 "first_seen": now, "last_seen": now,
                 "times_seen": 1, "improved": False,
@@ -663,26 +761,23 @@ async def llm_update_profile(
 
     if has_new_facts:
         # Format existing points with indices for LLM reference
+        # Topic deliberately excluded — Stage 2 only compares content, not metadata
         existing_weak_lines = []
         for i, wp in enumerate(profile.get("weak_points", [])):
             status = "已改善" if wp.get("improved") else f"出现{wp.get('times_seen', 1)}次"
-            existing_weak_lines.append(
-                f"[{i}] {wp['point']} (领域: {wp.get('topic', '?')}, {status})"
-            )
+            existing_weak_lines.append(f"[{i}] {wp['point']} ({status})")
         existing_strong_lines = []
         for i, sp in enumerate(profile.get("strong_points", [])):
-            existing_strong_lines.append(f"[{i}] {sp['point']} (领域: {sp.get('topic', '?')})")
+            existing_strong_lines.append(f"[{i}] {sp['point']}")
 
         new_weak_lines = []
         for wp in new_weak_points:
             point = wp.get("point", wp) if isinstance(wp, dict) else str(wp)
-            t = wp.get("topic", topic) if isinstance(wp, dict) else topic
-            new_weak_lines.append(f"- {point} (领域: {t})")
+            new_weak_lines.append(f"- {point}")
         new_strong_lines = []
         for sp in new_strong_points:
             point = sp.get("point", sp) if isinstance(sp, dict) else str(sp)
-            t = sp.get("topic", topic) if isinstance(sp, dict) else topic
-            new_strong_lines.append(f"- {point} (领域: {t})")
+            new_strong_lines.append(f"- {point}")
 
         prompt = PROFILE_UPDATE_PROMPT.format(
             existing_weak="\n".join(existing_weak_lines) or "暂无",
@@ -713,7 +808,9 @@ async def llm_update_profile(
 
         if has_new_facts:
             if ops and not llm_failed:
-                _apply_memory_ops(profile, ops, topic, now, user_id=user_id)
+                _apply_memory_ops(profile, ops, topic, now, user_id=user_id,
+                                  new_weak_points=new_weak_points,
+                                  new_strong_points=new_strong_points)
             else:
                 _deterministic_update(profile, new_weak_points, new_strong_points, topic, now, user_id)
 
@@ -759,6 +856,9 @@ async def update_profile_after_interview(
     profile = _load_profile(user_id)
     llm = get_langchain_llm()
 
+    canonical = _get_canonical_topic_keys(user_id)
+    allowed_topics_str = "、".join(sorted(canonical)) if canonical else "（暂无）"
+
     # ── Stage 1: Extract insights ──
     transcript_lines = []
     for msg in messages:
@@ -781,6 +881,7 @@ async def update_profile_after_interview(
         topic=topic or "综合",
         transcript="\n".join(transcript_lines),
         scores=score_text or "无",
+        allowed_topics=allowed_topics_str,
     )
 
     response = llm.invoke([
@@ -798,6 +899,8 @@ async def update_profile_after_interview(
         extraction = json.loads(content)
     except (json.JSONDecodeError, IndexError):
         extraction = {"session_summary": "提取失败", "weak_points": [], "strong_points": []}
+
+    _normalize_extraction_topics(extraction, canonical, fallback_topic=topic or "")
 
     # ── Stage 2: LLM-based Update (Mem0 style) ──
     await llm_update_profile(

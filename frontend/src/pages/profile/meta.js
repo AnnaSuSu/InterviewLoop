@@ -49,3 +49,10 @@ export const EVIDENCE_TYPES = [
   { key: "strong", label: "强项", tone: "success" },
   { key: "improved", label: "已改善", tone: "blue" },
 ];
+
+export const PERFORMANCE_DIMENSIONS = {
+  communication: { label: "表达与沟通", color: "text-blue-400", bg: "bg-blue-400/10" },
+  reasoning: { label: "推导与思维", color: "text-amber-500", bg: "bg-amber-500/10" },
+  narrative: { label: "叙事与项目描述", color: "text-purple-400", bg: "bg-purple-400/10" },
+  metacognition: { label: "元认知", color: "text-cyan-400", bg: "bg-cyan-400/10" },
+};
