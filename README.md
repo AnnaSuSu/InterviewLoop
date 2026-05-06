@@ -298,14 +298,6 @@ http://localhost:5173
 http://localhost:5173/copilot
 ```
 
-### 4. 从旧版迁移
-
-如果你是从无认证旧版升级：
-
-```bash
-python -m backend.migrate
-```
-
 ---
 
 ## 技术栈
