@@ -194,7 +194,9 @@ export default function Interview() {
           });
         },
         onDone: (data) => {
-          if (data.is_finished) setFinished(true);
+          // Interview ended on its own (max rounds) — kick off review immediately
+          // so the user never lands on a finished chat with no review running.
+          if (data.is_finished) finishAndReview();
         },
         onError: (err) => {
           setMessages((prev) => {
@@ -213,7 +215,7 @@ export default function Interview() {
           updated[updated.length - 1] = { role: "assistant", content: data.message };
           return updated;
         });
-        if (data.is_finished) setFinished(true);
+        if (data.is_finished) finishAndReview();
       } catch (err) {
         setMessages((prev) => {
           const updated = [...prev];
@@ -227,16 +229,34 @@ export default function Interview() {
     }
   };
 
+  const startResumeReview = async () => {
+    await endInterview(sessionId);
+    setFinished(true);
+    setSessionStatus("reviewing");
+    setResumeError("");
+    startTask(sessionId, "resume_review", "简历面试复盘生成中");
+  };
+
   const handleEndResume = async () => {
     setReviewing(true);
     try {
-      await endInterview(sessionId);
-      setFinished(true);
-      setSessionStatus("reviewing");
-      setResumeError("");
-      startTask(sessionId, "resume_review", "简历面试复盘生成中");
+      await startResumeReview();
     } catch (err) {
       alert("结束面试失败: " + err.message);
+    } finally {
+      setReviewing(false);
+    }
+  };
+
+  // Auto-end path: interview finished on its own. Lock the chat regardless, then
+  // dispatch the review; on failure the "生成复盘" button lets the user retry.
+  const finishAndReview = async () => {
+    setFinished(true);
+    setReviewing(true);
+    try {
+      await startResumeReview();
+    } catch {
+      // Surfaced via the manual "生成复盘" button.
     } finally {
       setReviewing(false);
     }
@@ -511,7 +531,13 @@ export default function Interview() {
           const task = tasks.find((t) => t.id === sessionId);
           const taskDone = task?.status === "done" || sessionStatus === "reviewed";
           const taskError = task?.status === "error" || sessionStatus === "review_failed";
-          // Four branches: live chat → end, review failed → retry, review in-flight → wait, review done → view.
+          // A review is genuinely running only while a task is being polled or the
+          // server reports "reviewing". A finished chat without one means review was
+          // never dispatched (e.g. auto-ended on max rounds) — offer to generate it
+          // rather than show a dead "generating..." label.
+          const reviewInFlight =
+            (task && task.status !== "done" && task.status !== "error") ||
+            sessionStatus === "reviewing";
           let handler;
           let label;
           if (taskDone) {
@@ -520,12 +546,15 @@ export default function Interview() {
           } else if (taskError) {
             handler = handleRetryResumeReview;
             label = reviewing ? "重新生成中..." : "重新生成复盘";
+          } else if (reviewInFlight) {
+            handler = undefined;
+            label = "复盘生成中...";
           } else if (!finished) {
             handler = handleEndResume;
             label = reviewing ? "生成复盘中..." : "结束面试";
           } else {
-            handler = undefined;
-            label = "复盘生成中...";
+            handler = handleEndResume;
+            label = reviewing ? "生成复盘中..." : "生成复盘";
           }
           return (
             <Button

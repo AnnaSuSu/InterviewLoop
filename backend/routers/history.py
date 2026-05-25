@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from backend.auth import get_current_user
 from backend.runtime import _task_status
 from backend.storage.sessions import (
+    STATUS_REVIEW_FAILED,
+    STATUS_REVIEWED,
     delete_session,
+    expire_stale_reviewing,
     get_session,
     list_distinct_topics,
     list_sessions,
@@ -27,8 +30,20 @@ async def get_review(session_id: str, user_id: str = Depends(get_current_user)):
 
 @router.get("/tasks/{task_id}")
 async def get_task_status(task_id: str, user_id: str = Depends(get_current_user)):
-    """Poll async task status."""
+    """Poll async task status.
+
+    The in-memory task dict is lost on restart and never flips when a review
+    hangs, so when there's no live "done"/"error" to report we reconcile against
+    the persisted session — the source of truth — expiring stale reviews first.
+    """
     task = _task_status.get(task_id)
+    if not task or task.get("status") not in ("done", "error"):
+        expire_stale_reviewing(user_id=user_id)
+        session = get_session(task_id, user_id=user_id)
+        if session and session["status"] == STATUS_REVIEWED:
+            return {"task_id": task_id, "status": "done"}
+        if session and session["status"] == STATUS_REVIEW_FAILED:
+            return {"task_id": task_id, "status": "error", "result": session.get("review_error")}
     if not task:
         raise HTTPException(404, "Task not found.")
     return {"task_id": task_id, **task}
@@ -43,6 +58,7 @@ async def get_history(
     user_id: str = Depends(get_current_user),
 ):
     """List past interview sessions with filtering and pagination."""
+    expire_stale_reviewing(user_id=user_id)
     return list_sessions(user_id=user_id, limit=limit, offset=offset, mode=mode, topic=topic)
 
 

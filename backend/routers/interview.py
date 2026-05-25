@@ -44,6 +44,7 @@ from backend.storage.sessions import (
     STATUS_REVIEWING,
     append_message,
     create_session,
+    expire_stale_reviewing,
     get_session,
     save_drill_answers,
     save_reference_answer,
@@ -632,6 +633,7 @@ async def get_session_for_resume(
     For resume-mode chats, also checks whether the LangGraph checkpoint can
     still drive another turn (can_continue=True ⇒ user can keep answering).
     """
+    expire_stale_reviewing(user_id=user_id)
     session = get_session(session_id, user_id=user_id)
     if not session:
         raise HTTPException(404, "Session not found.")

@@ -16,6 +16,10 @@ STATUS_REVIEWING = "reviewing"      # review generation in-flight
 STATUS_REVIEWED = "reviewed"        # review persisted
 STATUS_REVIEW_FAILED = "review_failed"  # review attempt failed; user may retry
 
+# Reviews finish in well under a minute; a "reviewing" row older than this has a
+# hung or dead background task and must be recoverable without a server restart.
+STALE_REVIEW_SECONDS = 300
+
 
 def _get_conn() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -124,6 +128,33 @@ def reset_stale_reviewing() -> int:
         "WHERE status = ?",
         (STATUS_REVIEW_FAILED, "服务重启导致复盘中断，请重新生成", STATUS_REVIEWING),
     )
+    conn.commit()
+    conn.close()
+    return cursor.rowcount
+
+
+def expire_stale_reviewing(*, user_id: str | None = None,
+                           max_age_seconds: int = STALE_REVIEW_SECONDS) -> int:
+    """Flip reviewing sessions stalled past the threshold to review_failed.
+
+    Runtime safety net for reviews whose background task hangs or whose process
+    died without startup recovery running — without it such sessions stay
+    "reviewing" forever. A task that finishes late still wins: save_review
+    overwrites the row back to reviewed. Returns count flipped.
+    """
+    conn = _get_conn()
+    sql = (
+        "UPDATE sessions SET status = ?, review_error = ?, updated_at = CURRENT_TIMESTAMP "
+        "WHERE status = ? AND updated_at < datetime('now', ?)"
+    )
+    params: list = [
+        STATUS_REVIEW_FAILED, "复盘生成超时，请重新生成",
+        STATUS_REVIEWING, f"-{int(max_age_seconds)} seconds",
+    ]
+    if user_id is not None:
+        sql += " AND user_id = ?"
+        params.append(user_id)
+    cursor = conn.execute(sql, params)
     conn.commit()
     conn.close()
     return cursor.rowcount
