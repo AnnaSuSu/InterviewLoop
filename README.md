@@ -176,8 +176,8 @@ cp .env.example .env
 JWT_SECRET=change-me-in-production
 DEFAULT_EMAIL=admin@techspar.local
 DEFAULT_PASSWORD=admin123
-DEFAULT_NAME=admin
-ALLOW_REGISTRATION=false
+DEFAULT_NAME=Admin
+ALLOWED_ORIGINS=["*"]
 ```
 
 **可选服务**也都是 per-user，在「设置 → 可选服务 / 声纹识别」按需填，不填则对应功能关闭：

@@ -21,8 +21,12 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: 构建后端 app(导入整棵依赖树 + 装配路由)
+        env:
+          JWT_SECRET: ci-secret-key-12345
+          DEFAULT_PASSWORD: ci-admin-password-12345
         run: |
           python -c "from backend.app import create_app; create_app(); print('OK app builds')"
+
 
   frontend-build:
     runs-on: ubuntu-latest

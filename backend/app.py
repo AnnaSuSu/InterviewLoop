@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from backend.config import settings
+from backend.config import settings as app_settings
 from backend.llm_provider import ProviderNotConfigured
 from backend.user_context import CurrentUserMiddleware
 from backend.routers import (
@@ -27,7 +27,7 @@ from backend.graphs.resume_interview import init_resume_checkpointer
 from backend.startup import preload_models
 
 
- @asynccontextmanager
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     preload_models()
     await init_resume_checkpointer()
@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
     app.add_middleware(CurrentUserMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        allow_origins=app_settings.allowed_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )

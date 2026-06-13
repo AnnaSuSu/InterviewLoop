@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     jwt_secret: str
     allowed_origins: list[str] = ["*"]
     default_email: str = "admin@techspar.local"
-    default_password: str = "admin123"
+    default_password: str
     default_name: str = "Admin"
     allow_registration: bool = False
 
@@ -117,4 +117,10 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
-settings = Settings()
+try:
+    settings = Settings()
+except Exception as e:
+    import sys
+    print("\n[ERROR] Configuration validation failed. Please ensure you have created a `.env` file from `.env.example` with all required fields (like JWT_SECRET and DEFAULT_PASSWORD) defined, or set them as environment variables.", file=sys.stderr)
+    print(f"Details: {e}\n", file=sys.stderr)
+    sys.exit(1)
