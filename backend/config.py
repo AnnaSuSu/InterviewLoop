@@ -69,7 +69,8 @@ class Settings(BaseSettings):
     db_path: Path = Path(__file__).resolve().parent.parent / "data" / "interviews.db"
 
     # Auth
-    jwt_secret: str = "change-me-in-production"
+    jwt_secret: str
+    allowed_origins: list[str] = ["*"]
     default_email: str = "admin@techspar.local"
     default_password: str = "admin123"
     default_name: str = "Admin"

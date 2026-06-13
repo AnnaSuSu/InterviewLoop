@@ -2,7 +2,7 @@
 import uuid
 import sqlite3
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 from fastapi import Depends, HTTPException
@@ -124,7 +124,7 @@ def is_admin_user(user_id: str) -> bool:
 
 
 def create_token(user_id: str) -> str:
-    expire = datetime.utcnow() + timedelta(days=JWT_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRE_DAYS)
     return jwt.encode(
         {"sub": user_id, "exp": expire},
         settings.jwt_secret,
