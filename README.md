@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="images/logo.png" alt="TechSpar" width="520" />
+<img src="images/techspar-horizontal-logo.svg" alt="TechSpar" width="520" />
 
 
 **把专项训练、简历面试、JD 备面、实时 Copilot 与录音复盘，串成一个持续进化的技术面试闭环。**
