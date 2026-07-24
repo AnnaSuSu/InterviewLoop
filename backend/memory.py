@@ -99,17 +99,16 @@ DEFAULT_PROFILE = {
     # }
     "behavior_signals": {},
 
-    # 表达与沟通特征
+    # legacy 表现轴 (已停写,只读)。表现类观察统一走 behavior_signals;
+    # 这两个字段只为老用户的存量数据保留,新数据不再写入。
     "communication": {
-        "style": "",        # e.g. "回答偏短，缺少具体例子"
-        "habits": [],       # e.g. ["紧张时语速加快", "喜欢用类比解释"]
-        "suggestions": [],  # e.g. ["多用 STAR 法描述项目"]
+        "style": "",
+        "habits": [],
+        "suggestions": [],
     },
-
-    # 答题思维模式
     "thinking_patterns": {
-        "strengths": [],    # e.g. ["能用类比解释抽象概念", "项目描述有数据支撑"]
-        "gaps": [],         # e.g. ["对比类问题缺乏结构", "被追问 why 时容易卡住"]
+        "strengths": [],
+        "gaps": [],
     },
 
     # 面试统计
@@ -201,15 +200,6 @@ namespace 必须在四个里选，不要造新 namespace。
     "topic_mastery": {{
         "python": {{"notes": "基础扎实但高级特性（元类、描述符）薄弱"}}
     }},
-    "communication_observations": {{
-        "style_update": "回答技术题时逻辑清晰，但项目描述缺少量化数据",
-        "new_habits": ["遇到不会的题会坦诚说不确定"],
-        "new_suggestions": ["项目经历多用数据指标量化成果"]
-    }},
-    "thinking_patterns": {{
-        "new_strengths": ["能用类比解释复杂概念"],
-        "new_gaps": ["对比类问题回答缺乏结构"]
-    }},
     "session_summary": "本次 Python 专项训练，基础题表现好，但 GIL 和 GC 机制理解不够深入",
     "dimension_scores": {{
         "technical_depth": 6,
@@ -230,7 +220,7 @@ namespace 必须在四个里选，不要造新 namespace。
 
 规则：
 - 只提取本次面试中明确暴露的信息，不要猜测
-- 知识类观察只放 weak_points / strong_points，表达/思维/叙事/元认知只放 behavior_signals，**不要混**
+- 知识类观察只放 weak_points / strong_points；表达/思维/叙事/元认知**只放 behavior_signals**，不要另立字段
 - weak_points / strong_points 的 topic 必须在「合法领域列表」内，禁止自创领域
 - topic_mastery 只需提供 notes，score 由算法计算
 - 专项训练模式下 dimension_scores 可省略，只需给 avg_score
@@ -479,6 +469,25 @@ def _top_behavior_signals(profile: dict, polarity: str | None = None, limit: int
     return items[:limit]
 
 
+def _legacy_observation_lines(profile: dict) -> list[str]:
+    """Legacy communication/thinking_patterns 注入行。
+
+    这两个字段已停止写入(表现轴统一走 behavior_signals),只对老用户的存量数据
+    做 prompt 注入兜底;一旦该用户已有 behavior_signals,就不再重复注入同轴信息。
+    """
+    if profile.get("behavior_signals"):
+        return []
+    parts = []
+    if profile.get("communication", {}).get("style"):
+        parts.append(f"沟通风格: {profile['communication']['style']}")
+    tp = profile.get("thinking_patterns", {})
+    if tp.get("gaps"):
+        parts.append(f"思维短板: {', '.join(tp['gaps'][:5])}")
+    if tp.get("strengths"):
+        parts.append(f"思维优势: {', '.join(tp['strengths'][:5])}")
+    return parts
+
+
 def get_profile_summary(user_id: str) -> str:
     """Generate a concise summary for injection into interviewer prompts."""
     profile = _load_profile(user_id)
@@ -522,14 +531,7 @@ def get_profile_summary(user_id: str) -> str:
         ]
         parts.append("行为模式短板:\n  - " + "\n  - ".join(lines))
 
-    if profile.get("communication", {}).get("style"):
-        parts.append(f"沟通风格: {profile['communication']['style']}")
-
-    tp = profile.get("thinking_patterns", {})
-    if tp.get("gaps"):
-        parts.append(f"思维短板: {', '.join(tp['gaps'][:5])}")
-    if tp.get("strengths"):
-        parts.append(f"思维优势: {', '.join(tp['strengths'][:5])}")
+    parts.extend(_legacy_observation_lines(profile))
 
     if profile.get("stats", {}).get("total_sessions"):
         stats = profile["stats"]
@@ -563,14 +565,7 @@ def get_profile_summary_for_drill(user_id: str) -> str:
         ]
         parts.append("反复出现的行为模式短板:\n  - " + "\n  - ".join(lines))
 
-    if profile.get("communication", {}).get("style"):
-        parts.append(f"沟通风格: {profile['communication']['style']}")
-
-    tp = profile.get("thinking_patterns", {})
-    if tp.get("gaps"):
-        parts.append(f"思维短板: {', '.join(tp['gaps'][:5])}")
-    if tp.get("strengths"):
-        parts.append(f"思维优势: {', '.join(tp['strengths'][:5])}")
+    parts.extend(_legacy_observation_lines(profile))
 
     if profile.get("stats", {}).get("total_sessions"):
         parts.append(f"已完成 {profile['stats']['total_sessions']} 次模拟面试")
@@ -624,13 +619,7 @@ def _compact_profile_for_extract(profile: dict) -> str:
             lines.append(f"- {t}: {score}/100" + (f" — {notes}" if notes else ""))
         parts.append("领域掌握度:\n" + "\n".join(lines))
 
-    if profile.get("communication", {}).get("style"):
-        parts.append(f"沟通风格: {profile['communication']['style']}")
-    tp = profile.get("thinking_patterns", {})
-    if tp.get("gaps"):
-        parts.append("思维短板: " + ", ".join(tp["gaps"][:5]))
-    if tp.get("strengths"):
-        parts.append("思维优势: " + ", ".join(tp["strengths"][:5]))
+    parts.extend(_legacy_observation_lines(profile))
 
     stats = profile.get("stats", {})
     if stats.get("total_sessions"):
@@ -943,51 +932,6 @@ def _update_mastery(profile: dict, topic: str | None, mastery_data: dict, now: s
         existing["last_assessed"] = now
 
 
-_DEDUP_SIMILARITY_THRESHOLD = 0.80
-
-
-def _append_if_novel(items: list[str], new_item: str, chunk_type: str, user_id: str, limit: int = 8) -> None:
-    """Append new_item only if semantically novel. Uses persistent embedding cache."""
-    if new_item in items:
-        return
-    from backend.vector_memory import find_similar_cached, cache_embedding, remove_cached_embedding
-    if find_similar_cached(new_item, items, chunk_type, user_id, threshold=_DEDUP_SIMILARITY_THRESHOLD):
-        return
-    # Evict oldest before adding if at limit
-    if len(items) >= limit:
-        evicted = items.pop(0)
-        remove_cached_embedding(evicted, chunk_type, user_id)
-    items.append(new_item)
-    # Cache the new item's embedding
-    cache_embedding(new_item, chunk_type, user_id)
-
-
-def _update_communication(profile: dict, comm: dict, user_id: str):
-    """Accumulate communication observations, deduplicate via embedding similarity."""
-    if not comm:
-        return
-    c = profile.setdefault("communication", {})
-    if comm.get("style_update"):
-        observations = c.setdefault("style_observations", [])
-        _append_if_novel(observations, comm["style_update"], "comm_style", user_id, limit=5)
-        c["style"] = observations[-1]
-    for habit in comm.get("new_habits", []):
-        _append_if_novel(c.setdefault("habits", []), habit, "comm_habit", user_id)
-    for sug in comm.get("new_suggestions", []):
-        _append_if_novel(c.setdefault("suggestions", []), sug, "comm_suggestion", user_id)
-
-
-def _update_thinking_patterns(profile: dict, patterns: dict, user_id: str):
-    """Accumulate thinking pattern observations, deduplicate via embedding similarity."""
-    if not patterns:
-        return
-    tp = profile.setdefault("thinking_patterns", {"strengths": [], "gaps": []})
-    for s in patterns.get("new_strengths", []):
-        _append_if_novel(tp["strengths"], s, "thinking_strength", user_id)
-    for g in patterns.get("new_gaps", []):
-        _append_if_novel(tp["gaps"], g, "thinking_gap", user_id)
-
-
 def _decay_consolidated_patterns(profile: dict, now: str) -> int:
     """支撑证据大多已改善的 consolidated pattern 自动降权/标记改善（确定性，无 LLM）。
 
@@ -1123,9 +1067,7 @@ async def llm_update_profile(
     new_weak_points: list[dict],
     new_strong_points: list[dict],
     topic_mastery: dict,
-    communication: dict,
     user_id: str,
-    thinking_patterns: dict | None = None,
     session_summary: str = "",
     avg_score: float | None = None,
     answer_count: int = 0,
@@ -1197,10 +1139,9 @@ async def llm_update_profile(
             else:
                 _deterministic_update(profile, new_weak_points, new_strong_points, topic, now, user_id)
 
-        # ── Deterministic updates for mastery / communication / thinking / stats ──
+        # ── Deterministic updates for mastery / stats ──
+        # 表现轴观察统一走 behavior_ops;legacy communication/thinking_patterns 已停写
         _update_mastery(profile, topic, topic_mastery, now, user_id=user_id)
-        _update_communication(profile, communication, user_id)
-        _update_thinking_patterns(profile, thinking_patterns, user_id)
         _update_stats(profile, mode, topic, avg_score, now, answer_count, dimension_scores)
 
         # ── Behavior axis (mem0-style ops) ──
@@ -1471,9 +1412,7 @@ async def update_profile_after_interview(
         new_weak_points=extraction.get("weak_points", []),
         new_strong_points=extraction.get("strong_points", []),
         topic_mastery=extraction.get("topic_mastery", {}),
-        communication=extraction.get("communication_observations", {}),
         user_id=user_id,
-        thinking_patterns=extraction.get("thinking_patterns"),
         session_summary=extraction.get("session_summary", ""),
         avg_score=extraction.get("avg_score"),
         dimension_scores=extraction.get("dimension_scores"),

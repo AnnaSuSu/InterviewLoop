@@ -40,7 +40,6 @@ async def _update_copilot_profile(fit_report: dict, position: str, user_id: str)
         new_weak_points=new_weak_points,
         new_strong_points=[],
         topic_mastery={},
-        communication={},
         user_id=user_id,
         session_summary=f"Copilot JD分析: {position}",
     )
