@@ -19,8 +19,23 @@ router = APIRouter(prefix="/api")
 
 @router.get("/profile")
 def get_user_profile(user_id: str = Depends(get_current_user)):
-    """Get the user's accumulated interview profile."""
-    return get_profile(user_id)
+    """Get the user's accumulated interview profile.
+
+    附带 due_reviews: SM-2 调度里今天到期该复习的知识点(计算值,不落盘),
+    让画像页能给出"今天练什么"而不只是"哪里弱"。
+    """
+    from backend.spaced_repetition import get_due_reviews
+
+    profile = get_profile(user_id)
+    profile["due_reviews"] = [
+        {
+            "point": wp.get("point"),
+            "topic": wp.get("topic"),
+            "next_review": wp.get("sr", {}).get("next_review"),
+        }
+        for wp in get_due_reviews(user_id)
+    ]
+    return profile
 
 
 @router.post("/profile/infer-target-role")

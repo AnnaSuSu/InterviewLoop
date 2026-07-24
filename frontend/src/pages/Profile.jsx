@@ -215,6 +215,8 @@ export default function Profile() {
   // 有无可评分记录决定综合平均分显示 "–" 还是数字;后端在无评分时会给 0,不能直接透传
   const hasScores = scoreHistory.length > 0 || latestEntry?.avg_score != null;
   const dimensionAverages = buildDimensionAverages(scoreHistory);
+  // SM-2 调度里今天到期的复习点,后端 GET /profile 附带的计算值
+  const dueReviews = profile.due_reviews || [];
 
   return (
     <div className={PAGE_CLASS}>
@@ -278,6 +280,34 @@ export default function Profile() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {dueReviews.length > 0 && (
+        <Card className="mt-5 animate-fade-in-up [animation-delay:0.03s] border-primary/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.06),transparent)]">
+          <CardContent className="p-4 md:p-5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Clock3 size={16} className="text-primary" />
+                今日到期复习
+                <span className="text-primary">{dueReviews.length} 个知识点</span>
+              </div>
+              <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                {dueReviews.slice(0, 3).map((item) => (
+                  <Badge key={item.point} variant="outline" className="max-w-[260px] rounded-full px-2.5 py-1 text-xs font-normal">
+                    <span className="truncate">{item.topic ? `${item.topic} · ` : ""}{item.point}</span>
+                  </Badge>
+                ))}
+                {dueReviews.length > 3 && (
+                  <span className="self-center text-xs text-dim">等 {dueReviews.length} 条</span>
+                )}
+              </div>
+              <Button size="sm" onClick={() => navigate("/topic-drill")}>
+                去重练
+                <ArrowRight size={14} />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
