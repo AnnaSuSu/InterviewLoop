@@ -10,6 +10,8 @@ VoiceWings-master/
 frontend/node_modules/
 frontend/dist/
 demo_imges/
+# 生成素材原图/草稿目录，最终优化版已放进 frontend/src/assets/
+images/images2/
 
 # User data (personal, not for sharing)
 data/users/
