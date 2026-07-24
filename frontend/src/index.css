@@ -40,32 +40,37 @@
 }
 
 .dark {
+  /* 表面亮度阶梯: background → card → secondary/muted 三档可感知 */
   --background: #09090b;
   --foreground: #fafafa;
-  --card: #18181b;
+  --card: #151519;
   --card-foreground: #fafafa;
-  --popover: #18181b;
+  --popover: #1c1c21;
   --popover-foreground: #fafafa;
   --primary: #f59e0b;
   --primary-hover: #fbbf24;
   --primary-foreground: #18181b;
-  --secondary: #27272a;
+  --secondary: #232328;
   --secondary-foreground: #fafafa;
-  --muted: #27272a;
+  --muted: #232328;
   --muted-foreground: #a1a1aa;
   --accent: #f59e0b;
   --accent-foreground: #fafafa;
-  --destructive: #ef4444;
-  --destructive-foreground: #fafafa;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.1);
+  /* 语义色暗色变体: 降饱和提亮, 避免高饱和色在黑底上刺眼 */
+  --destructive: #f87171;
+  --destructive-foreground: #450a0a;
+  --border: rgba(255, 255, 255, 0.14);
+  --input: rgba(255, 255, 255, 0.14);
   --input-background: #1f1f23;
   --ring: #f59e0b;
-  --sidebar: #18181b;
+  --sidebar: #121216;
   --sidebar-foreground: #fafafa;
   --sidebar-primary: #f59e0b;
-  --sidebar-accent: #27272a;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-accent: #232328;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --success: #4ade80;
+  --info: #22d3ee;
+  --teal: #2dd4bf;
   --logo-teal: #14b8a6;
 }
 
@@ -110,7 +115,8 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-box: calc(var(--radius) + 6px);
-  --font-family-display: "DM Sans", "Sora", sans-serif;
+  --font-family-display: "DM Sans", sans-serif;
+  --font-family-serif: "Noto Serif SC", "Songti SC", "Source Han Serif SC", serif;
   --animate-fade-in: fade-in 0.3s ease-out both;
   --animate-fade-in-up: fade-in-up 0.5s ease-out both;
   --animate-slide-up: slide-up 0.5s ease both;
@@ -144,7 +150,7 @@
 
   body {
     @apply bg-bg text-text;
-    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Noto Sans SC", system-ui, sans-serif;
+    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.6;
