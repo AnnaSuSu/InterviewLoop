@@ -46,6 +46,9 @@ export default function EvidenceTable({ weakItems, strongItems, improvedItems })
   const hasMore = filtered.length > LIMIT;
   const typeCounts = { weak: weakItems.length, strong: strongItems.length, improved: improvedItems.length };
   const dotColor = { weak: "bg-red/80", strong: "bg-green/80", improved: "bg-info/80" };
+  // source="predicted" 是 Copilot JD 分析预测的坑,还没在实际回答中暴露过,
+  // 必须和 observed 区分展示,否则用户会以为自己真的答砸过
+  const isPredicted = (item) => item.source === "predicted";
 
   return (
     <div className="mt-5 space-y-3">
@@ -53,6 +56,8 @@ export default function EvidenceTable({ weakItems, strongItems, improvedItems })
         {EVIDENCE_TYPES.map(({ key, label }) => {
           const active = typeFilter === key;
           const count = key === EVIDENCE_TYPE_ALL ? allItems.length : typeCounts[key];
+          // 数量为 0 的分类没有可筛内容,渲染出来只是噪音
+          if (count === 0 && key !== EVIDENCE_TYPE_ALL) return null;
           return (
             <button
               key={key}
@@ -122,12 +127,21 @@ export default function EvidenceTable({ weakItems, strongItems, improvedItems })
                   <span
                     className={cn(
                       "w-2 h-2 rounded-full shrink-0",
-                      isConsolidated ? "bg-accent" : dotColor[item._type]
+                      isConsolidated ? "bg-accent" : isPredicted(item) ? "bg-info/70" : dotColor[item._type]
                     )}
                   />
                   <span className={cn("flex-1 min-w-0 truncate", item._type === "improved" && "line-through")}>
                     {item.point}
                   </span>
+                  {isPredicted(item) && (
+                    <Badge
+                      variant="secondary"
+                      className="shrink-0 text-[10px] bg-info/12 text-info border-info/30"
+                      title="来自 JD 分析的预测，还没在实际回答中验证过"
+                    >
+                      JD 预测
+                    </Badge>
+                  )}
                   {isConsolidated && (
                     <Badge
                       variant="secondary"

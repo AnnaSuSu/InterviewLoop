@@ -1,4 +1,4 @@
-import { MODE_META, TRAINING_MODE_META, PERFORMANCE_DIMENSIONS } from "./meta";
+import { DIMENSION_SCORE_META, MODE_META, TRAINING_MODE_META, PERFORMANCE_DIMENSIONS } from "./meta";
 
 // 知识轴 weak/strong 过滤:排除老数据里的 axis=performance 条目
 // (表现轴现在走 behavior_signals,不再混进 weak_points)
@@ -347,6 +347,30 @@ export function buildTrainingModeStats(stats, history) {
       glowClassName: meta.glowClassName,
     };
   });
+}
+
+// 四维评分聚合:取最近 5 条带 dimension_scores 的评分记录,按维度取均值。
+// 四维分只有简历面试 / JD 备面的复盘会产出;一条都没有时返回 null。
+export function buildDimensionAverages(history) {
+  const entries = (history || [])
+    .filter((entry) => entry.dimension_scores && typeof entry.dimension_scores === "object")
+    .slice(-5);
+  if (!entries.length) return null;
+
+  const dims = DIMENSION_SCORE_META.map(({ key, label }) => {
+    const values = entries
+      .map((entry) => entry.dimension_scores[key])
+      .filter((value) => typeof value === "number");
+    return {
+      key,
+      label,
+      score: values.length
+        ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1))
+        : null,
+      samples: values.length,
+    };
+  });
+  return dims.some((dim) => dim.score != null) ? dims : null;
 }
 
 export function getTrendDelta(history) {

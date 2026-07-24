@@ -24,6 +24,8 @@ export default function DomainTable({ items, onSelect }) {
         {ZONE_FILTERS.map(({ key, label }) => {
           const active = zoneFilter === key;
           const count = key === "all" ? items.length : zoneCounts[key];
+          // 数量为 0 的分区没有可筛内容,不渲染
+          if (count === 0 && key !== "all") return null;
           return (
             <button
               key={key}
@@ -73,15 +75,20 @@ export default function DomainTable({ items, onSelect }) {
                 )}
               </div>
 
-              <span className={cn("shrink-0 text-xs font-semibold w-10 text-right", scoreColor[item.zone])}>
-                {item.score != null ? item.score : "—"}
-              </span>
+              {/* 掌握度 0 视作未评估,与 TopicPriorityCard 口径一致 */}
+              {item.score ? (
+                <span className={cn("shrink-0 text-xs font-semibold w-10 text-right", scoreColor[item.zone])}>
+                  {item.score}
+                </span>
+              ) : (
+                <span className="shrink-0 text-[11px] text-dim w-10 text-right">待评估</span>
+              )}
 
               {item.weakCount > 0 && (
-                <span className="shrink-0 text-[11px] text-red">{item.weakCount}弱</span>
+                <span className="shrink-0 text-[11px] text-red">{item.weakCount} 弱</span>
               )}
               {item.strongCount > 0 && (
-                <span className="shrink-0 text-[11px] text-green">{item.strongCount}强</span>
+                <span className="shrink-0 text-[11px] text-green">{item.strongCount} 强</span>
               )}
 
               <ChevronRight size={14} className="shrink-0 text-dim/40" />

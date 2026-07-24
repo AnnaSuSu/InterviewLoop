@@ -241,23 +241,26 @@ export function TopicPriorityCard({ item, onSelect, label }) {
           )}
           <span className="truncate text-sm font-semibold">{item.topic}</span>
           {item.weakCount > 0 && (
-            <Badge variant="destructive" className="shrink-0 px-1.5 py-0 text-[10px]">待补{item.weakCount}</Badge>
+            <Badge variant="destructive" className="shrink-0 px-1.5 py-0 text-[10px]">待补 {item.weakCount}</Badge>
           )}
           {item.strongCount > 0 && (
-            <Badge variant="success" className="shrink-0 px-1.5 py-0 text-[10px]">强项{item.strongCount}</Badge>
+            <Badge variant="success" className="shrink-0 px-1.5 py-0 text-[10px]">强项 {item.strongCount}</Badge>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <span className="text-sm font-semibold text-primary">
-            {item.score != null ? `${item.score}/100` : "--"}
-          </span>
+          {/* 掌握度 0 视作未评估:后端在无有效回答时给 0,展示成分数会像不及格 */}
+          {item.score ? (
+            <span className="text-sm font-semibold text-primary">{item.score}/100</span>
+          ) : (
+            <span className="text-xs font-medium text-dim">待评估</span>
+          )}
           <ChevronRight size={14} className="text-dim transition-transform group-hover:translate-x-0.5" />
         </div>
       </div>
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-border">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/[0.08] dark:bg-white/[0.12]">
         <div
           className="h-full rounded-full bg-gradient-to-r from-primary to-orange"
-          style={{ width: `${item.score != null ? item.score : 0}%` }}
+          style={{ width: `${item.score || 0}%` }}
         />
       </div>
       <div className="mt-1.5 flex items-center gap-2 text-[11px] text-dim">

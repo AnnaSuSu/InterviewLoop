@@ -3,6 +3,7 @@ export const MODE_META = {
   topic_drill: { color: "var(--success)", label: "专项训练" },
   jd_prep: { color: "#60a5fa", label: "JD 备面" },
   recording: { color: "#22d3ee", label: "录音复盘" },
+  copilot: { color: "#c084fc", label: "面试 Copilot" },
 };
 
 export const TRAINING_MODE_META = {
@@ -30,7 +31,32 @@ export const TRAINING_MODE_META = {
     countKey: "job_prep_sessions",
     avgKey: "job_prep_avg_score",
   },
+  // 后端 _update_stats 一直在统计这两种模式,此前前端漏展示
+  recording: {
+    label: "录音复盘",
+    accentClassName: "text-info",
+    borderClassName: "border-l-info",
+    glowClassName: "",
+    countKey: "recording_sessions",
+    avgKey: "recording_avg_score",
+  },
+  copilot: {
+    label: "面试 Copilot",
+    accentClassName: "text-purple-400",
+    borderClassName: "border-l-purple-400",
+    glowClassName: "",
+    countKey: "copilot_sessions",
+    avgKey: "copilot_avg_score",
+  },
 };
+
+// 复盘产出的四维评分(简历面试 / JD 备面),画像页聚合展示用
+export const DIMENSION_SCORE_META = [
+  { key: "technical_depth", label: "技术深度" },
+  { key: "project_articulation", label: "项目阐述" },
+  { key: "communication", label: "表达沟通" },
+  { key: "problem_solving", label: "问题解决" },
+];
 
 export const PAGE_CLASS = "flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-7 md:py-8 xl:px-10 2xl:px-12";
 
