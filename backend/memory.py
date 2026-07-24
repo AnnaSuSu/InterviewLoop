@@ -1328,17 +1328,19 @@ async def extract_behavior_ops(transcript: str, user_id: str, mode: str, topic: 
         transcript=transcript,
     )
     llm = get_langchain_llm(user_id)
-    response = llm.invoke([
-        SystemMessage(content="你是面试行为分析引擎。只返回 JSON。宁可不输出,不要凑数。"),
-        HumanMessage(content=prompt),
-    ])
-    try:
-        parsed = _parse_json_safe(response.content)
-        ops = parsed.get("behavior_signals", []) if isinstance(parsed, dict) else []
-        return ops if isinstance(ops, list) else []
-    except (json.JSONDecodeError, ValueError, KeyError) as exc:
-        logger.warning(f"Behavior extraction parse failed ({mode}): {exc}")
-        return []
+    # 解析失败重试一次,与知识轴提取的容错策略一致
+    for attempt in range(2):
+        response = llm.invoke([
+            SystemMessage(content="你是面试行为分析引擎。只返回 JSON。宁可不输出,不要凑数。"),
+            HumanMessage(content=prompt),
+        ])
+        try:
+            parsed = _parse_json_safe(response.content)
+            ops = parsed.get("behavior_signals", []) if isinstance(parsed, dict) else []
+            return ops if isinstance(ops, list) else []
+        except (json.JSONDecodeError, ValueError, KeyError) as exc:
+            logger.warning(f"Behavior extraction parse failed ({mode}, attempt {attempt + 1}/2): {exc}")
+    return []
 
 
 async def update_profile_after_interview(
@@ -1382,26 +1384,40 @@ async def update_profile_after_interview(
         allowed_topics=allowed_topics_str,
     )
 
-    response = llm.invoke([
-        SystemMessage(content="你是面试分析引擎。只返回 JSON。"),
-        HumanMessage(content=extract_msg),
-    ])
+    # 解析失败重试一次;仍失败则标记 session,用户可从历史记录补跑,
+    # 否则这场面试的画像洞察会静默丢失
+    extraction = None
+    for attempt in range(2):
+        response = llm.invoke([
+            SystemMessage(content="你是面试分析引擎。只返回 JSON。"),
+            HumanMessage(content=extract_msg),
+        ])
+        try:
+            parsed = _parse_json_safe(response.content)
+            if isinstance(parsed, dict):
+                extraction = parsed
+                break
+            raise ValueError(f"expected dict, got {type(parsed)}")
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.warning(f"Profile extraction parse failed (attempt {attempt + 1}/2): {exc}")
 
-    try:
-        content = response.content.strip()
-        if "```" in content:
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-            content = content.strip()
-        extraction = json.loads(content)
-    except (json.JSONDecodeError, IndexError):
+    extract_failed = extraction is None
+    if extract_failed:
         extraction = {
             "session_summary": "提取失败",
             "weak_points": [],
             "strong_points": [],
             "behavior_signals": [],
         }
+
+    if session_id:
+        from backend.storage.sessions import update_session_meta
+        try:
+            update_session_meta(
+                session_id, {"profile_extract_failed": extract_failed}, user_id=user_id
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to update extract-failed marker for {session_id}: {exc}")
 
     _normalize_extraction_topics(extraction, canonical, fallback_topic=topic or "")
 

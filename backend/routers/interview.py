@@ -686,7 +686,8 @@ async def generate_session_review(
     """Re-run review generation for a session. Idempotent; works after restart.
 
     Accepts sessions in ended / review_failed states. Refuses ongoing sessions
-    (user should call /interview/end first) and no-ops on already reviewed ones.
+    (user should call /interview/end first) and no-ops on already reviewed ones —
+    unless that session's profile extraction failed, which is allowed to re-run.
     """
     session = get_session(session_id, user_id=user_id)
     if not session:
@@ -696,6 +697,9 @@ async def generate_session_review(
     mode = session["mode"]
 
     if status == STATUS_REVIEWED:
+        # 复盘成功但画像提取失败的场次放行补跑,否则那场的画像洞察无法找回
+        if session.get("meta", {}).get("profile_extract_failed"):
+            return _dispatch_review(session_id, session, user_id, background_tasks)
         _task_status[session_id] = {"status": "done", "type": _mode_task_type(mode)}
         return {"session_id": session_id, "mode": mode, "status": "done"}
     if status == STATUS_REVIEWING:

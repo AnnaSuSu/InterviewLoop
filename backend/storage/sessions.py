@@ -236,6 +236,31 @@ def save_review(session_id: str, review: str, scores: list = None,
     conn.close()
 
 
+def update_session_meta(session_id: str, patch: dict, *, user_id: str) -> bool:
+    """Merge patch into the session's meta JSON. No-op (returns False) if unchanged or missing."""
+    conn = _get_conn()
+    row = conn.execute(
+        "SELECT meta FROM sessions WHERE session_id = ? AND user_id = ?",
+        (session_id, user_id),
+    ).fetchone()
+    if not row:
+        conn.close()
+        return False
+    meta = json.loads(row["meta"] or "{}")
+    merged = {**meta, **patch}
+    if merged == meta:
+        conn.close()
+        return False
+    conn.execute(
+        "UPDATE sessions SET meta = ?, updated_at = CURRENT_TIMESTAMP "
+        "WHERE session_id = ? AND user_id = ?",
+        (json.dumps(merged, ensure_ascii=False), session_id, user_id),
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
 def get_session(session_id: str, *, user_id: str) -> dict | None:
     conn = _get_conn()
     row = conn.execute(

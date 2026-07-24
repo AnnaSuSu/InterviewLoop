@@ -409,7 +409,9 @@ function HistoryRow({ session, onOpen, onDelete, onRetry, retrying }) {
   const createdDate = session.created_at?.slice(0, 10);
   const compactSessionId = formatSessionId(session.session_id);
   const status = session.status || "reviewed";
-  const canRetry = status === "review_failed";
+  // 复盘成功但画像提取失败的场次也允许补跑(后端 regenerate 端点对这种场次放行)
+  const extractFailed = Boolean(session.meta?.profile_extract_failed);
+  const canRetry = status === "review_failed" || extractFailed;
 
   return (
     <Card
@@ -466,6 +468,12 @@ function HistoryRow({ session, onOpen, onDelete, onRetry, retrying }) {
             {status === "review_failed" && session.review_error && (
               <div className="mt-2 text-[12px] leading-5 text-red/80">
                 {session.review_error}
+              </div>
+            )}
+
+            {status !== "review_failed" && extractFailed && (
+              <div className="mt-2 text-[12px] leading-5 text-orange/90">
+                这场的画像提取失败，观察未收录进个人画像——点右侧"重新生成"可补跑。
               </div>
             )}
           </div>
