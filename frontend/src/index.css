@@ -451,6 +451,50 @@
   100% { transform: scale(1) rotate(0); }
 }
 
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.12); }
+}
+
+/* ── Landing 全页胶片颗粒,消扁平塑料感 ── */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── 叙事大字屏:词组切换 + 逐字浮现 ── */
+.story-glow {
+  animation: glow-breathe 5s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.story-word {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none;
+}
+.story-word.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.story-char {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.35em);
+  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--char-delay, 0s);
+}
+.story-word.active .story-char {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-motion [class*="animate-"],
   .landing-motion .ambient-orb,
@@ -460,7 +504,8 @@
   .landing-motion .detail-panel-enter,
   .landing-motion .hero-gradient-text,
   .landing-motion .loop-shell::before,
-  .landing-motion .loop-module-tag {
+  .landing-motion .loop-module-tag,
+  .landing-motion .story-glow {
     animation: none !important;
   }
 
@@ -468,6 +513,12 @@
   .landing-motion .scroll-reveal .reveal-item {
     opacity: 1;
     transform: none;
+    transition: none;
+  }
+
+  /* 大字屏词组仍由 .active 控制显隐,只是瞬时切换 */
+  .landing-motion .story-word,
+  .landing-motion .story-char {
     transition: none;
   }
 

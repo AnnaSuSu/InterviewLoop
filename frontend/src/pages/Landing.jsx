@@ -1,28 +1,34 @@
 import { useNavigate } from "react-router-dom";
 import {
-  Sun,
-  Moon,
   ArrowRight,
   Brain,
-  Target,
+  ChevronDown,
   Mic,
   BarChart3,
   Repeat,
   BookOpen,
   BriefcaseBusiness,
-  Sparkles,
   FileText,
-  Check,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import useScrollReveal from "@/hooks/useScrollReveal";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Logo from "../components/Logo";
 import GitHubStar from "../components/GitHubStar";
-import heroLoop from "../assets/hero-loop.mp4";
-import heroPoster from "../assets/hero-poster.png";
+import heroArt from "../assets/hero-art.jpg";
+import heroIntro from "../assets/hero-intro.mp4";
+import storyRemember from "../assets/story-remember.jpg";
+import storyAdapt from "../assets/story-adapt.jpg";
+import storyCompanion from "../assets/story-companion.jpg";
+import momentDrill from "../assets/moment-01-drill.jpg";
+import momentResume from "../assets/moment-02-resume.jpg";
+import momentJd from "../assets/moment-03-jd.jpg";
+import momentCopilot from "../assets/moment-04-copilot.jpg";
+import momentReview from "../assets/moment-05-review.jpg";
+import momentOffer from "../assets/moment-06-offer.jpg";
+import ctaFigure from "../assets/cta-figure.jpg";
 
 const LOOP_MODULES = [
   {
@@ -148,21 +154,75 @@ const LOOP_MODULES = [
   },
 ];
 
-const HERO_SIGNALS = [
+const STORY_WORDS = [
   {
-    icon: Repeat,
-    title: "不是一次性模拟",
-    desc: "训练、辅助、复盘接成一条循环，而不是练完就结束。",
+    key: "remember",
+    word: "练完不忘",
+    desc: "每一轮的得分、弱点和表达习惯，都会写回同一套长期记忆，不会随会话结束蒸发。",
+    img: storyRemember,
   },
   {
-    icon: BarChart3,
-    title: "长期记忆持续累积",
-    desc: "每一轮得分、弱点和表达习惯都会回写到画像里。",
+    key: "adapt",
+    word: "越练越懂",
+    desc: "下一轮开始前，系统先读画像再决定问什么、提醒什么——是延续训练，不是重新开始。",
+    img: storyAdapt,
   },
   {
-    icon: Target,
-    title: "下一轮会更有针对性",
-    desc: "系统会基于已有画像重新决定该问什么、该提醒什么。",
+    key: "companion",
+    word: "实战陪跑",
+    desc: "真实面试里，Copilot 沿着你的高危路径预测下一步追问，把准备一路带进实战。",
+    img: storyCompanion,
+  },
+];
+
+const MOMENTS = [
+  {
+    num: "01",
+    img: momentDrill,
+    title: "弱点不再漏网",
+    desc: "每一轮都从历史错因出发，追着薄弱点出题，而不是重新随机刷一遍。",
+    tilt: "-rotate-2",
+    chip: "bg-amber-600 text-white",
+  },
+  {
+    num: "02",
+    img: momentResume,
+    title: "项目终于讲清了",
+    desc: "围绕真实经历深挖，表达短板和技术深度缺口一个个暴露、一个个补掉。",
+    tilt: "rotate-1",
+    chip: "bg-emerald-700 text-white",
+  },
+  {
+    num: "03",
+    img: momentJd,
+    title: "备面像做作战地图",
+    desc: "输入 JD，系统拆出岗位要求、高概率追问和风险点，不再凭感觉准备。",
+    tilt: "rotate-2",
+    chip: "bg-blue-700 text-white",
+  },
+  {
+    num: "04",
+    img: momentCopilot,
+    title: "追问被预判了",
+    desc: "真实面试里持续转写 HR 发言，预测下一步追问，提前半步给你建议。",
+    tilt: "-rotate-1",
+    chip: "bg-teal-700 text-white",
+  },
+  {
+    num: "05",
+    img: momentReview,
+    title: "失误写回系统",
+    desc: "录音自动转写、逐题复盘，失分点回流画像，下一轮训练更贴近真实。",
+    tilt: "rotate-1",
+    chip: "bg-orange-700 text-white",
+  },
+  {
+    num: "06",
+    img: momentOffer,
+    title: "一切都值得",
+    desc: "从第一轮刷题到真实 Offer，系统记得你走过的每一步。",
+    tilt: "-rotate-2",
+    chip: "bg-amber-600 text-white",
   },
 ];
 
@@ -222,15 +282,25 @@ function TypedLine({ text, delay = 0 }) {
 
 export default function Landing() {
   const navigate = useNavigate();
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+  // 开场视频只播一遍,结束后淡出定格到静帧;reduced-motion 直接出静帧
+  const [heroVideoDone, setHeroVideoDone] = useState(false);
+  const [showHeroVideo] = useState(
+    () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 
+  // 落地页锁深色(视觉世界观基于暗琥珀);离开时恢复用户在应用内的主题偏好
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    document.documentElement.classList.add("dark");
+    return () => {
+      document.documentElement.classList.toggle(
+        "dark",
+        (localStorage.getItem("theme") || "dark") === "dark"
+      );
+    };
+  }, []);
 
   const loopRef = useScrollReveal();
-  const memoryRef = useScrollReveal();
+  const momentsRef = useScrollReveal();
   const ctaRef = useScrollReveal();
 
   const scrollToLoop = () => {
@@ -240,6 +310,7 @@ export default function Landing() {
   return (
     <div className="landing-motion min-h-screen bg-bg text-text">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(245,158,11,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(245,158,11,0.035)_1px,transparent_1px)] bg-[size:72px_72px] opacity-60 pointer-events-none" />
+      <div className="grain-overlay" aria-hidden="true" />
 
       <header className="sticky top-0 z-40">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 md:px-10">
@@ -253,9 +324,6 @@ export default function Landing() {
 
           <div className="flex items-center gap-3">
             <GitHubStar />
-            <Button variant="ghost" size="icon" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </Button>
             <Button variant="outline" onClick={() => navigate("/login")}>
               登录
             </Button>
@@ -264,181 +332,143 @@ export default function Landing() {
       </header>
 
       <main className="relative z-10">
-        <section className="relative -mt-[72px] overflow-hidden border-b border-border/60">
+        <section className="relative -mt-[72px] flex min-h-screen flex-col overflow-hidden border-b border-border/60">
           <div className="absolute inset-0">
-            <video
-              className="h-full w-full object-cover object-center"
-              autoPlay
-              muted
-              loop
-              playsInline
-              poster={heroPoster}
-            >
-              <source src={heroLoop} type="video/mp4" />
-            </video>
-            <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/92 to-bg/30" />
-            <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-bg/35" />
+            <img src={heroArt} alt="" className="h-full w-full object-cover object-center" />
+            {showHeroVideo && (
+              <video
+                className={cn(
+                  "absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000",
+                  heroVideoDone ? "opacity-0" : "opacity-100"
+                )}
+                autoPlay
+                muted
+                playsInline
+                preload="auto"
+                poster={heroArt}
+                onEnded={() => setHeroVideoDone(true)}
+              >
+                <source src={heroIntro} type="video/mp4" />
+              </video>
+            )}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(9,9,11,0.2)_0%,rgba(9,9,11,0.08)_45%,rgba(9,9,11,0.5)_100%)]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-bg/20" />
           </div>
 
-          <div className="relative mx-auto max-w-7xl px-6 py-28 md:px-10 md:py-36 lg:py-48">
-            <div className="max-w-xl lg:max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary backdrop-blur-sm animate-fade-in">
-                <Sparkles size={14} className="animate-float" />
-                从刷题到实战的 AI 技术面试系统
-              </div>
+          <div className="relative z-10 mx-auto flex max-w-4xl flex-1 flex-col items-center justify-end px-6 pt-[72px] pb-12 text-center">
+            <h1 className="text-4xl font-serif font-bold leading-tight tracking-normal md:text-5xl lg:text-6xl md:leading-[1.15] animate-fade-in-up">
+              把技术面试做成
+              <span className="hero-gradient-text mt-3 block bg-gradient-to-r from-accent-light via-accent to-orange bg-clip-text text-transparent">
+                一条持续进化的闭环
+              </span>
+            </h1>
 
-              <h1 className="mt-6 text-4xl font-display font-bold leading-tight tracking-tight md:text-6xl md:leading-[1.04] animate-fade-in-up">
-                把技术面试做成
-                <span className="hero-gradient-text mt-2 block bg-gradient-to-r from-accent-light via-accent to-orange bg-clip-text text-transparent">
-                  一条持续进化的闭环
-                </span>
-              </h1>
+            <p className="mt-9 max-w-xl text-base leading-8 tracking-[0.04em] text-dim md:text-lg animate-fade-in-up [animation-delay:0.1s]">
+              训练、实战和复盘共用一套长期记忆，<span className="font-medium text-text">越练越懂你</span>。
+            </p>
 
-              <p className="mt-6 max-w-xl text-base leading-8 text-dim md:text-lg animate-fade-in-up [animation-delay:0.08s]">
-                别的面试工具练完就忘，每次都从零开始。TechSpar 把训练、实战辅助和复盘接进同一套长期记忆——你的弱点、表达习惯和高危路径它都记得，
-                <span className="font-medium text-text">越练越懂你</span>。
-              </p>
+            <div className="mt-12 flex flex-col items-center gap-4 sm:flex-row animate-fade-in-up [animation-delay:0.2s]">
+              <Button variant="gradient" size="lg" onClick={() => navigate("/login")}>
+                在线体验
+                <ArrowRight size={16} />
+              </Button>
+              <button
+                type="button"
+                onClick={scrollToLoop}
+                className="inline-flex items-center gap-1.5 px-1 text-sm font-medium text-dim transition-colors hover:text-text"
+              >
+                看闭环怎么运转
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center animate-fade-in-up [animation-delay:0.16s]">
-                <Button variant="gradient" size="lg" onClick={() => navigate("/login")}>
-                  在线体验
-                  <ArrowRight size={16} />
-                </Button>
-                <button
-                  type="button"
-                  onClick={scrollToLoop}
-                  className="inline-flex items-center gap-1.5 px-1 text-sm font-medium text-dim transition-colors hover:text-text"
-                >
-                  看闭环怎么运转
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-
-              <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2.5 text-sm text-dim animate-fade-in-up [animation-delay:0.24s]">
-                {HERO_SIGNALS.map((item) => (
-                  <span key={item.title} className="flex items-center gap-1.5">
-                    <Check size={14} className="text-primary" />
-                    {item.title}
-                  </span>
-                ))}
-              </div>
+          <div className="relative z-10 flex justify-center pb-10 animate-fade-in [animation-delay:0.5s]">
+            <div className="flex flex-col items-center gap-1 text-xs tracking-[0.3em] text-dim">
+              滑动继续
+              <ChevronDown size={16} className="animate-bounce" />
             </div>
           </div>
         </section>
 
-        <section className="px-6 pb-16 pt-16 md:px-10 md:pb-24 md:pt-24">
-          <div className="mx-auto max-w-7xl">
-            <LoopVisual />
-          </div>
-        </section>
+        <StoryScreens />
 
-        <section id="loop" ref={loopRef} className="scroll-reveal px-6 pb-16 md:px-10 md:pb-24">
+        <section id="loop" ref={loopRef} className="scroll-reveal px-6 pb-16 pt-4 md:px-10 md:pb-24">
           <div className="mx-auto max-w-7xl">
             <div className="reveal-item" style={revealStyle(0.04)}>
               <SectionHeading
                 label="面试闭环"
-                title="五个模块不是五个孤岛，而是一套共享画像的系统"
-                desc="每个模块都有自己的输入与输出，但所有结果最终都会回写到同一套长期记忆里，影响下一轮训练、辅助和复盘。"
+                title="这套闭环怎么运转"
+                desc="五个模块不是五个孤岛：每个模块的输入与输出都会写回同一套长期记忆，驱动下一轮训练、辅助和复盘。"
               />
             </div>
 
-            <div className="relative mt-10 grid gap-4 xl:grid-cols-5">
-              <div className="pointer-events-none absolute left-[8%] right-[8%] top-10 hidden h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent xl:block" />
-              {LOOP_MODULES.map((item, index) => {
+            <div className="reveal-item mt-10" style={revealStyle(0.12)}>
+              <LoopVisual />
+            </div>
+
+            <div
+              className="reveal-item mt-12 grid gap-6 border-t border-border/60 pt-8 md:grid-cols-3"
+              style={revealStyle(0.2)}
+            >
+              {MEMORY_LAYERS.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <Card
-                    key={item.key}
-                    className={cn(
-                      "loop-module-card reveal-item relative overflow-hidden rounded-[24px] border-border/80 bg-card/92 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-sm",
-                      item.highlight && "border-teal/20 shadow-[0_24px_80px_rgba(20,184,166,0.12)]"
-                    )}
-                    style={{ ...revealStyle(0.1 + index * 0.08), "--loop-glow": item.glowColor }}
-                  >
-                    {index < LOOP_MODULES.length - 1 && (
-                      <div
-                        className="loop-module-arrow absolute -right-3 top-10 hidden h-8 w-8 items-center justify-center rounded-full border border-primary/15 bg-bg text-primary xl:flex"
-                        style={{ "--loop-glow": item.glowColor }}
-                      >
-                        <ArrowRight size={14} />
+                  <div key={item.title} className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Icon size={16} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold">
+                        {item.title}
+                        <span className="ml-2 text-xs font-normal text-dim">{item.subtitle}</span>
                       </div>
-                    )}
-                    <div
-                      className={cn("loop-module-bar absolute inset-x-0 top-0 h-1", item.chipClass)}
-                      style={{ "--loop-glow": item.glowColor }}
-                    />
-                    <CardContent className="card-content-layer p-5">
-                      <div className="text-[11px] uppercase tracking-[0.24em] text-dim">{item.step}</div>
-                      <div className="mt-4 flex items-center gap-3">
-                        <div
-                          className={cn("loop-module-icon flex h-11 w-11 items-center justify-center rounded-2xl", item.iconClass)}
-                          style={{ "--loop-glow": item.glowColor }}
-                        >
-                          <Icon size={20} />
-                        </div>
-                        <div>
-                          <div className="loop-module-title text-base font-semibold">{item.title}</div>
-                          <div className="text-sm text-dim">{item.headline}</div>
-                        </div>
-                      </div>
-                      <p className="mt-4 text-sm leading-7 text-dim">{item.desc}</p>
-
-                      <div className="mt-5">
-                        <div className="text-[11px] uppercase tracking-[0.22em] text-dim">写回画像</div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {item.writeback.map((tag) => (
-                            <span
-                              key={tag}
-                              className={cn("loop-module-tag rounded-full px-2.5 py-1 text-xs font-medium", item.chipClass)}
-                              style={{ "--loop-glow": item.glowColor }}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <p className="mt-1.5 text-xs leading-6 text-dim">{item.desc}</p>
+                    </div>
+                  </div>
                 );
               })}
             </div>
           </div>
         </section>
 
-        <section ref={memoryRef} className="scroll-reveal px-6 pb-16 md:px-10 md:pb-24">
+        <section ref={momentsRef} className="scroll-reveal px-6 pb-20 md:px-10 md:pb-28">
           <div className="mx-auto max-w-7xl">
             <div className="reveal-item" style={revealStyle(0.04)}>
               <SectionHeading
-                label="长期记忆"
-                title="系统为什么会越练越懂你"
-                desc="TechSpar 的关键不在于再生成一组题，而在于把不同场景里的信号整合成同一套长期画像，并持续拿它驱动下一轮。"
+                label="真实时刻"
+                title="那些真正帮上忙的时刻。"
+                desc="不是功能清单，而是 TechSpar 进入备面日常之后，一次次接住麻烦、记得你、把事情往前推的瞬间。"
               />
             </div>
 
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {MEMORY_LAYERS.map((item, index) => {
-                const Icon = item.icon;
-                return (
-                  <Card
-                    key={item.title}
-                    className="reveal-item rounded-[24px] border-border/80 bg-card/92 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-sm"
-                    style={revealStyle(0.1 + index * 0.08)}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                          <Icon size={19} />
-                        </div>
-                        <div>
-                          <div className="text-base font-semibold">{item.title}</div>
-                          <div className="text-sm text-dim">{item.subtitle}</div>
-                        </div>
-                      </div>
-                      <p className="mt-4 text-sm leading-7 text-dim">{item.desc}</p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="mt-12 grid gap-x-8 gap-y-12 sm:grid-cols-2 xl:grid-cols-3">
+              {MOMENTS.map((item, index) => (
+                <div
+                  key={item.num}
+                  className={cn(
+                    "reveal-item rounded-[6px] bg-[#f3ecdd] p-3 pb-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)] transition-transform duration-300 hover:rotate-0 hover:-translate-y-1",
+                    item.tilt
+                  )}
+                  style={revealStyle(0.06 + index * 0.06)}
+                >
+                  <div className="overflow-hidden rounded-[3px]">
+                    <img src={item.img} alt={item.title} loading="lazy" className="aspect-square w-full object-cover" />
+                  </div>
+                  <div className="mt-4 flex items-center gap-3 px-1">
+                    <span
+                      className={cn(
+                        "flex h-7 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold tracking-wider",
+                        item.chip
+                      )}
+                    >
+                      {item.num}
+                    </span>
+                    <span className="text-lg font-display font-bold text-zinc-800">{item.title}</span>
+                  </div>
+                  <p className="mt-2 px-1 text-sm leading-6 text-zinc-600">{item.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -448,7 +478,13 @@ export default function Landing() {
           className="scroll-reveal relative flex min-h-screen items-center justify-center overflow-hidden px-6 md:px-10"
         >
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[130px]" />
+            <div className="story-glow absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[130px]" />
+            <img
+              src={ctaFigure}
+              alt=""
+              loading="lazy"
+              className="absolute bottom-0 right-0 hidden h-[82%] w-auto opacity-90 lg:block [mask-image:radial-gradient(ellipse_62%_78%_at_55%_48%,black_52%,transparent_98%)]"
+            />
           </div>
 
           <div className="relative mx-auto max-w-4xl text-center">
@@ -456,7 +492,7 @@ export default function Landing() {
               准备、模拟、实战、复盘，全部接进同一条闭环
             </div>
             <h2
-              className="reveal-item mt-5 text-4xl font-display font-bold tracking-tight md:text-6xl md:leading-[1.1]"
+              className="reveal-item mt-5 text-4xl font-serif font-bold tracking-normal md:text-6xl md:leading-[1.15]"
               style={revealStyle(0.1)}
             >
               从第一轮刷题开始，到真实面试结束后复盘，系统都不会忘记你
@@ -468,7 +504,12 @@ export default function Landing() {
               这不是另一个只会生成题目的 AI 工具，而是一套从刷题到实战的技术面试陪练系统。
             </p>
             <div className="reveal-item mt-10 flex justify-center" style={revealStyle(0.22)}>
-              <Button variant="gradient" size="lg" onClick={() => navigate("/login")}>
+              <Button
+                variant="gradient"
+                size="lg"
+                className="shadow-[0_0_40px_rgba(245,158,11,0.25)] transition-shadow hover:shadow-[0_0_72px_rgba(245,158,11,0.45)]"
+                onClick={() => navigate("/login")}
+              >
                 进入 Demo
                 <ArrowRight size={16} />
               </Button>
@@ -477,10 +518,127 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="border-t border-border/70 px-6 py-6 text-center text-xs text-dim md:px-10">
-        TechSpar · 从刷题到实战的 AI 技术面试陪练系统
+      <footer className="border-t border-border/70 px-6 py-10 md:px-10">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 text-center">
+          <div className="flex items-center gap-2.5">
+            <Logo className="h-7 w-7" />
+            <span className="font-display font-bold">TechSpar</span>
+          </div>
+          <p className="text-xs text-dim">从刷题到实战的 AI 技术面试陪练系统</p>
+          <div className="flex gap-6 text-xs">
+            <a
+              href="https://github.com/AnnaSuSu/TechSpar"
+              target="_blank"
+              rel="noreferrer"
+              className="text-dim transition-colors hover:text-text"
+            >
+              GitHub
+            </a>
+            <a
+              href="https://techspar.top/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-dim transition-colors hover:text-text"
+            >
+              在线 Demo
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
+  );
+}
+
+/* ── 叙事大字屏:sticky 三屏,滚动驱动词组逐字浮现 ── */
+function StoryScreens() {
+  const containerRef = useRef(null);
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const total = el.offsetHeight - window.innerHeight;
+        if (total <= 0) return;
+        const progress = Math.min(Math.max(-el.getBoundingClientRect().top / total, 0), 0.999);
+        setActive(Math.floor(progress * STORY_WORDS.length));
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  return (
+    <section
+      ref={containerRef}
+      className="relative"
+      style={{ height: `${STORY_WORDS.length * 100}vh` }}
+    >
+      <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden">
+        {STORY_WORDS.map((item, index) => (
+          <img
+            key={item.key}
+            src={item.img}
+            alt=""
+            loading="lazy"
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700",
+              index === active ? "opacity-100" : "opacity-0"
+            )}
+          />
+        ))}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(9,9,11,0.5)_0%,rgba(9,9,11,0.35)_50%,rgba(9,9,11,0.8)_100%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-bg/70 via-transparent to-bg/70" />
+
+        <div className="relative w-full px-6 text-center">
+          <div className="text-sm font-medium text-primary">为什么 TechSpar 不只是一个题库？</div>
+
+          <div className="relative mx-auto mt-6 h-64 w-full max-w-3xl md:h-72">
+            {STORY_WORDS.map((item, index) => (
+              <div
+                key={item.key}
+                className={cn("story-word absolute inset-x-0 top-6", index === active && "active")}
+                aria-hidden={index !== active}
+              >
+                <div className="font-serif text-6xl font-bold tracking-normal text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.7)] md:text-8xl">
+                  {item.word.split("").map((char, charIndex) => (
+                    <span
+                      key={charIndex}
+                      className="story-char"
+                      style={{ "--char-delay": index === active ? `${charIndex * 90}ms` : "0ms" }}
+                    >
+                      {char}
+                    </span>
+                  ))}
+                </div>
+                <p className="mx-auto mt-6 max-w-xl text-base leading-8 text-white/80 drop-shadow-[0_1px_10px_rgba(0,0,0,0.8)] md:text-lg">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-center gap-2">
+            {STORY_WORDS.map((item, index) => (
+              <span
+                key={item.key}
+                className={cn(
+                  "h-1 rounded-full transition-all duration-300",
+                  index === active ? "w-8 bg-primary" : "w-3 bg-border"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -798,7 +956,7 @@ function SectionHeading({ label, title, desc }) {
   return (
     <div className="max-w-4xl">
       <div className="text-sm font-medium text-primary">{label}</div>
-      <h2 className="mt-3 text-2xl font-display font-bold tracking-tight md:text-4xl">{title}</h2>
+      <h2 className="mt-3 text-2xl font-serif font-bold tracking-normal md:text-4xl">{title}</h2>
       <p className="mt-4 text-sm leading-7 text-dim md:text-base">{desc}</p>
     </div>
   );
