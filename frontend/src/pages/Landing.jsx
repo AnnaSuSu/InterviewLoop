@@ -282,8 +282,10 @@ function TypedLine({ text, delay = 0 }) {
 
 export default function Landing() {
   const navigate = useNavigate();
-  // 开场视频只播一遍,结束后淡出定格到静帧;reduced-motion 直接出静帧
+  // 开场视频只播一遍:先留在深色底上,首帧解码后淡入,避免播放前先闪一下静帧;
+  // 播完淡出定格到静帧,视频出错时也回落到静帧;reduced-motion 直接出静帧
   const [heroVideoDone, setHeroVideoDone] = useState(false);
+  const [heroVideoReady, setHeroVideoReady] = useState(false);
   const [showHeroVideo] = useState(
     () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
@@ -333,20 +335,29 @@ export default function Landing() {
 
       <main className="relative z-10">
         <section className="relative -mt-[72px] flex min-h-screen flex-col overflow-hidden border-b border-border/60">
-          <div className="absolute inset-0">
-            <img src={heroArt} alt="" className="h-full w-full object-cover object-center" />
+          <div className="absolute inset-0 bg-bg">
+            {/* 静帧仅作视频定格与兜底:开场用视频时先隐藏,避免播放前先闪一下静图 */}
+            <img
+              src={heroArt}
+              alt=""
+              className={cn(
+                "h-full w-full object-cover object-center transition-opacity duration-700",
+                showHeroVideo && !heroVideoDone ? "opacity-0" : "opacity-100"
+              )}
+            />
             {showHeroVideo && (
               <video
                 className={cn(
-                  "absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000",
-                  heroVideoDone ? "opacity-0" : "opacity-100"
+                  "absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700",
+                  heroVideoReady && !heroVideoDone ? "opacity-100" : "opacity-0"
                 )}
                 autoPlay
                 muted
                 playsInline
                 preload="auto"
-                poster={heroArt}
+                onLoadedData={() => setHeroVideoReady(true)}
                 onEnded={() => setHeroVideoDone(true)}
+                onError={() => setHeroVideoDone(true)}
               >
                 <source src={heroIntro} type="video/mp4" />
               </video>
