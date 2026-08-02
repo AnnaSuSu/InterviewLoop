@@ -303,6 +303,10 @@ UI 导入会把归档中的数据全部归到当前登录账户（即使原 `use
 
 CC BY-NC 4.0
 
+例外:`frontend/src/resume/` 目录下的简历编辑与模板渲染代码移植自 [Magic Resume](https://github.com/JOYCEQL/magic-resume),保留其原始协议(Apache 2.0 + 附加商业限制条款),详见该目录下的 `LICENSE` 与 `README.md`。
+
 ## 致谢
 
 感谢 [LINUX DO](https://linux.do/) 社区的支持。
+
+简历管理模块基于 [Magic Resume](https://github.com/JOYCEQL/magic-resume) 移植,感谢原作者 [@JOYCEQL](https://github.com/JOYCEQL) 的出色工作。

@@ -291,3 +291,5 @@ Optional arguments:
 ## License
 
 CC BY-NC 4.0
+
+Exception: the resume editor & template rendering code under `frontend/src/resume/` is ported from [Magic Resume](https://github.com/JOYCEQL/magic-resume) and keeps its original license (Apache 2.0 with additional commercial restrictions) — see `LICENSE` and `README.md` in that directory. Credits to [@JOYCEQL](https://github.com/JOYCEQL).
