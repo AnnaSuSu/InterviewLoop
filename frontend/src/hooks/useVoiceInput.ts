@@ -1,19 +1,25 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { transcribeAudio } from "../api/interview";
 
-export default function useVoiceInput({ onResult } = {}) {
+interface VoiceInputOptions {
+  onResult?: (text: string) => void;
+}
+
+export default function useVoiceInput({ onResult }: VoiceInputOptions = {}) {
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
-  const streamRef = useRef(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
   const onResultRef = useRef(onResult);
 
-  useEffect(() => { onResultRef.current = onResult; }, [onResult]);
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   // Check if getUserMedia is available
-  const isSupported = typeof navigator !== "undefined"
-    && !!navigator.mediaDevices?.getUserMedia;
+  const isSupported =
+    typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
 
   const stopListening = useCallback(async () => {
     setIsListening(false);
@@ -22,7 +28,7 @@ export default function useVoiceInput({ onResult } = {}) {
     if (!recorder || recorder.state === "inactive") return;
 
     // Stop recording — triggers ondataavailable + onstop
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       recorder.onstop = async () => {
         // Build audio blob from chunks
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
@@ -42,7 +48,7 @@ export default function useVoiceInput({ onResult } = {}) {
         // Send to backend for transcription
         setIsTranscribing(true);
         try {
-          const { text } = await transcribeAudio(blob);
+          const { text } = (await transcribeAudio(blob)) as { text?: string };
           if (text && onResultRef.current) {
             onResultRef.current(text);
           }
@@ -98,7 +104,11 @@ export default function useVoiceInput({ onResult } = {}) {
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       if (mediaRecorderRef.current?.state !== "inactive") {
-        try { mediaRecorderRef.current?.stop(); } catch { /* cleanup, safe to ignore */ }
+        try {
+          mediaRecorderRef.current?.stop();
+        } catch {
+          /* cleanup, safe to ignore */
+        }
       }
     };
   }, []);
