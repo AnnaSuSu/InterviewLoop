@@ -1,40 +1,37 @@
-const API_BASE = "/api";
-
-function authHeaders(extra = {}) {
-  const token = localStorage.getItem("token");
-  const headers = { ...extra };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return headers;
-}
-
-async function authFetch(url, options = {}) {
-  const headers = authHeaders(options.headers);
-  const res = await fetch(url, { ...options, headers });
-  if (res.status === 401) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "/login";
-    throw new Error("Session expired");
-  }
-  return res;
-}
+import { API_BASE, authFetch, type ApiResponse } from "./client";
 
 /** 列出所有 Prep 会话 */
-export async function listCopilotPreps() {
+export async function listCopilotPreps(): Promise<
+  ApiResponse<"/api/copilot/preps", "get">
+> {
   const res = await authFetch(`${API_BASE}/copilot/preps`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 /** 删除 Prep 会话 */
-export async function deleteCopilotPrep(prepId) {
-  const res = await authFetch(`${API_BASE}/copilot/prep/${prepId}`, { method: "DELETE" });
+export async function deleteCopilotPrep(
+  prepId: string
+): Promise<ApiResponse<"/api/copilot/prep/{prep_id}", "delete">> {
+  const res = await authFetch(`${API_BASE}/copilot/prep/${prepId}`, {
+    method: "DELETE",
+  });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
+interface StartCopilotPrepOptions {
+  jdText: string;
+  company?: string;
+  position?: string;
+}
+
 /** 启动 Copilot Prep Phase */
-export async function startCopilotPrep({ jdText, company, position }) {
+export async function startCopilotPrep({
+  jdText,
+  company,
+  position,
+}: StartCopilotPrepOptions): Promise<ApiResponse<"/api/copilot/prep", "post">> {
   const form = new FormData();
   form.append("jd_text", jdText);
   if (company) form.append("company", company);
@@ -49,14 +46,18 @@ export async function startCopilotPrep({ jdText, company, position }) {
 }
 
 /** 查询 Prep 进度 */
-export async function getCopilotPrepStatus(prepId) {
+export async function getCopilotPrepStatus(
+  prepId: string
+): Promise<ApiResponse<"/api/copilot/prep/{prep_id}", "get">> {
   const res = await authFetch(`${API_BASE}/copilot/prep/${prepId}`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 /** 获取策略树 */
-export async function getCopilotStrategyTree(prepId) {
+export async function getCopilotStrategyTree(
+  prepId: string
+): Promise<ApiResponse<"/api/copilot/prep/{prep_id}/tree", "get">> {
   const res = await authFetch(`${API_BASE}/copilot/prep/${prepId}/tree`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
