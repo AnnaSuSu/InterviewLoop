@@ -1,0 +1,22 @@
+/* 简历模块(移植自 magic-resume)所需的全局规则,由简历页面按需引入 */
+
+/* 工作台锁定页面滚动,滚动只发生在面板内部 */
+body.workbench-body-lock {
+  overflow-y: hidden;
+}
+
+/* 简历纸面内的标题字体跟随简历字体设置,不吃应用全局标题样式 */
+#resume-preview h1,
+#resume-preview h2,
+#resume-preview h3,
+#resume-preview h4,
+#resume-preview h5,
+#resume-preview h6,
+.resume-preview h1,
+.resume-preview h2,
+.resume-preview h3,
+.resume-preview h4,
+.resume-preview h5,
+.resume-preview h6 {
+  font-family: inherit;
+}

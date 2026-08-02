@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -133,6 +134,16 @@
   --animate-drift-reverse: drift-reverse 22s ease-in-out infinite;
   --animate-float-soft: float-soft 7s ease-in-out infinite;
   --animate-step-enter: step-enter 0.45s ease-out both;
+}
+
+/* shadcn 风格别名,供 src/resume(移植自 magic-resume)的组件使用 */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  /* 简历模板正文/副标题固定色,不随应用主题变化(纸面始终为白底) */
+  --color-baseFont: #212529;
+  --color-subtitleFont: #212529;
 }
 
 @layer base {

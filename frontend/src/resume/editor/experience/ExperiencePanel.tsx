@@ -1,0 +1,56 @@
+import { cn } from "@/resume/lib/utils";
+import { Reorder } from "framer-motion";
+import { PlusCircle } from "lucide-react";
+import { Button } from "@/resume/ui/button";
+import { useTranslations } from "@/resume/i18n/compat/client";
+import ExperienceItem from "./ExperienceItem";
+import { Experience } from "@/resume/types/resume";
+import { useResumeStore } from "@/resume/store/useResumeStore";
+import { generateUUID } from "@/resume/utils/uuid";
+
+const ExperiencePanel = () => {
+  const t = useTranslations("workbench.experiencePanel");
+  const { activeResume, updateExperience, updateExperienceBatch } =
+    useResumeStore();
+  const { experience = [] } = activeResume || {};
+  const handleCreateProject = () => {
+    const newProject: Experience = {
+      id: generateUUID(),
+      company: t("defaultProject.company"),
+      position: t("defaultProject.position"),
+      date: t("defaultProject.date"),
+      details: t("defaultProject.details"),
+      visible: true,
+    };
+    updateExperience(newProject);
+  };
+
+  return (
+    <div
+      className={cn(
+        "space-y-4 px-4 py-4 rounded-lg",
+        "bg-card border-border"
+      )}
+    >
+      <Reorder.Group
+        axis="y"
+        values={experience}
+        onReorder={(newOrder) => {
+          updateExperienceBatch(newOrder);
+        }}
+        className="space-y-3"
+      >
+        {experience.map((item) => (
+          <ExperienceItem key={item.id} experience={item}></ExperienceItem>
+        ))}
+
+        <Button onClick={handleCreateProject} className="w-full">
+          <PlusCircle className="w-4 h-4 mr-2" />
+          {t("addButton")}
+        </Button>
+      </Reorder.Group>
+    </div>
+  );
+};
+
+export default ExperiencePanel;
