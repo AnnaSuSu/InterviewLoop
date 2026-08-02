@@ -405,7 +405,7 @@ export const useResumeStore = create(
         const resumeId = resume.id;
         clearHistoryGroup(resumeId);
         set((state) => {
-          const { [resumeId]: _, activeResume, ...rest } = state.resumes;
+          const { [resumeId]: _, activeResume: _activeResume, ...rest } = state.resumes;
           const { [resumeId]: __, ...historyRest } = state.history;
           const { [resumeId]: ___, ...futureRest } = state.future;
           return {
@@ -417,22 +417,6 @@ export const useResumeStore = create(
           };
         });
 
-        (async () => {
-          try {
-            const handle = await getFileHandle("syncDirectory");
-            if (!handle) return;
-
-            const hasPermission = await verifyPermission(handle);
-            if (!hasPermission) return;
-
-            const dirHandle = handle as FileSystemDirectoryHandle;
-            try {
-              await dirHandle.removeEntry(`${resume.title}.json`);
-            } catch (error) {}
-          } catch (error) {
-            console.error("Error deleting resume file:", error);
-          }
-        })();
       },
 
       duplicateResume: (resumeId) => {
@@ -442,21 +426,10 @@ export const useResumeStore = create(
           return "";
         }
 
-        // 获取当前语言环境
-        const locale =
-          typeof document !== "undefined"
-            ? document.cookie
-                .split("; ")
-                .find((row) => row.startsWith("NEXT_LOCALE="))
-                ?.split("=")[1] || "zh"
-            : "zh";
-
         const duplicatedResume = {
           ...structuredClone(originalResume),
           id: newId,
-          title: `${originalResume.title} (${
-            locale === "en" ? "Copy" : "复制"
-          })`,
+          title: `${originalResume.title} (复制)`,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
