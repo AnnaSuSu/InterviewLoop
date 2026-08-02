@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { TaskStatusProvider } from "./contexts/TaskStatusContext";
@@ -22,6 +23,10 @@ import ResumeInterview from "./pages/ResumeInterview";
 import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
+
+// 简历模块体量大(编辑器 + 9 套模板),按需加载避免拖慢首屏
+const ResumeManager = lazy(() => import("./pages/ResumeManager"));
+const ResumeEditor = lazy(() => import("./pages/ResumeEditor"));
 
 function ProtectedRoute({ children }) {
   const { token, loading } = useAuth();
@@ -87,6 +92,22 @@ function AppRoutes() {
                 <Route path="/copilot" element={<Copilot />} />
                 <Route path="/topic-drill" element={<TopicDrill />} />
                 <Route path="/resume-interview" element={<ResumeInterview />} />
+                <Route
+                  path="/resume-manager"
+                  element={
+                    <Suspense fallback={null}>
+                      <ResumeManager />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/resume-manager/:id"
+                  element={
+                    <Suspense fallback={null}>
+                      <ResumeEditor />
+                    </Suspense>
+                  }
+                />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
