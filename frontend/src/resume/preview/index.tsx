@@ -72,17 +72,7 @@ function throttle<T extends (...args: never[]) => void>(fn: T, wait: number) {
 }
 
 const PreviewPanel = React.forwardRef<HTMLDivElement, PreviewPanelProps>(
-  (
-    {
-      sidePanelCollapsed,
-      editPanelCollapsed,
-      previewPanelCollapsed,
-      toggleSidePanel,
-      toggleEditPanel,
-      togglePreviewPanel,
-    },
-    ref
-  ) => {
+  (_props, ref) => {
     const { activeResume, setActiveSection } = useResumeStore();
     const selectedFontFamily = normalizeFontFamily(
       activeResume?.globalSettings?.fontFamily

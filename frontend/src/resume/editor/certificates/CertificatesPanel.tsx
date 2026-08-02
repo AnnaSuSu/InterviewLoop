@@ -47,7 +47,7 @@ const CertificatesPanel = () => {
                 imageData = await compressImage(file, 1200, 1200, 0.8);
             }
             handleCreateCertificate(imageData);
-        } catch (e) {
+        } catch {
             toast.error("Upload error");
         }
     };

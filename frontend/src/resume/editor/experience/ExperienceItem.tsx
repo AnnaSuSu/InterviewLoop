@@ -138,7 +138,7 @@ const ExperienceItem = ({ experience }: { experience: Experience }) => {
             expandedId === experience.id && "bg-muted/10",
             "cursor-pointer select-none"
           )}
-          onClick={(e) => {
+          onClick={() => {
             if (expandedId === experience.id) {
               setExpandedId(null);
             } else {

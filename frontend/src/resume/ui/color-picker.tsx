@@ -21,10 +21,10 @@ interface ColorPickerProps
 
 const ColorPicker = forwardRef<HTMLInputElement, ColorPickerProps>(
   (
-    { disabled, value, onChange, onBlur, name, className, ...props },
+    { disabled, value, onChange, onBlur: _onBlur, name: _name, className, ...props },
     forwardedRef
   ) => {
-    const ref = useForwardedRef(forwardedRef);
+    const _ref = useForwardedRef(forwardedRef);
     const [open, setOpen] = useState(false);
 
     const parsedValue = useMemo(() => {

@@ -17,7 +17,7 @@ interface BaseInfoProps {
 /**
  * Creative template BaseInfo — white text, designed for the colored header block.
  */
-const BaseInfo = ({ basic = {} as BasicInfo, globalSettings, template }: BaseInfoProps) => {
+const BaseInfo = ({ basic = {} as BasicInfo, globalSettings }: BaseInfoProps) => {
     const t = useTranslations("workbench");
     const locale = useLocale();
     const useIconMode = globalSettings?.useIconMode ?? false;

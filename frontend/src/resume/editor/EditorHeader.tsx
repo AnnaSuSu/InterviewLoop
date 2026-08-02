@@ -18,7 +18,7 @@ interface EditorHeaderProps {
   isMobile?: boolean;
 }
 
-export function EditorHeader({ isMobile }: EditorHeaderProps) {
+export function EditorHeader(_props: EditorHeaderProps) {
   const { activeResume, updateResumeTitle, undo, redo, canUndo, canRedo } =
     useResumeStore();
   const router = useRouter();

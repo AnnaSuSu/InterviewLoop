@@ -87,11 +87,14 @@ const AlignSelector: React.FC<AlignSelectorProps> = ({ value, onChange }) => {
         >
           {/* Icon wrapper to control size */}
           <div className="w-10 h-10 flex items-center justify-center">
-            {React.cloneElement(layout.icon as React.ReactElement, {
-              width: "100%",
-              height: "100%",
-              className: "fill-current"
-            })}
+            {React.cloneElement(
+              layout.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>,
+              {
+                width: "100%",
+                height: "100%",
+                className: "fill-current",
+              }
+            )}
           </div>
           {/* <span className="text-[10px] mt-2 font-medium opacity-80">
             {layout.tooltip}

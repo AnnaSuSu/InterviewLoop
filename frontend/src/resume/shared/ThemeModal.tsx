@@ -33,9 +33,9 @@ const ThemeModal = ({
           <AlertDialogTitle>{t("title")}</AlertDialogTitle>
           <AlertDialogDescription>
             <span>
-              {t.raw("description").split("{title}")[0]}
+              {String(t.raw("description")).split("{title}")[0]}
               <span className="px-1 font-semibold text-foreground">{title}</span>
-              {t.raw("description").split("{title}")[1]}
+              {String(t.raw("description")).split("{title}")[1]}
             </span>
           </AlertDialogDescription>
         </AlertDialogHeader>

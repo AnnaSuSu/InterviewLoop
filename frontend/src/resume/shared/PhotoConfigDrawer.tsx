@@ -43,7 +43,6 @@ const PhotoConfigDrawer: React.FC<Props> = ({
   config: initialConfig,
   onPhotoChange,
   onConfigChange,
-  ...props
 }) => {
   const t = useTranslations("photoConfig");
   const { updateBasicInfo } = useResumeStore();
@@ -117,7 +116,7 @@ const PhotoConfigDrawer: React.FC<Props> = ({
               estimateBase64Size(imageData) / 1024
             ).toFixed(2)}KB`
           );
-        } catch (error) {
+        } catch {
           toast.error(t("upload.sizeLimit"));
           return;
         }
@@ -131,7 +130,7 @@ const PhotoConfigDrawer: React.FC<Props> = ({
       updateBasicInfo({
         photo: imageData,
       });
-    } catch (error) {
+    } catch {
       toast.error(t("upload.error"));
     }
   };
@@ -202,7 +201,7 @@ const PhotoConfigDrawer: React.FC<Props> = ({
         photo: url,
       });
       onPhotoChange(url, config);
-    } catch (error) {
+    } catch {
       toast.error(
         t("upload.invalidUrl", {
           defaultMessage: "图片链接无效或无法访问，请尝试使用其他图片链接",

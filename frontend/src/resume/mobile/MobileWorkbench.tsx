@@ -131,6 +131,7 @@ export function MobileWorkbench() {
                 previewPanelCollapsed={false}
                 toggleSidePanel={() => {}}
                 toggleEditPanel={() => {}}
+                togglePreviewPanel={() => {}}
               />
             </motion.div>
           )}

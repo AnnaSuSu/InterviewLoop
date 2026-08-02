@@ -180,7 +180,7 @@ const ProjectItem = ({ project }: { project: Project }) => {
             expandedId === project.id && "bg-muted/10",
             "cursor-pointer select-none"
           )}
-          onClick={(e) => {
+          onClick={() => {
             if (expandedId === project.id) {
               setExpandedId(null);
             } else {

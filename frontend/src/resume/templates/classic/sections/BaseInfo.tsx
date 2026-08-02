@@ -15,7 +15,7 @@ interface BaseInfoProps {
     template?: ResumeTemplate;
 }
 
-const BaseInfo = ({ basic = {} as BasicInfo, globalSettings, template }: BaseInfoProps) => {
+const BaseInfo = ({ basic = {} as BasicInfo, globalSettings }: BaseInfoProps) => {
     const t = useTranslations("workbench");
     const locale = useLocale();
     const useIconMode = globalSettings?.useIconMode ?? false;

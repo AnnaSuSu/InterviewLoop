@@ -26,7 +26,7 @@ const itemAnimations = {
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: 0 },
   transition: { type: "spring", stiffness: 500, damping: 50, mass: 1 },
-};
+} as const;
 
 const CustomField: React.FC<CustomFieldProps> = ({
   field,

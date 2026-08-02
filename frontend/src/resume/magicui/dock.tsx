@@ -12,19 +12,26 @@ export function Dock({ children, className, ...props }: DockProps) {
   const childrenArray = React.Children.toArray(children);
 
   // Find the index of TemplateSheet for splitting
+  type WithChildren = { children?: React.ReactNode };
   const templateSheetIndex = childrenArray.findIndex((child) => {
-    if (React.isValidElement(child)) {
+    if (React.isValidElement<WithChildren>(child)) {
       const tooltip = child.props.children;
-      if (React.isValidElement(tooltip)) {
-        const trigger = tooltip.props.children.find(
-          (child: any) => child?.type?.name === "TooltipTrigger"
+      if (React.isValidElement<WithChildren>(tooltip)) {
+        const tooltipChildren = React.Children.toArray(tooltip.props.children);
+        const trigger = tooltipChildren.find(
+          (c) =>
+            React.isValidElement(c) &&
+            typeof c.type === "function" &&
+            c.type.name === "TooltipTrigger"
         );
-        if (trigger) {
+        if (trigger && React.isValidElement<WithChildren>(trigger)) {
           const content = trigger.props.children;
-          if (React.isValidElement(content)) {
+          if (React.isValidElement<WithChildren>(content)) {
             const icon = content.props.children;
             return (
-              React.isValidElement(icon) && icon.type?.name === "TemplateSheet"
+              React.isValidElement(icon) &&
+              typeof icon.type === "function" &&
+              icon.type.name === "TemplateSheet"
             );
           }
         }

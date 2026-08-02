@@ -169,7 +169,7 @@ const GithubContributions: React.FC<GithubContributionsProps> = ({
 
         setWeeks(groupedWeeks);
         setError(null);
-      } catch (err) {
+      } catch {
         setError("Failed to load GitHub contributions");
       } finally {
         setLoading(false);

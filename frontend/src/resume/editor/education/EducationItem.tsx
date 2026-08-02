@@ -87,7 +87,7 @@ const EducationEditor: React.FC<EducationEditorProps> = ({
 
         <Field
           label={t("labels.description")}
-          value={education.description}
+          value={education.description ?? ""}
           onChange={(value) => handleChange("description", value)}
           type="editor"
           placeholder={t("placeholders.description")}
@@ -165,7 +165,7 @@ const EducationItem = ({ education }: { education: Education }) => {
             expandedId === education.id && "bg-muted/10",
             "cursor-pointer select-none"
           )}
-          onClick={(e) => {
+          onClick={() => {
             if (expandedId === education.id) {
               setExpandedId(null);
             } else {

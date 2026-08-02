@@ -6,15 +6,16 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
+    "allowJs": true,
+    "checkJs": false,
     "skipLibCheck": true,
     "noEmit": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
     "useDefineForClassFields": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src"]
 }

@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import * as Icons from "lucide-react";
-import { cn, formatDateString } from "@/resume/lib/utils";
+import { formatDateString } from "@/resume/lib/utils";
 import { BasicInfo, getBorderRadiusValue, GlobalSettings } from "@/resume/types/resume";
 import { ResumeTemplate } from "@/resume/types/template";
 import SectionWrapper from "../../shared/SectionWrapper";
@@ -17,7 +17,7 @@ interface BaseInfoProps {
 /**
  * Modern template BaseInfo — designed for sidebar (white text on theme color background).
  */
-const BaseInfo = ({ basic = {} as BasicInfo, globalSettings, template }: BaseInfoProps) => {
+const BaseInfo = ({ basic = {} as BasicInfo, globalSettings }: BaseInfoProps) => {
     const t = useTranslations("workbench");
     const locale = useLocale();
     const useIconMode = globalSettings?.useIconMode ?? false;

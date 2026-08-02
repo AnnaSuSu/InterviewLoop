@@ -56,7 +56,7 @@ export function formatDateString(dateStr: string | undefined, locale: string = "
           timeZone: 'UTC' 
       });
       return formatter.format(date);
-  } catch (e) {
+  } catch {
       return dateStr;
   }
 }

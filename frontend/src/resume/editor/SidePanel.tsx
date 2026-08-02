@@ -38,11 +38,6 @@ function debounce<T extends (...args: never[]) => void>(fn: T, wait: number) {
   };
 }
 
-const lineHeightOptions = [
-  { value: "normal", label: "默认" },
-  { value: "relaxed", label: "适中" },
-  { value: "loose", label: "宽松" },
-];
 
 function SettingCard({
   icon: Icon,
@@ -124,12 +119,6 @@ export function SidePanel({
 
   const fontOptions = getFontOptions((key) => t(`typography.font.${key}`));
   const selectedFontFamily = normalizeFontFamily(globalSettings?.fontFamily);
-
-  const lineHeightOptions = [
-    { value: "normal", label: t("typography.lineHeight.normal") },
-    { value: "relaxed", label: t("typography.lineHeight.relaxed") },
-    { value: "loose", label: t("typography.lineHeight.loose") },
-  ];
 
   const debouncedSetColor = useMemo(
     () =>

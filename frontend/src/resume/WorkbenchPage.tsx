@@ -219,7 +219,7 @@ export default function ResumeWorkbenchPage() {
   }, []);
 
   useEffect(() => {
-    let newSizes = [];
+    const newSizes = [];
 
     // 侧边栏尺寸
     newSizes.push(sidePanelCollapsed ? 0 : 20);
