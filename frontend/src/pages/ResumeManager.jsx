@@ -10,6 +10,7 @@ import { DEFAULT_TEMPLATES } from "@/resume/config";
 import ResumeTemplateComponent from "@/resume/templates";
 import ThemeModal from "@/resume/shared/ThemeModal";
 import { generateUUID } from "@/resume/utils/uuid";
+import PdfResumeSection from "./resumeManager/PdfResumeSection";
 import "@/resume/styles/resume.css";
 import "@/resume/styles/fonts";
 
@@ -167,12 +168,21 @@ export default function ResumeManager() {
 
   return (
     <div className={PAGE_CLASS}>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-text">简历管理</h1>
-          <p className="mt-1 text-sm text-dim">
-            制作、管理你的简历,支持多套模板与 PDF 导出;数据保存在本地浏览器
-          </p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-text">简历管理</h1>
+        <p className="mt-1 text-sm text-dim">
+          面试用的原始 PDF 和可编辑的模板简历,都在这里管理
+        </p>
+      </div>
+
+      <PdfResumeSection />
+
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-text">模板简历</h2>
+          <span className="text-xs text-dim">
+            多套模板、可编辑、支持导出 PDF;数据保存在本地浏览器
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <input

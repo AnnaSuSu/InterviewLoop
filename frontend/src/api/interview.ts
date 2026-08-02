@@ -68,6 +68,28 @@ export async function uploadResume(
   return res.json();
 }
 
+export async function getResumePdfBlob(): Promise<Blob> {
+  const res = await authFetch(`${API_BASE}/resume/file`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.blob();
+}
+
+export async function deleteUploadedResume(): Promise<
+  ApiResponse<"/api/resume", "delete">
+> {
+  const res = await authFetch(`${API_BASE}/resume`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function parseUploadedResume(): Promise<
+  ApiResponse<"/api/resume/parse", "post">
+> {
+  const res = await authFetch(`${API_BASE}/resume/parse`, { method: "POST" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 // ── Interview ──
 
 interface StartInterviewOptions {
