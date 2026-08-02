@@ -5,6 +5,7 @@ import { useResumeStore } from "@/resume/store/useResumeStore";
 import ResumeWorkbenchPage from "@/resume/WorkbenchPage";
 import "@/resume/styles/resume.css";
 import "@/resume/styles/tiptap.css";
+import "@/resume/styles/fonts";
 
 // 工作台外壳:把路由参数同步到 store,再渲染移植过来的编辑工作台
 export default function ResumeEditor() {

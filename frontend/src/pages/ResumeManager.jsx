@@ -11,6 +11,7 @@ import ResumeTemplateComponent from "@/resume/templates";
 import ThemeModal from "@/resume/shared/ThemeModal";
 import { generateUUID } from "@/resume/utils/uuid";
 import "@/resume/styles/resume.css";
+import "@/resume/styles/fonts";
 
 const PAGE_CLASS = "flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-7 md:py-8 xl:px-10 2xl:px-12";
 

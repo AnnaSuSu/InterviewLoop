@@ -1,4 +1,5 @@
-// 不随仓库分发字体文件,全部走系统字库;导出 API 与上游保持一致
+// 字体经 @fontsource 自托管(见 styles/fonts.ts),不内嵌上游的 ttf/otf 原件;
+// 导出 API 与上游保持一致
 type FontDefinition = {
   label: string;
   value: string;
@@ -6,13 +7,14 @@ type FontDefinition = {
 };
 
 export const DEFAULT_FONT_FAMILY =
-  '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif';
+  '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif';
 
 const FONT_DEFINITIONS: FontDefinition[] = [
   {
-    label: "系统黑体",
+    label: "思源黑体",
     value: DEFAULT_FONT_FAMILY,
     aliases: [
+      '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
       'Alibaba PuHuiTi, sans-serif',
       '"Alibaba PuHuiTi", sans-serif',
       '"MiSans", sans-serif',
@@ -24,9 +26,10 @@ const FONT_DEFINITIONS: FontDefinition[] = [
     ],
   },
   {
-    label: "宋体 / 衬线",
-    value: '"Songti SC", "Noto Serif SC", "SimSun", serif',
+    label: "思源宋体",
+    value: '"Noto Serif SC", "Songti SC", "Source Han Serif SC", serif',
     aliases: [
+      '"Songti SC", "Noto Serif SC", "SimSun", serif',
       '"Source Han Serif SC", "Noto Serif SC", serif',
       '"Noto Serif SC", "Source Han Serif SC", serif',
       'Source Han Serif SC, serif',
@@ -34,7 +37,7 @@ const FONT_DEFINITIONS: FontDefinition[] = [
     ],
   },
   {
-    label: "楷体",
+    label: "楷体(系统)",
     value: '"Kaiti SC", "STKaiti", "KaiTi", serif',
     aliases: [],
   },
@@ -67,6 +70,6 @@ export const getFontOptions = (_t?: (key: string) => string) =>
     label: definition.label,
   }));
 
-// 系统字库无需内嵌 @font-face;打印路径直接依赖本机字体
+// @font-face 由打包后的样式表提供,打印 iframe 拷贝页面样式即可拿到,无需在此内联
 export const getFontFaceCss = async (_fontFamily?: string, _inline = false) =>
   "";

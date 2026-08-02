@@ -18,7 +18,7 @@
 - **PDF 导出**:删除依赖上游远程服务(api.magicv.art)的导出路径,保留纯客户端的浏览器打印、JSON、Markdown 导出。
 - **数据持久化**:仅保留 localStorage(zustand persist);删除 File System Access API 目录同步与 IndexedDB 句柄存储。
 - **i18n**:上游 next-intl shim 精简为仅中文的静态实现,删除英文文案与示例数据。
-- **字体**:不再分发字体文件(上游约 149MB),改为系统字库方案(`utils/fonts.ts` 重写)。
+- **字体**:不再随仓库分发上游的 ttf/otf 字体原件(约 149MB),改用 `@fontsource/noto-sans-sc`、`@fontsource/noto-serif-sc`(SIL OFL)自托管 woff2 切片,按 unicode-range 按需加载;另保留系统楷体选项(`utils/fonts.ts`、`styles/fonts.ts`)。
 - **模板缩略图**:删除 Playwright 生成的静态 PNG 快照,改为用当前简历数据实时缩放渲染(`shared/TemplateSheet.tsx`)。
 - **HeroUI**:移除仅剩的两个 HeroUI 日期输入组件,日期字段改为自由文本输入(`editor/Field.tsx`)。
 - **杂项**:lodash 用内联 throttle/debounce 替代;uuid 依赖改为 `crypto.randomUUID`;`tiptap.scss` 预编译为 CSS;样式令牌桥接到 TechSpar 的 Tailwind 4 主题变量。
