@@ -11,6 +11,8 @@ import json
 import logging
 import math
 import re
+import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -249,10 +251,38 @@ def _save_profile(profile: dict, user_id: str):
     path = _profile_path(user_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     profile["updated_at"] = datetime.now().isoformat()
-    path.write_text(
-        json.dumps(profile, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+
+    temp_path = None
+    try:
+        # 临时文件必须和目标文件位于同一目录，确保 os.replace 是原子的
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+
+            json.dump(
+                profile,
+                temp_file,
+                ensure_ascii=False,
+                indent=2,
+            )
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+
+        # Windows 下必须先关闭临时文件，再替换目标文件
+        os.replace(temp_path, path)
+        temp_path = None  # 成功后置空
+
+    finally:
+        # 替换失败时清理临时文件；成功时文件已不存在
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def _save_insight(mode: str, topic: str, summary: str, raw_extraction: dict, user_id: str):
