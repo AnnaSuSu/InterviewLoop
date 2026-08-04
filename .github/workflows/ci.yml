@@ -1,5 +1,5 @@
-# 冒烟检查:每次 push / PR 时,在干净环境装依赖并尝试构建后端 app。
-# 目的是拦下"本地能跑、干净环境装不起来"的问题(如漏写依赖),让它到不了用户手里。
+# 后端检查:每次 push / PR 时,在干净环境安装依赖、构建 app 并运行回归测试。
+# 目的是拦下"本地能跑、干净环境装不起来"和已修问题回归,让它到不了用户手里。
 name: CI
 
 on:
@@ -23,6 +23,9 @@ jobs:
       - name: 构建后端 app(导入整棵依赖树 + 装配路由)
         run: |
           python -c "from backend.app import create_app; create_app(); print('OK app builds')"
+
+      - name: 运行后端回归测试
+        run: python -m unittest discover -s tests
 
   frontend-build:
     runs-on: ubuntu-latest

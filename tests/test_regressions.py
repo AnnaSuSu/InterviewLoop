@@ -11,11 +11,66 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend import memory
 from backend.config import settings
 from backend.routers import copilot, data_migration as migration_router, interview, recording
 from backend.runtime import _task_status
 from backend.storage import data_migration, sessions
 from backend.utils import safe_child_path
+
+
+class ProfilePersistenceTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.profile_path = Path(self.temp_dir.name) / "profile.json"
+        self.path_patch = patch.object(
+            memory, "_profile_path", return_value=self.profile_path
+        )
+        self.path_patch.start()
+
+    def tearDown(self):
+        self.path_patch.stop()
+        self.temp_dir.cleanup()
+
+    def _temporary_files(self):
+        return list(self.profile_path.parent.glob(f".{self.profile_path.name}.*.tmp"))
+
+    def _write_existing_profile(self):
+        original = json.dumps(
+            {"name": "existing", "updated_at": "before"},
+            ensure_ascii=False,
+        ).encode()
+        self.profile_path.write_bytes(original)
+        return original
+
+    def test_save_profile_replaces_file_with_valid_json(self):
+        profile = {"name": "new profile"}
+
+        memory._save_profile(profile, "user-a")
+
+        saved = json.loads(self.profile_path.read_text(encoding="utf-8"))
+        self.assertEqual(saved, profile)
+        self.assertTrue(saved["updated_at"])
+        self.assertEqual(self._temporary_files(), [])
+
+    def test_serialization_failure_keeps_existing_profile_and_cleans_temp_file(self):
+        original = self._write_existing_profile()
+
+        with self.assertRaises(TypeError):
+            memory._save_profile({"not_json": object()}, "user-a")
+
+        self.assertEqual(self.profile_path.read_bytes(), original)
+        self.assertEqual(self._temporary_files(), [])
+
+    def test_replace_failure_keeps_existing_profile_and_cleans_temp_file(self):
+        original = self._write_existing_profile()
+
+        with patch.object(memory.os, "replace", side_effect=OSError("replace failed")):
+            with self.assertRaisesRegex(OSError, "replace failed"):
+                memory._save_profile({"name": "new profile"}, "user-a")
+
+        self.assertEqual(self.profile_path.read_bytes(), original)
+        self.assertEqual(self._temporary_files(), [])
 
 
 class DataExportIsolationTests(unittest.TestCase):
