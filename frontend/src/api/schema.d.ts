@@ -1430,6 +1430,8 @@ export interface components {
             divergence?: number | null;
             /** Target Role */
             target_role?: string | null;
+            /** Job Description */
+            job_description?: string | null;
         };
         /**
          * SystemSettings

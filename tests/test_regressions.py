@@ -10,9 +10,12 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from fastapi import BackgroundTasks, HTTPException
+from langchain_core.messages import AIMessage
 
 from backend import memory
 from backend.config import settings
+from backend.graphs import resume_interview as resume_graph
+from backend.models import InterviewMode, StartInterviewRequest
 from backend.routers import copilot, data_migration as migration_router, interview, recording
 from backend.runtime import _task_status
 from backend.storage import data_migration, sessions
@@ -327,6 +330,86 @@ class RecordingPersistenceTests(unittest.TestCase):
         self.assertEqual(result["status"], "pending")
         self.assertEqual(retried["status"], sessions.STATUS_REVIEWING)
         self.assertEqual(len(background.tasks), 1)
+
+
+class ResumeInterviewContextTests(unittest.TestCase):
+    def test_start_persists_and_passes_target_job_context_to_graph(self):
+        class FakeGraph:
+            def __init__(self):
+                self.input = None
+
+            async def ainvoke(self, graph_input, _config):
+                self.input = graph_input
+                return {"messages": [AIMessage(content="请先做个自我介绍。")]}
+
+        graph = FakeGraph()
+        request = StartInterviewRequest(
+            mode=InterviewMode.RESUME,
+            target_role="AI 应用开发工程师",
+            job_description="负责 RAG 应用开发，要求熟悉 Python、向量检索和服务性能优化。",
+        )
+
+        with (
+            patch(
+                "backend.graphs.resume_interview.compile_resume_interview",
+                return_value=graph,
+            ),
+            patch.object(interview, "update_target_role", new=AsyncMock()),
+            patch.object(interview, "create_session") as create_session,
+            patch.object(interview, "append_message"),
+            patch.object(interview, "_graphs", {}),
+        ):
+            result = asyncio.run(interview.start_interview(request, user_id="user-a"))
+
+        self.assertEqual(
+            graph.input,
+            {
+                "target_role": "AI 应用开发工程师",
+                "job_description": "负责 RAG 应用开发，要求熟悉 Python、向量检索和服务性能优化。",
+            },
+        )
+        self.assertEqual(result["target_role"], "AI 应用开发工程师")
+        self.assertEqual(result["job_description"], graph.input["job_description"])
+        self.assertEqual(
+            create_session.call_args.kwargs["meta"],
+            {
+                "target_role": "AI 应用开发工程师",
+                "job_description": graph.input["job_description"],
+            },
+        )
+
+    def test_resume_prompt_uses_job_description_and_preserves_it_in_state(self):
+        class CapturingLLM:
+            def __init__(self):
+                self.messages = []
+
+            async def ainvoke(self, messages):
+                self.messages = messages
+                return AIMessage(content="欢迎参加面试。")
+
+        llm = CapturingLLM()
+        init_node = resume_graph._make_init_interview("user-a")
+        job_description = "负责高并发 API，要求掌握 FastAPI、PostgreSQL 和系统设计。"
+
+        with (
+            patch.object(resume_graph, "query_resume", return_value="候选人做过订单服务"),
+            patch.object(resume_graph, "get_profile_summary", return_value="后端经验较强"),
+            patch.object(resume_graph, "get_langchain_llm", return_value=llm),
+        ):
+            state = asyncio.run(
+                init_node(
+                    {
+                        "target_role": "后端开发工程师",
+                        "job_description": job_description,
+                    }
+                )
+            )
+
+        system_prompt = llm.messages[0].content
+        self.assertIn("本次面试目标岗位 JD", system_prompt)
+        self.assertIn(job_description, system_prompt)
+        self.assertIn("候选人做过订单服务", system_prompt)
+        self.assertEqual(state["job_description"], job_description)
 
 
 class CopilotAuthorizationTests(unittest.TestCase):

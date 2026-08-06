@@ -96,17 +96,19 @@ interface StartInterviewOptions {
   numQuestions?: number;
   divergence?: number;
   targetRole?: string;
+  jobDescription?: string;
 }
 
 export async function startInterview(
   mode: string,
   topic: string | null = null,
-  { numQuestions, divergence, targetRole }: StartInterviewOptions = {}
+  { numQuestions, divergence, targetRole, jobDescription }: StartInterviewOptions = {}
 ): Promise<ApiResponse<"/api/interview/start", "post">> {
   const body: Record<string, unknown> = { mode, topic };
   if (numQuestions != null) body.num_questions = numQuestions;
   if (divergence != null) body.divergence = divergence;
   if (targetRole != null) body.target_role = targetRole;
+  if (jobDescription != null) body.job_description = jobDescription;
   const res = await authFetch(`${API_BASE}/interview/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
