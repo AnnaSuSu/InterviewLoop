@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { TaskStatusProvider } from "./contexts/TaskStatusContext";
@@ -16,10 +16,9 @@ import Knowledge from "./pages/Knowledge";
 import TopicDetail from "./pages/TopicDetail";
 import Graph from "./pages/Graph";
 import RecordingAnalysis from "./pages/RecordingAnalysis";
-import JobPrep from "./pages/JobPrep";
 import Copilot from "./pages/Copilot";
 import TopicDrill from "./pages/TopicDrill";
-import ResumeInterview from "./pages/ResumeInterview";
+import MockInterview from "./pages/MockInterview";
 import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
@@ -28,7 +27,7 @@ import NotFound from "./pages/NotFound";
 const ResumeManager = lazy(() => import("./pages/ResumeManager"));
 const ResumeEditor = lazy(() => import("./pages/ResumeEditor"));
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const { token, loading } = useAuth();
   if (loading) return null;
   if (!token) return <Navigate to="/" replace />;
@@ -37,7 +36,7 @@ function ProtectedRoute({ children }) {
 
 // Gate the app behind first-run provider setup: a user with no LLM/Embedding
 // configured can't do anything useful, so funnel them through onboarding first.
-function ProviderGate({ children }) {
+function ProviderGate({ children }: { children: ReactNode }) {
   const { needsOnboarding } = useAuth();
   if (needsOnboarding) return <Onboarding />;
   return children;
@@ -57,7 +56,7 @@ function AuthPage() {
   return <Login />;
 }
 
-function AppShell({ children }) {
+function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col md:flex-row h-screen">
       <Sidebar />
@@ -88,10 +87,17 @@ function AppRoutes() {
                 <Route path="/knowledge" element={<Knowledge />} />
                 <Route path="/graph" element={<Graph />} />
                 <Route path="/recording" element={<RecordingAnalysis />} />
-                <Route path="/job-prep" element={<JobPrep />} />
+                <Route path="/mock-interview" element={<MockInterview />} />
+                <Route
+                  path="/job-prep"
+                  element={<Navigate to="/mock-interview?mode=targeted" replace />}
+                />
                 <Route path="/copilot" element={<Copilot />} />
                 <Route path="/topic-drill" element={<TopicDrill />} />
-                <Route path="/resume-interview" element={<ResumeInterview />} />
+                <Route
+                  path="/resume-interview"
+                  element={<Navigate to="/mock-interview?mode=live" replace />}
+                />
                 <Route
                   path="/resume-manager"
                   element={

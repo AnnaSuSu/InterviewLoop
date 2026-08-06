@@ -191,6 +191,7 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
             target_role = (get_profile(user_id).get("target_role") or "").strip()
         if not target_role:
             raise HTTPException(400, "请先填写目标岗位")
+        job_description = (req.job_description or "").strip()
 
         await update_target_role(user_id, target_role)
 
@@ -200,7 +201,13 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
             # 任一失败(模型报错 / 磁盘写满 / OOM 连接中断)都在这里兜住，
             # 返回可读原因，而不是裸奔成一句 Internal Server Error。
             graph = compile_resume_interview(user_id)
-            result = await graph.ainvoke({"target_role": target_role}, config)
+            result = await graph.ainvoke(
+                {
+                    "target_role": target_role,
+                    "job_description": job_description,
+                },
+                config,
+            )
 
             ai_message = ""
             for msg in reversed(result["messages"]):
@@ -210,7 +217,11 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
 
             create_session(
                 session_id, req.mode.value, req.topic,
-                meta={"target_role": target_role}, user_id=user_id,
+                meta={
+                    "target_role": target_role,
+                    "job_description": job_description,
+                },
+                user_id=user_id,
             )
             append_message(session_id, "assistant", ai_message, user_id=user_id)
         except ProviderNotConfigured:
@@ -234,6 +245,7 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
             "mode": req.mode.value,
             "topic": req.topic,
             "target_role": target_role,
+            "job_description": job_description,
             "message": ai_message,
         }
 
@@ -748,6 +760,7 @@ async def get_session_for_resume(
         "transcript": session.get("transcript", []),
         "questions": session.get("questions", []),
         "target_role": meta.get("target_role", ""),
+        "job_description": meta.get("job_description", ""),
         "meta": meta,
         "can_continue": can_continue,
         "is_finished": is_finished,

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  User, BookOpen, GitFork, Clock, Mic, BriefcaseBusiness, Brain,
+  User, BookOpen, GitFork, Clock, Mic, Brain,
   Target, FileText, FileUser, Settings as SettingsIcon,
   Sun, Moon, LogOut, Menu, X, ChevronLeft, ChevronRight,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,15 +18,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const NAV_ITEMS = [
+interface NavItem {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { path: "/profile", label: "我的画像", icon: User },
   { path: "/topic-drill", label: "专项训练", icon: Target },
-  { path: "/resume-interview", label: "简历面试", icon: FileText },
+  { path: "/mock-interview", label: "面试训练", icon: FileText },
   { path: "/resume-manager", label: "简历管理", icon: FileUser },
-  { path: "/job-prep", label: "JD 备面", icon: BriefcaseBusiness },
   { path: "/recording", label: "录音复盘", icon: Mic },
   { path: "/copilot", label: "面试 Copilot", icon: Brain },
-  { path: "/knowledge", label: "题库", icon: BookOpen },
+  { path: "/knowledge", label: "训练领域", icon: BookOpen },
   { path: "/graph", label: "图谱", icon: GitFork },
   { path: "/history", label: "历史记录", icon: Clock },
   { path: "/settings", label: "设置", icon: SettingsIcon },
@@ -36,7 +42,7 @@ export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
-  const [openPath, setOpenPath] = useState(null);
+  const [openPath, setOpenPath] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("sidebar-collapsed") === "true");
   const open = openPath === location.pathname;
 
@@ -45,10 +51,10 @@ export default function Sidebar() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  useEffect(() => { localStorage.setItem("sidebar-collapsed", collapsed); }, [collapsed]);
+  useEffect(() => { localStorage.setItem("sidebar-collapsed", String(collapsed)); }, [collapsed]);
 
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
-  const isActive = (path) =>
+  const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
   const handleLogout = () => {
@@ -56,7 +62,7 @@ export default function Sidebar() {
     navigate("/login", { replace: true });
   };
 
-  const navItem = ({ path, label, icon: Icon }) => {
+  const navItem = ({ path, label, icon: Icon }: NavItem) => {
     const active = isActive(path);
     const btn = (
       <button
