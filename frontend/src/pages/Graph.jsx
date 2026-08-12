@@ -563,7 +563,10 @@ export default function Graph() {
                       setGraphReady(true);
                     });
                   }}
-                  cooldownTicks={100}
+                  // 初始阶段保留力导向布局计算；布局稳定并显示后，将后续模拟计算立即停止。
+                  // react-force-graph 会在拖动节点时自动重新加热 simulation，如果继续执行 tick，
+                  // 其他节点会被排斥力推离。设为 0 不影响被拖节点的坐标更新，只阻止其余节点重排。
+                  cooldownTicks={graphReady ? 0 : 100}
                   d3AlphaDecay={0.026}
                   d3VelocityDecay={0.33}
                 />
