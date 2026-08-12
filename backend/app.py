@@ -15,6 +15,7 @@ from backend.routers import (
     history,
     interview,
     knowledge,
+    personal_agent,
     profile,
     recording,
     resume,
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(voiceprint.router)
     app.include_router(interview.router)
     app.include_router(knowledge.router)
+    app.include_router(personal_agent.router)
     app.include_router(history.router)
     app.include_router(data_migration.router)
     app.include_router(copilot.rest_router)

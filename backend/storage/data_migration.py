@@ -21,8 +21,9 @@ from pathlib import Path
 
 from backend.config import settings
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 EXCLUDE_DIR_NAMES = {".index_cache", "__pycache__"}
+SENSITIVE_USER_FILENAMES = {"provider.json", "voiceprint.json"}
 
 # 与 storage/sessions.py 保持一致；目标库不存在时用它建表
 _SESSIONS_DDL = """
@@ -45,6 +46,47 @@ CREATE TABLE IF NOT EXISTS sessions (
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 )
 """
+
+_PERSONAL_DOCUMENTS_DDL = """
+CREATE TABLE IF NOT EXISTS personal_documents (
+    document_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    stored_name TEXT NOT NULL,
+    extension TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'indexing',
+    chunk_count INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+_PERSONAL_CONVERSATIONS_DDL = """
+CREATE TABLE IF NOT EXISTS personal_conversations (
+    conversation_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '新对话',
+    messages TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+)
+"""
+
+# Personal archives deliberately use a table whitelist. Derived vector/index tables,
+# users/password hashes, and other accounts' data never enter a single-user backup.
+_PERSONAL_DB_TABLES = {
+    "sessions": {"ddl": _SESSIONS_DDL, "primary_key": "session_id"},
+    "personal_documents": {
+        "ddl": _PERSONAL_DOCUMENTS_DDL,
+        "primary_key": "document_id",
+    },
+    "personal_conversations": {
+        "ddl": _PERSONAL_CONVERSATIONS_DDL,
+        "primary_key": "conversation_id",
+    },
+}
 
 
 def _data_dir() -> Path:
@@ -75,12 +117,65 @@ def _filter_tar_member(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
     return tarinfo
 
 
-def _export_filtered_db(user_id: str, dst: Path) -> None:
-    """生成只含当前用户 sessions 表的最小数据库。
+def _personal_tar_filter(
+    tarinfo: tarfile.TarInfo,
+    *,
+    include_sensitive_credentials: bool,
+) -> tarfile.TarInfo | None:
+    filtered = _filter_tar_member(tarinfo)
+    if filtered is None:
+        return None
+    if (
+        not include_sensitive_credentials
+        and Path(tarinfo.name).name in SENSITIVE_USER_FILENAMES
+    ):
+        return None
+    return tarinfo
 
-    interviews.db 也承载 users、memory_vectors、copilot_preps 等全局表，不能先
-    backup 整库再只过滤 sessions，否则用户下载的归档会包含其他账户的数据。
-    HTTP/用户级导入只消费 sessions，因此这里显式按白名单复制这一张表。
+
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table,),
+    ).fetchone() is not None
+
+
+def _copy_user_table(
+    src: sqlite3.Connection,
+    dst: sqlite3.Connection,
+    table: str,
+    user_id: str,
+) -> None:
+    spec = _PERSONAL_DB_TABLES[table]
+    dst.execute(spec["ddl"])
+    if not _table_exists(src, table):
+        return
+
+    src_cols = [row[1] for row in src.execute(f"PRAGMA table_info({table})")]
+    dst_cols = {row[1] for row in dst.execute(f"PRAGMA table_info({table})")}
+    common = [column for column in src_cols if column in dst_cols]
+    if spec["primary_key"] not in common or "user_id" not in common:
+        raise RuntimeError(f"{table} 表缺少主键或 user_id，无法安全导出")
+
+    columns = ", ".join(common)
+    placeholders = ", ".join("?" for _ in common)
+    rows = src.execute(
+        f"SELECT {columns} FROM {table} WHERE user_id = ?",
+        (user_id,),
+    ).fetchall()
+    if rows:
+        dst.executemany(
+            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
+            rows,
+        )
+
+
+def _export_filtered_db(user_id: str, dst: Path) -> None:
+    """Generate a personal DB containing only portable, user-owned tables.
+
+    The live DB also contains password hashes and derived vector caches, so copying
+    the whole DB and deleting rows afterward is not acceptable. Copy a strict
+    whitelist and filter every table by user_id instead.
     """
     src_path = _db_path()
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -89,23 +184,8 @@ def _export_filtered_db(user_id: str, dst: Path) -> None:
 
     with closing(sqlite3.connect(str(src_path))) as src, \
          closing(sqlite3.connect(str(dst))) as dst_conn:
-        dst_conn.execute(_SESSIONS_DDL)
-
-        src_cols = [row[1] for row in src.execute("PRAGMA table_info(sessions)")]
-        dst_cols = {row[1] for row in dst_conn.execute("PRAGMA table_info(sessions)")}
-        common = [column for column in src_cols if column in dst_cols]
-        if "session_id" not in common or "user_id" not in common:
-            raise RuntimeError("sessions 表缺少 session_id/user_id，无法安全导出")
-
-        columns = ", ".join(common)
-        placeholders = ", ".join("?" for _ in common)
-        rows = src.execute(
-            f"SELECT {columns} FROM sessions WHERE user_id = ?", (user_id,)
-        ).fetchall()
-        if rows:
-            dst_conn.executemany(
-                f"INSERT INTO sessions ({columns}) VALUES ({placeholders})", rows
-            )
+        for table in _PERSONAL_DB_TABLES:
+            _copy_user_table(src, dst_conn, table, user_id)
         dst_conn.commit()
         dst_conn.execute("VACUUM")
 
@@ -124,6 +204,7 @@ def export_archive(
     output_path: Path,
     *,
     user_id: str | None = None,
+    include_sensitive_credentials: bool = False,
 ) -> Path:
     """打包 data/ 为 tar.gz。
 
@@ -139,6 +220,12 @@ def export_archive(
         "schema_version": SCHEMA_VERSION,
         "exported_at": datetime.now().isoformat(timespec="seconds"),
         "user_id": user_id,
+        "backup_kind": "personal" if user_id else "system",
+        # Full-system backups always contain stored credentials. Personal backups
+        # contain them only after explicit user opt-in.
+        "includes_sensitive_credentials": (
+            True if user_id is None else include_sensitive_credentials
+        ),
         "source": str(data_dir),
     }
 
@@ -169,7 +256,14 @@ def export_archive(
                 if user_id:
                     udir = users_dir / user_id
                     if udir.exists():
-                        tar.add(udir, arcname=f"data/users/{user_id}", filter=_filter_tar_member)
+                        tar.add(
+                            udir,
+                            arcname=f"data/users/{user_id}",
+                            filter=lambda info: _personal_tar_filter(
+                                info,
+                                include_sensitive_credentials=include_sensitive_credentials,
+                            ),
+                        )
                 else:
                     tar.add(users_dir, arcname="data/users", filter=_filter_tar_member)
     finally:
@@ -193,6 +287,68 @@ def _safe_extract(tar: tarfile.TarFile, dest: Path) -> None:
         tar.extractall(dest)
 
 
+def _merge_personal_table(
+    src: sqlite3.Connection,
+    dst: sqlite3.Connection,
+    table: str,
+    *,
+    strategy: str,
+    rebind_user_id: str | None,
+) -> tuple[int, int]:
+    spec = _PERSONAL_DB_TABLES[table]
+    dst.execute(spec["ddl"])
+    if not _table_exists(src, table):
+        return 0, 0
+
+    src_cols = [row[1] for row in src.execute(f"PRAGMA table_info({table})")]
+    dst_cols = {row[1] for row in dst.execute(f"PRAGMA table_info({table})")}
+    common = [column for column in src_cols if column in dst_cols]
+    primary_key = spec["primary_key"]
+    if primary_key not in common or "user_id" not in common:
+        raise RuntimeError(f"{table} 表缺少主键或 user_id，无法合并")
+
+    rows = src.execute(f"SELECT {', '.join(common)} FROM {table}").fetchall()
+    pk_idx = common.index(primary_key)
+    uid_idx = common.index("user_id")
+    inserted = 0
+    skipped = 0
+
+    for source_row in rows:
+        row = list(source_row)
+        if rebind_user_id is not None:
+            row[uid_idx] = rebind_user_id
+        primary_value = row[pk_idx]
+        target_user_id = row[uid_idx]
+        existing = dst.execute(
+            f"SELECT user_id FROM {table} WHERE {primary_key} = ?",
+            (primary_value,),
+        ).fetchone()
+
+        if existing:
+            # A UUID collision must never let one account overwrite another.
+            if existing[0] != target_user_id or strategy != "overwrite":
+                skipped += 1
+                continue
+            set_cols = [column for column in common if column != primary_key]
+            assignments = ", ".join(f"{column} = ?" for column in set_cols)
+            values = [row[common.index(column)] for column in set_cols]
+            dst.execute(
+                f"UPDATE {table} SET {assignments} WHERE {primary_key} = ? AND user_id = ?",
+                values + [primary_value, target_user_id],
+            )
+            inserted += 1
+            continue
+
+        placeholders = ", ".join("?" for _ in common)
+        dst.execute(
+            f"INSERT INTO {table} ({', '.join(common)}) VALUES ({placeholders})",
+            row,
+        )
+        inserted += 1
+
+    return inserted, skipped
+
+
 def _merge_db(
     src_db: Path,
     dst_db: Path,
@@ -200,7 +356,7 @@ def _merge_db(
     strategy: str,
     rebind_user_id: str | None = None,
 ) -> tuple[int, int]:
-    """合并 sessions 表，返回 (写入行数, 跳过行数)。
+    """Merge all portable personal tables, returning total (written, skipped).
 
     rebind_user_id 非空时，归档中所有行的 user_id 改写为该值——HTTP 导入用，
     防止跨用户写入；同时支持跨机迁移（user_id 在新机器上不同）。
@@ -209,50 +365,29 @@ def _merge_db(
         dst_db.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_db, dst_db)
         with sqlite3.connect(str(dst_db)) as c:
-            total = c.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+            total = sum(
+                c.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                for table in _PERSONAL_DB_TABLES
+                if _table_exists(c, table)
+            )
         return total, 0
 
     dst_db.parent.mkdir(parents=True, exist_ok=True)
     src = sqlite3.connect(str(src_db))
     dst = sqlite3.connect(str(dst_db))
     try:
-        dst.execute(_SESSIONS_DDL)
-
-        src_cols = [r[1] for r in src.execute("PRAGMA table_info(sessions)")]
-        dst_cols = {r[1] for r in dst.execute("PRAGMA table_info(sessions)")}
-        common = [c for c in src_cols if c in dst_cols]
-        if "session_id" not in common:
-            raise RuntimeError("session_id 列缺失，无法合并")
-
-        existing = {r[0] for r in dst.execute("SELECT session_id FROM sessions")}
-        rows = src.execute(f"SELECT {', '.join(common)} FROM sessions").fetchall()
-
-        sid_idx = common.index("session_id")
-        uid_idx = common.index("user_id") if "user_id" in common else -1
-
         inserted = 0
         skipped = 0
-        for row in rows:
-            row = list(row)
-            if rebind_user_id is not None and uid_idx >= 0:
-                row[uid_idx] = rebind_user_id
-            sid = row[sid_idx]
-            if sid in existing:
-                if strategy == "overwrite":
-                    set_cols = [c for c in common if c != "session_id"]
-                    assigns = ", ".join(f"{c} = ?" for c in set_cols)
-                    vals = [row[common.index(c)] for c in set_cols]
-                    dst.execute(f"UPDATE sessions SET {assigns} WHERE session_id = ?", vals + [sid])
-                    inserted += 1
-                else:
-                    skipped += 1
-            else:
-                placeholders = ", ".join(["?"] * len(common))
-                dst.execute(
-                    f"INSERT INTO sessions ({', '.join(common)}) VALUES ({placeholders})",
-                    row,
-                )
-                inserted += 1
+        for table in _PERSONAL_DB_TABLES:
+            table_inserted, table_skipped = _merge_personal_table(
+                src,
+                dst,
+                table,
+                strategy=strategy,
+                rebind_user_id=rebind_user_id,
+            )
+            inserted += table_inserted
+            skipped += table_skipped
         dst.commit()
         return inserted, skipped
     finally:

@@ -77,7 +77,7 @@ class ProfilePersistenceTests(unittest.TestCase):
 
 
 class DataExportIsolationTests(unittest.TestCase):
-    def test_user_export_contains_only_their_sessions_table(self):
+    def test_user_export_contains_only_their_portable_tables(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             source = root / "source.db"
@@ -85,6 +85,8 @@ class DataExportIsolationTests(unittest.TestCase):
 
             with sqlite3.connect(source) as conn:
                 conn.execute(data_migration._SESSIONS_DDL)
+                conn.execute(data_migration._PERSONAL_DOCUMENTS_DDL)
+                conn.execute(data_migration._PERSONAL_CONVERSATIONS_DDL)
                 conn.execute(
                     "INSERT INTO sessions (session_id, mode, user_id) VALUES (?, ?, ?)",
                     ("mine", "recording", "user-a"),
@@ -92,6 +94,28 @@ class DataExportIsolationTests(unittest.TestCase):
                 conn.execute(
                     "INSERT INTO sessions (session_id, mode, user_id) VALUES (?, ?, ?)",
                     ("theirs", "resume", "user-b"),
+                )
+                conn.execute(
+                    "INSERT INTO personal_documents "
+                    "(document_id, user_id, filename, stored_name, extension, size_bytes) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    ("doc-mine", "user-a", "mine.md", "doc-mine.md", ".md", 10),
+                )
+                conn.execute(
+                    "INSERT INTO personal_documents "
+                    "(document_id, user_id, filename, stored_name, extension, size_bytes) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    ("doc-theirs", "user-b", "theirs.md", "doc-theirs.md", ".md", 20),
+                )
+                conn.execute(
+                    "INSERT INTO personal_conversations "
+                    "(conversation_id, user_id, title) VALUES (?, ?, ?)",
+                    ("chat-mine", "user-a", "My chat"),
+                )
+                conn.execute(
+                    "INSERT INTO personal_conversations "
+                    "(conversation_id, user_id, title) VALUES (?, ?, ?)",
+                    ("chat-theirs", "user-b", "Their chat"),
                 )
                 conn.execute("CREATE TABLE users (id TEXT, email TEXT, password TEXT)")
                 conn.execute(
@@ -118,8 +142,71 @@ class DataExportIsolationTests(unittest.TestCase):
                     "SELECT session_id, user_id FROM sessions"
                 ).fetchall()
 
-            self.assertEqual(tables, {"sessions"})
+                documents = conn.execute(
+                    "SELECT document_id, user_id FROM personal_documents"
+                ).fetchall()
+                conversations = conn.execute(
+                    "SELECT conversation_id, user_id FROM personal_conversations"
+                ).fetchall()
+
+            self.assertEqual(
+                tables,
+                {"sessions", "personal_documents", "personal_conversations"},
+            )
             self.assertEqual(rows, [("mine", "user-a")])
+            self.assertEqual(documents, [("doc-mine", "user-a")])
+            self.assertEqual(conversations, [("chat-mine", "user-a")])
+
+    def test_personal_archive_excludes_sensitive_credentials_by_default(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db_path = root / "data" / "interviews.db"
+            user_dir = root / "data" / "users" / "user-a"
+            user_dir.mkdir(parents=True)
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(data_migration._SESSIONS_DDL)
+            (user_dir / "profile").mkdir()
+            (user_dir / "profile" / "profile.json").write_text('{"name":"A"}', encoding="utf-8")
+            (user_dir / "resume").mkdir()
+            (user_dir / "resume" / "resume.pdf").write_bytes(b"pdf")
+            (user_dir / "knowledge" / "python").mkdir(parents=True)
+            (user_dir / "knowledge" / "python" / "README.md").write_text("GIL", encoding="utf-8")
+            (user_dir / "provider.json").write_text('{"api_key":"secret"}', encoding="utf-8")
+            (user_dir / "voiceprint.json").write_text('{"secret_key":"secret"}', encoding="utf-8")
+            (user_dir / "library").mkdir()
+            (user_dir / "library" / "notes.md").write_text("notes", encoding="utf-8")
+
+            default_archive = root / "personal-default.tar.gz"
+            sensitive_archive = root / "personal-sensitive.tar.gz"
+            with (
+                patch.object(settings, "base_dir", root),
+                patch.object(settings, "db_path", db_path),
+            ):
+                data_migration.export_archive(default_archive, user_id="user-a")
+                data_migration.export_archive(
+                    sensitive_archive,
+                    user_id="user-a",
+                    include_sensitive_credentials=True,
+                )
+
+            with tarfile.open(default_archive, "r:gz") as tar:
+                default_names = set(tar.getnames())
+                manifest = json.load(tar.extractfile("manifest.json"))
+            with tarfile.open(sensitive_archive, "r:gz") as tar:
+                sensitive_names = set(tar.getnames())
+
+            prefix = "data/users/user-a"
+            self.assertIn(f"{prefix}/profile/profile.json", default_names)
+            self.assertIn(f"{prefix}/resume/resume.pdf", default_names)
+            self.assertIn(f"{prefix}/knowledge/python/README.md", default_names)
+            self.assertIn(f"{prefix}/library/notes.md", default_names)
+            self.assertNotIn(f"{prefix}/provider.json", default_names)
+            self.assertNotIn(f"{prefix}/voiceprint.json", default_names)
+            self.assertIn(f"{prefix}/provider.json", sensitive_names)
+            self.assertIn(f"{prefix}/voiceprint.json", sensitive_names)
+            self.assertEqual(manifest["backup_kind"], "personal")
+            self.assertFalse(manifest["includes_sensitive_credentials"])
 
     def test_full_export_snapshot_keeps_all_database_tables(self):
         with tempfile.TemporaryDirectory() as td:
@@ -172,6 +259,143 @@ class DataExportIsolationTests(unittest.TestCase):
         self.assertTrue(Path(response.path).exists())
         if created_dir:
             migration_router._cleanup_dir(created_dir)
+
+    def test_http_personal_export_is_available_to_every_user(self):
+        created_dir = None
+
+        def fake_export(path, **kwargs):
+            nonlocal created_dir
+            created_dir = path.parent
+            self.assertEqual(kwargs, {
+                "user_id": "user-a",
+                "include_sensitive_credentials": True,
+            })
+            path.write_bytes(b"personal archive")
+            return path
+
+        with patch.object(migration_router, "export_archive", side_effect=fake_export):
+            response = migration_router.export_personal_data(
+                BackgroundTasks(),
+                include_sensitive=True,
+                user_id="user-a",
+            )
+
+        self.assertTrue(Path(response.path).exists())
+        self.assertIn("techspar-personal-", response.filename)
+        if created_dir:
+            migration_router._cleanup_dir(created_dir)
+
+    def test_personal_archive_round_trip_rebinds_agent_data_and_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source_root = root / "source"
+            target_root = root / "target"
+            source_db = source_root / "data" / "interviews.db"
+            target_db = target_root / "data" / "interviews.db"
+            source_db.parent.mkdir(parents=True)
+
+            with sqlite3.connect(source_db) as conn:
+                conn.execute(data_migration._SESSIONS_DDL)
+                conn.execute(data_migration._PERSONAL_DOCUMENTS_DDL)
+                conn.execute(data_migration._PERSONAL_CONVERSATIONS_DDL)
+                conn.execute(
+                    "INSERT INTO sessions (session_id, mode, user_id) VALUES ('s1', 'resume', 'source-user')"
+                )
+                conn.execute(
+                    "INSERT INTO personal_documents "
+                    "(document_id, user_id, filename, stored_name, extension, size_bytes) "
+                    "VALUES ('d1', 'source-user', 'notes.md', 'd1.md', '.md', 5)"
+                )
+                conn.execute(
+                    "INSERT INTO personal_conversations "
+                    "(conversation_id, user_id, title, messages) "
+                    "VALUES ('c1', 'source-user', '成长计划', '[{\"role\":\"user\",\"content\":\"hi\"}]')"
+                )
+
+            source_user_dir = source_root / "data" / "users" / "source-user"
+            (source_user_dir / "library").mkdir(parents=True)
+            (source_user_dir / "library" / "d1.md").write_text("notes", encoding="utf-8")
+            (source_user_dir / "profile").mkdir()
+            (source_user_dir / "profile" / "profile.json").write_text(
+                '{"name":"Source"}', encoding="utf-8"
+            )
+            archive = root / "personal.tar.gz"
+
+            with (
+                patch.object(settings, "base_dir", source_root),
+                patch.object(settings, "db_path", source_db),
+            ):
+                data_migration.export_archive(archive, user_id="source-user")
+
+            with (
+                patch.object(settings, "base_dir", target_root),
+                patch.object(settings, "db_path", target_db),
+            ):
+                result = data_migration.import_archive(
+                    archive,
+                    rebind_user_id="target-user",
+                    require_personal_archive=True,
+                )
+
+            with sqlite3.connect(target_db) as conn:
+                session_user = conn.execute(
+                    "SELECT user_id FROM sessions WHERE session_id = 's1'"
+                ).fetchone()[0]
+                document_user = conn.execute(
+                    "SELECT user_id FROM personal_documents WHERE document_id = 'd1'"
+                ).fetchone()[0]
+                conversation_user = conn.execute(
+                    "SELECT user_id FROM personal_conversations WHERE conversation_id = 'c1'"
+                ).fetchone()[0]
+
+            self.assertEqual(result.db_inserted, 3)
+            self.assertEqual(session_user, "target-user")
+            self.assertEqual(document_user, "target-user")
+            self.assertEqual(conversation_user, "target-user")
+            self.assertEqual(
+                (target_root / "data" / "users" / "target-user" / "library" / "d1.md").read_text(),
+                "notes",
+            )
+            self.assertTrue(
+                (
+                    target_root
+                    / "data"
+                    / "users"
+                    / "target-user"
+                    / "profile"
+                    / "profile.json"
+                ).exists()
+            )
+
+    def test_personal_import_never_overwrites_another_users_id_collision(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = root / "source.db"
+            target = root / "target.db"
+            for path, user_id, mode in (
+                (source, "source-user", "resume"),
+                (target, "other-user", "recording"),
+            ):
+                with sqlite3.connect(path) as conn:
+                    conn.execute(data_migration._SESSIONS_DDL)
+                    conn.execute(
+                        "INSERT INTO sessions (session_id, mode, user_id) VALUES (?, ?, ?)",
+                        ("same-id", mode, user_id),
+                    )
+
+            inserted, skipped = data_migration._merge_db(
+                source,
+                target,
+                strategy="overwrite",
+                rebind_user_id="target-user",
+            )
+
+            with sqlite3.connect(target) as conn:
+                row = conn.execute(
+                    "SELECT mode, user_id FROM sessions WHERE session_id = 'same-id'"
+                ).fetchone()
+            self.assertEqual((inserted, skipped), (0, 1))
+            self.assertEqual(row, ("recording", "other-user"))
 
     def test_personal_import_rejects_a_full_system_archive(self):
         with tempfile.TemporaryDirectory() as td:

@@ -1,10 +1,10 @@
-"""数据迁移端点：管理员全量导出 + 当前账户个人导入。
+"""Data migration endpoints: personal portability plus admin system backup.
 
 与 CLI (scripts/export_data.py、scripts/import_data.py) 共用
 backend.storage.data_migration 中的核心实现。
 
-导出仅管理员可用并一次性包含整个 data/。导入接受单账户归档，并始终把
-数据归到当前登录用户（rebind_user_id=user_id）。
+Every account can export/import its own data. Administrators additionally have a
+full-system backup. Personal imports always rebind data to the signed-in user.
 """
 from __future__ import annotations
 
@@ -65,6 +65,42 @@ def export_data(
     )
 
 
+@router.get("/export/personal")
+def export_personal_data(
+    background: BackgroundTasks,
+    include_sensitive: bool = False,
+    user_id: str = Depends(get_current_user),
+):
+    """Download the current user's portable backup.
+
+    Provider/API keys and voiceprint credentials are excluded unless the user
+    explicitly opts in with include_sensitive=true.
+    """
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    tmp_dir = Path(tempfile.mkdtemp(prefix="techspar-personal-export-"))
+    archive_path = tmp_dir / f"techspar-personal-{ts}.tar.gz"
+
+    try:
+        export_archive(
+            archive_path,
+            user_id=user_id,
+            include_sensitive_credentials=include_sensitive,
+        )
+    except FileNotFoundError as exc:
+        _cleanup_dir(tmp_dir)
+        raise HTTPException(500, str(exc))
+    except Exception:
+        _cleanup_dir(tmp_dir)
+        raise
+
+    background.add_task(_cleanup_dir, tmp_dir)
+    return FileResponse(
+        archive_path,
+        media_type="application/gzip",
+        filename=archive_path.name,
+    )
+
+
 @router.post("/import")
 async def import_data(
     background: BackgroundTasks,
@@ -106,6 +142,14 @@ async def import_data(
             )
         except (RuntimeError, ValueError) as e:
             raise HTTPException(400, f"归档解析失败: {e}")
+
+        # Vectors are derived and intentionally absent from personal archives.
+        # Drop any stale local cache and make the rebuild requirement visible.
+        from backend.indexer import invalidate_user_embeddings
+        from backend.personal_agent import mark_documents_for_reindex
+
+        invalidate_user_embeddings(user_id)
+        mark_documents_for_reindex(user_id)
     finally:
         background.add_task(_cleanup_dir, tmp_dir)
 
@@ -117,4 +161,5 @@ async def import_data(
         "db_skipped": result.db_skipped,
         "files_copied": result.files_copied,
         "files_skipped": result.files_skipped,
+        "requires_reindex": True,
     }

@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     def user_high_freq_path(self, user_id: str) -> Path:
         return self.user_data_dir(user_id) / "high_freq"
 
+    def user_library_path(self, user_id: str) -> Path:
+        """Original files uploaded to the user's personal Agent library."""
+        return self.user_data_dir(user_id) / "library"
+
     def user_topics_path(self, user_id: str) -> Path:
         return self.user_data_dir(user_id) / "topics.json"
 
