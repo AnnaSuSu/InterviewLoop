@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type DragEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import ReactMarkdown from "react-markdown";
 import {
   BookOpen,
   Brain,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
   Database,
   FileText,
   Loader2,
@@ -12,11 +16,13 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   deleteConversation,
@@ -32,6 +38,7 @@ import {
 } from "@/api/personalAgent";
 
 const PAGE_CLASS = "flex-1 w-full max-w-[1800px] mx-auto px-4 py-5 md:px-7 md:py-6 xl:px-8";
+const ACCEPTED_DOCUMENTS = ".pdf,.docx,.pptx,.xlsx,.txt,.md,.markdown,.csv,.tsv,.json,.yaml,.yml,.xml,.html,.htm,.rtf,.log,.py,.js,.jsx,.ts,.tsx,.java,.go,.rs,.sql,.css,.sh";
 
 const STARTERS = [
   { icon: Brain, text: "根据我的画像，告诉我现在最该补什么" },
@@ -51,6 +58,151 @@ function timeLabel(value: string) {
   return date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
 }
 
+interface DocumentLibraryProps {
+  documents: DocumentItem[];
+  uploading: boolean;
+  onChooseFile: () => void;
+  onFile: (file?: File) => void;
+  onRemove: (documentId: string) => void;
+  headerAction?: ReactNode;
+}
+
+function DocumentLibrary({
+  documents,
+  uploading,
+  onChooseFile,
+  onFile,
+  onRemove,
+  headerAction,
+}: DocumentLibraryProps) {
+  const [dragging, setDragging] = useState(false);
+
+  function handleDrop(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setDragging(false);
+    if (!uploading) onFile(event.dataTransfer.files?.[0]);
+  }
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="mb-2.5 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Database className="text-primary" size={17} />
+              我的资料库
+              <span className="rounded-full bg-hover px-2 py-0.5 text-[10px] font-medium text-dim">
+                {documents.length}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] leading-4 text-dim">
+              Agent 会检索与你问题相关的内容
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {documents.length > 0 && (
+              <Button size="sm" onClick={onChooseFile} disabled={uploading}>
+                {uploading ? <Loader2 className="animate-spin" /> : <Upload />}
+                上传
+              </Button>
+            )}
+            {headerAction}
+          </div>
+        </div>
+
+        <div className="mb-2.5 flex items-center gap-1.5 text-[11px] text-dim">
+          <span>常见文档 · 单个不超过 20 MB</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="查看支持格式"
+                className="rounded-full text-dim transition-colors hover:text-text"
+              >
+                <CircleHelp size={13} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[260px] leading-5">
+              支持 PDF、Word、PPT、Excel、Markdown、文本、数据文件及常见代码文件。
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+          {documents.length === 0 && (
+            <button
+              type="button"
+              className={cn(
+                "flex w-full flex-col items-center rounded-2xl border border-dashed px-4 py-6 text-center text-dim transition-colors",
+                dragging
+                  ? "border-primary bg-primary/8"
+                  : "border-border hover:border-primary/35 hover:bg-primary/5",
+              )}
+              onClick={onChooseFile}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDragging(true);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 size={20} className="mb-2 animate-spin text-primary" />
+              ) : (
+                <Upload size={20} className="mb-2 text-primary" />
+              )}
+              <span className="text-[13px] font-medium text-text">
+                {uploading ? "正在上传并解析…" : "拖拽文件到这里，或点击上传"}
+              </span>
+              <span className="mt-1 text-[11px]">笔记、课程资料、项目文档都可以</span>
+            </button>
+          )}
+
+          {documents.map((document) => (
+            <div key={document.document_id} className="group rounded-xl border border-border bg-background/45 p-3">
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hover text-dim">
+                  <FileText size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] font-medium" title={document.filename}>
+                    {document.filename}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-dim">
+                    <span>{formatBytes(document.size_bytes)}</span>
+                    <span>·</span>
+                    <span>{timeLabel(document.updated_at)}</span>
+                    <span>·</span>
+                    {document.status === "ready" ? (
+                      <span className="text-green">已索引 {document.chunk_count} 段</span>
+                    ) : document.status === "error" ? (
+                      <span className="text-red" title={document.error || "解析失败"}>解析失败</span>
+                    ) : document.status === "needs_reindex" ? (
+                      <span className="text-orange">待重建索引</span>
+                    ) : (
+                      <span className="text-primary">正在索引</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="删除文档"
+                  className="rounded-md p-1.5 text-dim opacity-0 transition-opacity hover:bg-red/10 hover:text-red focus:opacity-100 group-hover:opacity-100"
+                  onClick={() => onRemove(document.document_id)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+}
+
 export default function PersonalAgent() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -61,6 +213,8 @@ export default function PersonalAgent() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [libraryOpen, setLibraryOpen] = useState(true);
+  const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -212,9 +366,17 @@ export default function PersonalAgent() {
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-dim">
-          <span className="rounded-full border border-border bg-card px-3 py-1.5">
+          <span className="hidden rounded-full border border-border bg-card px-3 py-1.5 xl:inline-flex">
             {readyCount} 份资料可检索
           </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="xl:hidden"
+            onClick={() => setMobileLibraryOpen(true)}
+          >
+            <Database size={14} /> 资料库 · {readyCount}
+          </Button>
           <span className="rounded-full border border-border bg-card px-3 py-1.5">
             {conversations.length} 段对话
           </span>
@@ -227,7 +389,22 @@ export default function PersonalAgent() {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[230px_minmax(0,1fr)_300px]">
+      <input
+        ref={fileRef}
+        type="file"
+        className="hidden"
+        accept={ACCEPTED_DOCUMENTS}
+        onChange={(event) => handleUpload(event.target.files?.[0])}
+      />
+
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 gap-3",
+          libraryOpen
+            ? "xl:grid-cols-[230px_minmax(0,1fr)_340px]"
+            : "xl:grid-cols-[230px_minmax(0,1fr)_52px]",
+        )}
+      >
         <Card className="min-h-0 overflow-hidden xl:h-[calc(100vh-155px)]">
           <CardContent className="flex h-full flex-col p-3">
             <Button variant="outline" className="mb-3 w-full" onClick={newConversation}>
@@ -382,79 +559,74 @@ export default function PersonalAgent() {
           </CardContent>
         </Card>
 
-        <Card className="min-h-0 overflow-hidden xl:h-[calc(100vh-155px)]">
-          <CardContent className="flex h-full flex-col p-3.5">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Database className="text-primary" size={17} /> 个人资料库
-                </div>
-                <div className="mt-1 text-[11px] text-dim">上传后自动解析并建立检索索引</div>
-              </div>
-              <input
-                ref={fileRef}
-                type="file"
-                className="hidden"
-                accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.markdown,.csv,.tsv,.json,.yaml,.yml,.xml,.html,.htm,.rtf,.log,.py,.js,.jsx,.ts,.tsx,.java,.go,.rs,.sql,.css,.sh"
-                onChange={(event) => handleUpload(event.target.files?.[0])}
+        {libraryOpen ? (
+          <Card className="hidden min-h-0 overflow-hidden xl:block xl:h-[calc(100vh-155px)]">
+            <CardContent className="h-full p-3.5">
+              <DocumentLibrary
+                documents={documents}
+                uploading={uploading}
+                onChooseFile={() => fileRef.current?.click()}
+                onFile={handleUpload}
+                onRemove={removeDocument}
+                headerAction={(
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label="收起资料库"
+                    onClick={() => setLibraryOpen(false)}
+                  >
+                    <ChevronRight size={16} />
+                  </Button>
+                )}
               />
-              <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                {uploading ? <Loader2 className="animate-spin" /> : <Upload />}
-                上传
-              </Button>
-            </div>
-
-            <div className="mb-3 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 text-[11px] leading-5 text-dim">
-              支持 PDF、Word、PPT、Excel、Markdown、文本、数据文件及常见代码文件，单个上限 20 MB。
-            </div>
-
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-              {documents.length === 0 && (
-                <button
-                  className="flex w-full flex-col items-center rounded-2xl border border-dashed border-border px-4 py-10 text-center text-dim transition-colors hover:border-primary/35 hover:bg-primary/5"
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Upload size={22} className="mb-2 text-primary" />
-                  <span className="text-sm text-text">上传你的第一份资料</span>
-                  <span className="mt-1 text-[11px]">笔记、课程资料、项目文档都可以</span>
-                </button>
-              )}
-              {documents.map((document) => (
-                <div key={document.document_id} className="group rounded-xl border border-border bg-background/45 p-3">
-                  <div className="flex items-start gap-2.5">
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hover text-dim">
-                      <FileText size={15} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-medium" title={document.filename}>{document.filename}</div>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-dim">
-                        <span>{formatBytes(document.size_bytes)}</span>
-                        <span>·</span>
-                        {document.status === "ready" ? (
-                          <span className="text-green">已索引 {document.chunk_count} 段</span>
-                        ) : document.status === "error" ? (
-                          <span className="text-red" title={document.error || "解析失败"}>解析失败</span>
-                        ) : document.status === "needs_reindex" ? (
-                          <span className="text-orange">待重建索引</span>
-                        ) : (
-                          <span className="text-primary">正在索引</span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      aria-label="删除文档"
-                      className="rounded-md p-1.5 text-dim opacity-0 hover:bg-red/10 hover:text-red group-hover:opacity-100"
-                      onClick={() => removeDocument(document.document_id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="hidden min-h-0 overflow-hidden xl:block xl:h-[calc(100vh-155px)]">
+            <CardContent className="h-full p-1.5">
+              <button
+                type="button"
+                aria-label="展开我的资料库"
+                className="flex h-full w-full flex-col items-center gap-3 rounded-xl py-3 text-dim transition-colors hover:bg-hover hover:text-text"
+                onClick={() => setLibraryOpen(true)}
+              >
+                <ChevronLeft size={16} />
+                <Database className="text-primary" size={17} />
+                <span className="text-[11px] [writing-mode:vertical-rl]">我的资料库</span>
+                <span className="mt-auto rounded-full bg-hover px-1.5 py-0.5 text-[10px]">{readyCount}</span>
+              </button>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      <Dialog.Root open={mobileLibraryOpen} onOpenChange={setMobileLibraryOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
+          <Dialog.Content className="fixed inset-y-0 right-0 z-50 w-[min(92vw,360px)] border-l border-border bg-card p-4 text-text shadow-2xl outline-none">
+            <Dialog.Title className="sr-only">我的资料库</Dialog.Title>
+            <Dialog.Description className="sr-only">
+              上传和管理成长 Agent 可以检索的个人资料
+            </Dialog.Description>
+            <DocumentLibrary
+              documents={documents}
+              uploading={uploading}
+              onChooseFile={() => fileRef.current?.click()}
+              onFile={handleUpload}
+              onRemove={removeDocument}
+              headerAction={(
+                <Dialog.Close asChild>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="关闭资料库">
+                    <X size={16} />
+                  </Button>
+                </Dialog.Close>
+              )}
+            />
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }
