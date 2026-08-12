@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 
 const PAGE_CLASS = "flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-7 md:py-8 xl:px-10 2xl:px-12";
 const SIMILARITY_THRESHOLD = 0.65;
+const GRAPH_MIN_HEIGHT = 480;
+const GRAPH_STACKED_MAX_HEIGHT = 760;
 
 const SCORE_FILTERS = [
   { key: "all", label: "全部" },
@@ -31,28 +33,57 @@ export default function Graph() {
   const [scoreFilter, setScoreFilter] = useState("all");
   const [areaFilter, setAreaFilter] = useState("all");
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [graphReady, setGraphReady] = useState(false);
+  const pageRef = useRef(null);
   const containerRef = useRef(null);
+  const detailsColumnRef = useRef(null);
   const fgRef = useRef(null);
+  const initialFitPendingRef = useRef(false);
+  const revealFrameRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 960, height: 620 });
 
   useEffect(() => {
     getTopics().then(setTopics).catch(() => {});
   }, []);
 
+  useEffect(() => () => {
+    if (revealFrameRef.current != null) cancelAnimationFrame(revealFrameRef.current);
+  }, []);
+
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
 
-    const observer = new ResizeObserver((entries) => {
-      const { width } = entries[0].contentRect;
-      setDimensions({
-        width,
-        height: Math.max(480, Math.min(width * 0.62, 760)),
-      });
-    });
+    const updateDimensions = () => {
+      const { width } = element.getBoundingClientRect();
+      const detailsColumnHeight = detailsColumnRef.current?.getBoundingClientRect().height ?? 0;
+      const isTwoColumnLayout = window.matchMedia("(min-width: 1280px)").matches;
+
+      // 双栏布局以右侧“图谱摘要 + 操作提示”整列为高度基准，保证左右底部始终对齐。
+      // 单列布局继续使用宽高比例，避免右侧内容堆叠后把图谱画布异常拉长。
+      const height = isTwoColumnLayout && detailsColumnHeight > 0
+        ? Math.max(GRAPH_MIN_HEIGHT, detailsColumnHeight)
+        : Math.max(GRAPH_MIN_HEIGHT, Math.min(width * 0.62, GRAPH_STACKED_MAX_HEIGHT));
+
+      setDimensions((current) => (
+        current.width === width && current.height === height
+          ? current
+          : { width, height }
+      ));
+    };
+
+    const observer = new ResizeObserver(updateDimensions);
 
     observer.observe(element);
-    return () => observer.disconnect();
+    if (detailsColumnRef.current) observer.observe(detailsColumnRef.current);
+    if (pageRef.current) observer.observe(pageRef.current);
+    window.addEventListener("resize", updateDimensions);
+    updateDimensions();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateDimensions);
+    };
   }, []);
 
   const configureGraphLayout = useCallback(() => {
@@ -64,7 +95,27 @@ export default function Graph() {
     graph.d3ReheatSimulation?.();
   }, []);
 
+  const fitGraphToView = useCallback((nodes, duration = 500) => {
+    const graph = fgRef.current;
+    if (!graph || !nodes?.length) return;
+
+    // 单节点没有可供 zoomToFit 计算的有效跨度，直接居中可避免节点被推到画布边缘后遭到裁切。
+    if (nodes.length === 1) {
+      const [node] = nodes;
+      graph.centerAt(node.x ?? 0, node.y ?? 0, duration);
+      graph.zoom(1.8, duration);
+      return;
+    }
+
+    graph.zoomToFit(duration, 56);
+  }, []);
+
   const handleSelectTopic = async (key) => {
+    if (revealFrameRef.current != null) {
+      cancelAnimationFrame(revealFrameRef.current);
+      revealFrameRef.current = null;
+    }
+
     setSelectedTopic(key);
     setGraphData(null);
     setHoveredNode(null);
@@ -72,16 +123,20 @@ export default function Graph() {
     setSearchQuery("");
     setScoreFilter("all");
     setAreaFilter("all");
+    setGraphReady(false);
     setLoading(true);
 
     try {
       const data = await getGraphData(key);
+      initialFitPendingRef.current = data.nodes.length > 0;
+      if (data.nodes.length === 0) setGraphReady(true);
       setGraphData(data);
       setTimeout(() => {
         configureGraphLayout();
-        fgRef.current?.zoomToFit(500, 56);
       }, 80);
     } catch {
+      initialFitPendingRef.current = false;
+      setGraphReady(true);
       setGraphData({ nodes: [], links: [] });
     } finally {
       setLoading(false);
@@ -277,14 +332,19 @@ export default function Graph() {
 
   const handleResetView = () => {
     setSelectedNodeId(null);
-    fgRef.current?.zoomToFit(500, 56);
+    fitGraphToView(filteredGraphData?.nodes || []);
   };
 
   const graphHasData = activeGraph.nodes.length > 0;
   const hasActiveFilters = searchQuery.trim() || scoreFilter !== "all" || areaFilter !== "all";
+  // 数据返回后仍保持构建提示，直到力导向布局完成并适配好视口。
+  // 图谱画布会在提示层背后完成准备，二者在同一次渲染中切换，避免中间空白造成闪烁。
+  const graphIsBuilding = loading || Boolean(
+    selectedTopic && graphData?.nodes?.length > 0 && !graphReady
+  );
 
   return (
-    <div className={PAGE_CLASS}>
+    <div ref={pageRef} className={PAGE_CLASS}>
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
           <div className="text-3xl font-display font-bold tracking-tight md:text-4xl">题目图谱</div>
@@ -337,15 +397,16 @@ export default function Graph() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_auto_auto]">
+          <div className="mt-4 grid min-w-0 gap-3 xl:grid-cols-[minmax(280px,1fr)_280px_260px] 2xl:grid-cols-[minmax(360px,1fr)_280px_280px]">
             <Input
+              className="w-full min-w-0"
               value={searchQuery}
               disabled={!selectedTopic}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder={selectedTopic ? "搜索题目或 focus area" : "先选择领域，再搜索题目"}
             />
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex min-w-0 flex-nowrap gap-2 overflow-hidden">
               {SCORE_FILTERS.map((item) => (
                 <Button
                   key={item.key}
@@ -364,12 +425,12 @@ export default function Graph() {
             </div>
 
             <label className={cn(
-              "flex min-w-[220px] items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/75 px-3 py-2.5 text-sm",
+              "flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-2xl border border-border/80 bg-background/75 px-3 py-2.5 text-sm",
               !selectedTopic && "opacity-60"
             )}>
               <span className="shrink-0 text-dim">Focus Area</span>
               <select
-                className="min-w-0 flex-1 bg-transparent text-right text-text outline-none"
+                className="w-0 min-w-0 flex-1 truncate bg-transparent text-right text-text outline-none"
                 value={areaFilter}
                 disabled={!selectedTopic}
                 onChange={(event) => setAreaFilter(event.target.value)}
@@ -384,13 +445,13 @@ export default function Graph() {
         </CardContent>
       </Card>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.36fr)_380px] 2xl:grid-cols-[minmax(0,1.42fr)_400px]">
+      <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1.36fr)_380px] 2xl:grid-cols-[minmax(0,1.42fr)_400px]">
         <Card
           ref={containerRef}
           className="relative overflow-hidden rounded-[28px] border-border/80 bg-card/86"
-          style={{ minHeight: dimensions.height }}
+          style={{ height: dimensions.height }}
         >
-          <CardContent className="relative p-0">
+          <CardContent className="relative h-full p-0">
             {selectedTopic && graphHasData && (
               <>
                 <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[320px] rounded-[20px] border border-border/80 bg-background/82 px-4 py-3 shadow-sm backdrop-blur-sm">
@@ -429,8 +490,12 @@ export default function Graph() {
               />
             )}
 
-            {loading && (
-              <div className="flex min-h-[480px] items-center justify-center gap-2 text-sm text-dim">
+            {graphIsBuilding && (
+              <div
+                className="absolute inset-0 z-30 flex items-center justify-center gap-2 bg-card text-sm text-dim"
+                role="status"
+                aria-live="polite"
+              >
                 <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse-dot" />
                 <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse-dot [animation-delay:0.2s]" />
                 正在构建图谱...
@@ -469,29 +534,40 @@ export default function Graph() {
             )}
 
             {selectedTopic && !loading && graphHasData && (
-              <ForceGraph2D
-                ref={fgRef}
-                graphData={activeGraph}
-                width={dimensions.width}
-                height={dimensions.height}
-                backgroundColor="transparent"
-                nodeCanvasObject={paintNode}
-                nodePointerAreaPaint={(node, color, ctx) => {
-                  const radius = getNodeRadius(node) + 6;
-                  ctx.beginPath();
-                  ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
-                  ctx.fillStyle = color;
-                  ctx.fill();
-                }}
-                linkCanvasObject={paintLink}
-                onNodeHover={setHoveredNode}
-                onNodeClick={handleNodeClick}
-                onBackgroundClick={() => setSelectedNodeId(null)}
-                onZoom={({ k }) => setZoomLevel(roundScore(k))}
-                cooldownTicks={100}
-                d3AlphaDecay={0.026}
-                d3VelocityDecay={0.33}
-              />
+              <div className={graphReady ? "opacity-100" : "pointer-events-none opacity-0"}>
+                <ForceGraph2D
+                  ref={fgRef}
+                  graphData={activeGraph}
+                  width={dimensions.width}
+                  height={dimensions.height}
+                  backgroundColor="transparent"
+                  nodeCanvasObject={paintNode}
+                  nodePointerAreaPaint={(node, color, ctx) => {
+                    const radius = getNodeRadius(node) + 6;
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                  }}
+                  linkCanvasObject={paintLink}
+                  onNodeHover={setHoveredNode}
+                  onNodeClick={handleNodeClick}
+                  onBackgroundClick={() => setSelectedNodeId(null)}
+                  onZoom={({ k }) => setZoomLevel(roundScore(k))}
+                  onEngineStop={() => {
+                    if (!initialFitPendingRef.current) return;
+                    initialFitPendingRef.current = false;
+                    fitGraphToView(activeGraph.nodes, 0);
+                    revealFrameRef.current = requestAnimationFrame(() => {
+                      revealFrameRef.current = null;
+                      setGraphReady(true);
+                    });
+                  }}
+                  cooldownTicks={100}
+                  d3AlphaDecay={0.026}
+                  d3VelocityDecay={0.33}
+                />
+              </div>
             )}
 
             {hoveredPreview && graphHasData && (
@@ -508,7 +584,7 @@ export default function Graph() {
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
+        <div ref={detailsColumnRef} className="space-y-4">
           <Card className="rounded-[28px] border-border/80 bg-card/88">
             <CardContent className="p-5 md:p-6">
               <PanelHeader
