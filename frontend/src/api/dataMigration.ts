@@ -2,29 +2,44 @@ import { authFetch, type ApiResponse } from "./client";
 
 const API_BASE = "/api/data";
 
-// 管理员下载整站全量备份归档
-export async function exportData(): Promise<{ filename: string; size: number }> {
-  const res = await authFetch(`${API_BASE}/export`);
+async function downloadExport(url: string, fallbackName: string): Promise<{ filename: string; size: number }> {
+  const res = await authFetch(url);
   if (!res.ok) throw new Error(await res.text());
 
   const blob = await res.blob();
-  let filename = "techspar-backup.tar.gz";
+  let filename = fallbackName;
   const disposition = res.headers.get("content-disposition");
   if (disposition) {
     const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(disposition);
     if (m) filename = decodeURIComponent(m[1]);
   }
 
-  const url = URL.createObjectURL(blob);
+  const downloadUrl = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
+  a.href = downloadUrl;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(downloadUrl);
 
   return { filename, size: blob.size };
+}
+
+// Every account can download its own portable backup. Secrets are opt-in.
+export async function exportPersonalData(
+  includeSensitive = false,
+): Promise<{ filename: string; size: number }> {
+  const query = includeSensitive ? "?include_sensitive=true" : "";
+  return downloadExport(
+    `${API_BASE}/export/personal${query}`,
+    "techspar-personal-backup.tar.gz",
+  );
+}
+
+// Administrators can additionally download a full-system backup.
+export async function exportSystemData(): Promise<{ filename: string; size: number }> {
+  return downloadExport(`${API_BASE}/export`, "techspar-system-backup.tar.gz");
 }
 
 interface ImportDataOptions {

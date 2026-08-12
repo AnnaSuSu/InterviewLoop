@@ -83,6 +83,11 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class PersonalAgentChatRequest(BaseModel):
+    conversation_id: str | None = None
+    message: str = Field(min_length=1, max_length=12000)
+
+
 class EndDrillRequest(BaseModel):
     answers: list[dict] = Field(default_factory=list)  # [{question_id: int, answer: str}]
 

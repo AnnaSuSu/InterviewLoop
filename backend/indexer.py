@@ -328,7 +328,7 @@ def invalidate_topic(topic: str, user_id: str):
 
 def invalidate_user_embeddings(user_id: str):
     """Drop everything embedded with the user's previous embedding model: the cached
-    embedding client, all memory_vectors rows (weak points + resume/topic chunks),
+    embedding client, all memory_vectors rows (weak points + resume/topic/personal-document chunks),
     and cached question embeddings. Called when a user changes embedding config."""
     from backend.graph import clear_user_question_embeddings
     from backend.llm_provider import reset_embedding_cache

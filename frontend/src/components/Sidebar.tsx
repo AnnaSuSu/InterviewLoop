@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   User, BookOpen, GitFork, Clock, Mic, Brain,
   Target, FileText, FileUser, Settings as SettingsIcon,
-  Sun, Moon, LogOut, Menu, X, ChevronLeft, ChevronRight,
+  Sun, Moon, LogOut, Menu, X, ChevronLeft, ChevronRight, Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth";
@@ -26,6 +26,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: "/profile", label: "我的画像", icon: User },
+  { path: "/personal-agent", label: "成长 Agent", icon: Sparkles },
   { path: "/topic-drill", label: "专项训练", icon: Target },
   { path: "/mock-interview", label: "面试训练", icon: FileText },
   { path: "/resume-manager", label: "简历管理", icon: FileUser },

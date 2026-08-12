@@ -22,6 +22,7 @@ import MockInterview from "./pages/MockInterview";
 import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
+import PersonalAgent from "./pages/PersonalAgent";
 
 // 简历模块体量大(编辑器 + 9 套模板),按需加载避免拖慢首屏
 const ResumeManager = lazy(() => import("./pages/ResumeManager"));
@@ -83,6 +84,7 @@ function AppRoutes() {
                 <Route path="/review/:sessionId" element={<Review />} />
                 <Route path="/history" element={<History />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/personal-agent" element={<PersonalAgent />} />
                 <Route path="/profile/topic/:topic" element={<TopicDetail />} />
                 <Route path="/knowledge" element={<Knowledge />} />
                 <Route path="/graph" element={<Graph />} />
