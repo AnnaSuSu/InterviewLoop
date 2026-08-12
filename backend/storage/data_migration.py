@@ -127,10 +127,10 @@ def _personal_tar_filter(
         return None
     if (
         not include_sensitive_credentials
-        and Path(tarinfo.name).name in SENSITIVE_USER_FILENAMES
+        and Path(filtered.name).name in SENSITIVE_USER_FILENAMES
     ):
         return None
-    return tarinfo
+    return filtered
 
 
 def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
