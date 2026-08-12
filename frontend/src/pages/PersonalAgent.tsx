@@ -144,7 +144,10 @@ function DocumentLibrary({
                 setDragging(true);
               }}
               onDragOver={(event) => event.preventDefault()}
-              onDragLeave={() => setDragging(false)}
+              onDragLeave={(event) => {
+                if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+                setDragging(false);
+              }}
               onDrop={handleDrop}
               disabled={uploading}
             >
