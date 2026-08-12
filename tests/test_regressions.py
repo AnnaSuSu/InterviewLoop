@@ -77,6 +77,35 @@ class ProfilePersistenceTests(unittest.TestCase):
 
 
 class DataExportIsolationTests(unittest.TestCase):
+    @staticmethod
+    def _insert_reviewed_session(
+        db_path: Path,
+        session_id: str,
+        user_id: str,
+        *,
+        mode: str,
+        topic: str,
+        score: float,
+        created_at: str,
+    ) -> None:
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(data_migration._SESSIONS_DDL)
+            conn.execute(
+                "INSERT INTO sessions "
+                "(session_id, mode, topic, scores, overall, review, status, user_id, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'reviewed', ?, ?)",
+                (
+                    session_id,
+                    mode,
+                    topic,
+                    json.dumps([{"question_id": 1, "score": score}]),
+                    json.dumps({"avg_score": score}),
+                    "review",
+                    user_id,
+                    created_at,
+                ),
+            )
+
     def test_user_export_contains_only_their_portable_tables(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -366,6 +395,208 @@ class DataExportIsolationTests(unittest.TestCase):
                     / "profile.json"
                 ).exists()
             )
+
+    def test_personal_import_merges_existing_profile_and_rebuilds_stats(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source_root = root / "source"
+            target_root = root / "target"
+            source_db = source_root / "data" / "interviews.db"
+            target_db = target_root / "data" / "interviews.db"
+            source_db.parent.mkdir(parents=True)
+            target_db.parent.mkdir(parents=True)
+
+            self._insert_reviewed_session(
+                source_db,
+                "archive-session",
+                "source-user",
+                mode="topic_drill",
+                topic="python",
+                score=8,
+                created_at="2026-08-11 10:00:00",
+            )
+            self._insert_reviewed_session(
+                target_db,
+                "local-session",
+                "target-user",
+                mode="resume",
+                topic="python",
+                score=6,
+                created_at="2026-08-10 10:00:00",
+            )
+
+            source_profile = (
+                source_root / "data" / "users" / "source-user" / "profile" / "profile.json"
+            )
+            target_profile = (
+                target_root / "data" / "users" / "target-user" / "profile" / "profile.json"
+            )
+            source_profile.parent.mkdir(parents=True)
+            target_profile.parent.mkdir(parents=True)
+            source_profile.write_text(json.dumps({
+                "name": "Archive Name",
+                "target_role": "后端工程师",
+                "stats": {"total_sessions": 1, "score_history": []},
+                "weak_points": [
+                    {
+                        "point": "GIL 理解不深",
+                        "topic": "python",
+                        "first_seen": "2026-08-11T10:00:00",
+                        "last_seen": "2026-08-11T10:00:00",
+                        "times_seen": 1,
+                        "improved": False,
+                    }
+                ],
+                "strong_points": [],
+                "behavior_signals": {
+                    "reasoning.clear_tradeoff": {
+                        "namespace": "reasoning",
+                        "polarity": "positive",
+                        "description": "能解释技术权衡",
+                        "first_seen": "2026-08-11T10:00:00",
+                        "last_seen": "2026-08-11T10:00:00",
+                        "times_seen": 1,
+                        "improved": False,
+                    }
+                },
+                "topic_mastery": {"python": {"score": 70, "session_count": 1}},
+            }, ensure_ascii=False), encoding="utf-8")
+            target_profile.write_text(json.dumps({
+                "name": "Local Name",
+                "target_role": "",
+                "stats": {"total_sessions": 1, "score_history": []},
+                "weak_points": [
+                    {
+                        "point": "GC 原理薄弱",
+                        "topic": "python",
+                        "first_seen": "2026-08-10T10:00:00",
+                        "last_seen": "2026-08-10T10:00:00",
+                        "times_seen": 1,
+                        "improved": False,
+                    }
+                ],
+                "strong_points": [
+                    {"point": "项目讲解清楚", "topic": "python", "first_seen": "2026-08-10T10:00:00"}
+                ],
+                "behavior_signals": {},
+                "topic_mastery": {"python": {"score": 60, "session_count": 1}},
+                "view_marker": {"at": "2026-08-10T11:00:00", "total_sessions": 1},
+            }, ensure_ascii=False), encoding="utf-8")
+            archive = root / "personal.tar.gz"
+
+            with (
+                patch.object(settings, "base_dir", source_root),
+                patch.object(settings, "db_path", source_db),
+            ):
+                data_migration.export_archive(archive, user_id="source-user")
+
+            with (
+                patch.object(settings, "base_dir", target_root),
+                patch.object(settings, "db_path", target_db),
+            ):
+                result = data_migration.import_archive(
+                    archive,
+                    rebind_user_id="target-user",
+                    require_personal_archive=True,
+                )
+
+            merged = json.loads(target_profile.read_text(encoding="utf-8"))
+            self.assertEqual(result.db_inserted, 1)
+            self.assertEqual(merged["name"], "Local Name")
+            self.assertEqual(merged["target_role"], "后端工程师")
+            self.assertEqual(merged["stats"]["total_sessions"], 2)
+            self.assertEqual(merged["stats"]["total_answers"], 2)
+            self.assertEqual(merged["stats"]["avg_score"], 7.0)
+            self.assertEqual(merged["stats"]["resume_sessions"], 1)
+            self.assertEqual(merged["stats"]["drill_sessions"], 1)
+            self.assertEqual(
+                [entry["session_id"] for entry in merged["stats"]["score_history"]],
+                ["local-session", "archive-session"],
+            )
+            self.assertEqual(
+                {point["point"] for point in merged["weak_points"]},
+                {"GC 原理薄弱", "GIL 理解不深"},
+            )
+            self.assertEqual(merged["strong_points"][0]["point"], "项目讲解清楚")
+            self.assertIn("reasoning.clear_tradeoff", merged["behavior_signals"])
+            self.assertEqual(merged["topic_mastery"]["python"]["session_count"], 2)
+            self.assertEqual(merged["view_marker"]["total_sessions"], 1)
+
+    def test_reimporting_personal_archive_is_idempotent_for_profile_stats(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source_root = root / "source"
+            target_root = root / "target"
+            source_db = source_root / "data" / "interviews.db"
+            target_db = target_root / "data" / "interviews.db"
+            source_db.parent.mkdir(parents=True)
+            target_db.parent.mkdir(parents=True)
+            self._insert_reviewed_session(
+                source_db,
+                "same-archive-session",
+                "source-user",
+                mode="topic_drill",
+                topic="python",
+                score=9,
+                created_at="2026-08-11 10:00:00",
+            )
+            with sqlite3.connect(target_db) as conn:
+                conn.execute(data_migration._SESSIONS_DDL)
+
+            source_profile = (
+                source_root / "data" / "users" / "source-user" / "profile" / "profile.json"
+            )
+            target_profile = (
+                target_root / "data" / "users" / "target-user" / "profile" / "profile.json"
+            )
+            source_profile.parent.mkdir(parents=True)
+            target_profile.parent.mkdir(parents=True)
+            profile = {
+                # The profile may legitimately remember practice whose history row
+                # was deleted. Import must preserve this aggregate and stay idempotent.
+                "stats": {"total_sessions": 5},
+                "weak_points": [{"point": "GIL", "topic": "python", "times_seen": 1}],
+                "strong_points": [],
+                "behavior_signals": {},
+                "topic_mastery": {},
+            }
+            source_profile.write_text(json.dumps(profile), encoding="utf-8")
+            target_profile.write_text(json.dumps({
+                "stats": {"total_sessions": 0},
+                "weak_points": [],
+                "strong_points": [],
+                "behavior_signals": {},
+                "topic_mastery": {},
+            }), encoding="utf-8")
+            archive = root / "personal.tar.gz"
+
+            with (
+                patch.object(settings, "base_dir", source_root),
+                patch.object(settings, "db_path", source_db),
+            ):
+                data_migration.export_archive(archive, user_id="source-user")
+            with (
+                patch.object(settings, "base_dir", target_root),
+                patch.object(settings, "db_path", target_db),
+            ):
+                first = data_migration.import_archive(
+                    archive,
+                    rebind_user_id="target-user",
+                    require_personal_archive=True,
+                )
+                second = data_migration.import_archive(
+                    archive,
+                    overwrite_files=True,
+                    rebind_user_id="target-user",
+                    require_personal_archive=True,
+                )
+
+            merged = json.loads(target_profile.read_text(encoding="utf-8"))
+            self.assertEqual((first.db_inserted, first.db_skipped), (1, 0))
+            self.assertEqual((second.db_inserted, second.db_skipped), (0, 1))
+            self.assertEqual(merged["stats"]["total_sessions"], 5)
+            self.assertEqual(len(merged["stats"]["score_history"]), 1)
+            self.assertEqual(len(merged["weak_points"]), 1)
 
     def test_personal_import_never_overwrites_another_users_id_collision(self):
         with tempfile.TemporaryDirectory() as td:

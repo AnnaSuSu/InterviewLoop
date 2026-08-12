@@ -420,6 +420,15 @@ def _merge_users(
             parts[0] = rebind_user_id
             rel = Path(*parts)
         dst_file = dst_users / rel
+        if rel.parts[-2:] == ("profile", "profile.json") and dst_file.exists():
+            # profile.json is a materialized user model, not an opaque attachment.
+            # Always merge it semantically; normal overwrite semantics would either
+            # hide imported practice data or destroy the current account's profile.
+            from backend.profile_merge import merge_profile_files
+
+            merge_profile_files(src_file, dst_file)
+            copied += 1
+            continue
         if dst_file.exists() and not overwrite:
             skipped += 1
             continue
@@ -496,5 +505,18 @@ def import_archive(
             )
             result.files_copied = copied
             result.files_skipped = skipped
+
+        if rebind_user_id is not None:
+            profile_path = (
+                _users_dir() / rebind_user_id / "profile" / "profile.json"
+            )
+            if profile_path.exists():
+                # Sessions are the de-duplicated source of truth for practice
+                # counts and score history. Rebuilding after the DB merge makes
+                # repeated imports idempotent and includes both local + archive
+                # practice instead of skipping/replacing one side.
+                from backend.profile_merge import rebuild_profile_stats_file
+
+                rebuild_profile_stats_file(profile_path, _db_path(), rebind_user_id)
 
     return result
