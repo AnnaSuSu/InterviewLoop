@@ -453,7 +453,7 @@ export default function Settings() {
         overwriteFiles: importOverwriteFiles,
       });
       setMigrationMessage(
-        `已导入：数据写入/更新 ${r.db_inserted} 条，跳过 ${r.db_skipped} 条；文件复制 ${r.files_copied} 个，跳过 ${r.files_skipped} 个。向量索引未随备份迁移，请到 Embedding 设置中重建索引。`
+        `已导入：数据写入/更新 ${r.db_inserted} 条，跳过 ${r.db_skipped} 条；文件复制或合并 ${r.files_copied} 个，跳过 ${r.files_skipped} 个。个人画像已与本地画像合并，练习统计已按去重后的记录重新计算。向量索引未随备份迁移，请到 Embedding 设置中重建索引。`
       );
       setImportFile(null);
       setImportConfirming(false);
@@ -1344,7 +1344,7 @@ export default function Settings() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label className={labelClass}>数据冲突策略</Label>
+                    <Label className={labelClass}>练习与对话记录冲突策略</Label>
                     <div className="flex gap-2">
                       {[
                         { value: "skip", label: "保留本地" },
@@ -1375,7 +1375,7 @@ export default function Settings() {
                         onChange={(e) => setImportOverwriteFiles(e.target.checked)}
                         className="accent-primary"
                       />
-                      <span className="text-[13px] text-dim">用归档文件覆盖本地</span>
+                      <span className="text-[13px] text-dim">用归档文件覆盖本地（个人画像始终安全合并）</span>
                     </label>
                   </div>
                 </div>
@@ -1387,7 +1387,7 @@ export default function Settings() {
                       <div className="text-[13px]">
                         将把 <span className="font-medium">{importFile?.name}</span> 合并到当前账户。
                         {importDbStrategy === "overwrite" && "当前账户内同 ID 的数据会被覆盖。"}
-                        {importOverwriteFiles && "用户文件也会被覆盖。"}
+                        {importOverwriteFiles && "除个人画像外，其他同名用户文件会被覆盖。"}
                       </div>
                     </div>
                     <div className="flex gap-2">
