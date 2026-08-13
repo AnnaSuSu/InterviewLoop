@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi import BackgroundTasks, HTTPException
 from langchain_core.messages import AIMessage
 
-from backend import memory
+from backend import indexer, memory
 from backend.config import settings
 from backend.graphs import resume_interview as resume_graph
 from backend.models import InterviewMode, StartInterviewRequest
@@ -847,7 +847,7 @@ class ResumeInterviewContextTests(unittest.TestCase):
         job_description = "负责高并发 API，要求掌握 FastAPI、PostgreSQL 和系统设计。"
 
         with (
-            patch.object(resume_graph, "query_resume", return_value="候选人做过订单服务"),
+            patch.object(resume_graph, "load_resume_text", return_value="候选人做过订单服务") as load_resume,
             patch.object(resume_graph, "get_profile_summary", return_value="后端经验较强"),
             patch.object(resume_graph, "get_langchain_llm", return_value=llm),
         ):
@@ -865,6 +865,23 @@ class ResumeInterviewContextTests(unittest.TestCase):
         self.assertIn(job_description, system_prompt)
         self.assertIn("候选人做过订单服务", system_prompt)
         self.assertEqual(state["job_description"], job_description)
+        load_resume.assert_called_once_with("user-a")
+
+    def test_resume_text_is_loaded_verbatim_without_embedding(self):
+        with tempfile.TemporaryDirectory() as td:
+            resume_dir = Path(td)
+            resume_path = resume_dir / "resume.PDF"
+            resume_path.write_bytes(b"%PDF-placeholder")
+
+            with (
+                patch.object(type(settings), "user_resume_path", return_value=resume_dir),
+                patch.object(indexer, "_read_pdf", return_value="  候选人完整简历\n项目 A\n项目 B  ") as read_pdf,
+                patch.object(indexer, "get_embedding", side_effect=AssertionError("must not embed resume")),
+            ):
+                context = indexer.load_resume_text("user-a")
+
+        self.assertEqual(context, "候选人完整简历\n项目 A\n项目 B")
+        read_pdf.assert_called_once_with(resume_path)
 
 
 class CopilotAuthorizationTests(unittest.TestCase):

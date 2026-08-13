@@ -9,7 +9,7 @@ import logging
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from backend.config import settings
-from backend.indexer import query_resume
+from backend.indexer import load_resume_text
 from backend.llm_provider import get_copilot_llm
 from backend.memory import get_profile, get_profile_summary
 from backend.copilot.company_search import search_company
@@ -56,13 +56,10 @@ async def _run_fit_analyzer(jd_text: str, user_id: str) -> dict:
     resume_context = "未上传简历"
     if _has_resume(user_id):
         try:
-            resume_context = str(query_resume(
-                "总结候选人的项目经历、技术栈、AI/后端/工程化相关实践",
-                user_id, top_k=4,
-            ))[:5000]
+            resume_context = load_resume_text(user_id)[:5000]
         except Exception as e:
-            logger.warning(f"Resume query failed: {e}")
-            resume_context = "简历检索失败"
+            logger.warning(f"Resume read failed: {e}")
+            resume_context = "简历读取失败"
 
     profile_summary = get_profile_summary(user_id)
     llm = get_copilot_llm()
@@ -205,9 +202,7 @@ async def run_copilot_prep(
     resume_context = ""
     if _has_resume(user_id):
         try:
-            resume_context = str(query_resume(
-                "候选人基本信息和核心经历", user_id, top_k=2,
-            ))[:2000]
+            resume_context = load_resume_text(user_id)[:2000]
         except Exception:
             pass
 
