@@ -1,29 +1,44 @@
 import { useState, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { Menu, X, Sparkles, ChevronRight, ChevronDown } from "lucide-react";
-import { getTopicIcon, ICON_OPTIONS } from "../utils/topicIcons";
+import { getTopicIcon } from "../utils/topicIcons";
 import {
   getTopics, getCoreKnowledge, updateCoreKnowledge, createCoreKnowledge,
-  deleteCoreKnowledge, getHighFreq, updateHighFreq, createTopic, deleteTopic, generateKnowledge,
+  deleteCoreKnowledge, getHighFreq, updateHighFreq, deleteTopic, generateKnowledge,
 } from "../api/interview";
+import AddTopicDialog from "../components/AddTopicDialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card } from "@/components/ui/card";
+
+interface TopicInfo {
+  name?: string;
+  icon?: string;
+}
+
+type Topics = Record<string, TopicInfo>;
+
+interface CoreFile {
+  filename: string;
+  content: string;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export default function Knowledge() {
-  const [topics, setTopics] = useState({});
-  const [selected, setSelected] = useState(null);
-  const [tab, setTab] = useState("core");
+  const [topics, setTopics] = useState<Topics>({});
+  const [selected, setSelected] = useState<string | null>(null);
+  const [tab, setTab] = useState<"core" | "high_freq">("core");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [coreFiles, setCoreFiles] = useState([]);
-  const [expandedFile, setExpandedFile] = useState(null);
-  const [editContent, setEditContent] = useState({});
-  const [coreSaving, setCoreSaving] = useState(null);
-  const [coreEditing, setCoreEditing] = useState(null);
+  const [coreFiles, setCoreFiles] = useState<CoreFile[]>([]);
+  const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState<Record<string, string>>({});
+  const [coreSaving, setCoreSaving] = useState<string | null>(null);
+  const [coreEditing, setCoreEditing] = useState<string | null>(null);
 
   const [highFreq, setHighFreq] = useState("");
   const [highFreqDraft, setHighFreqDraft] = useState("");
@@ -35,11 +50,9 @@ export default function Knowledge() {
   const [generating, setGenerating] = useState(false);
 
   const [showAddTopic, setShowAddTopic] = useState(false);
-  const [newTopicName, setNewTopicName] = useState("");
-  const [newTopicIcon, setNewTopicIcon] = useState("FileText");
 
   const refreshTopics = useCallback(async () => {
-    const t = await getTopics();
+    const t = (await getTopics()) as unknown as Topics;
     setTopics(t);
     return t;
   }, []);
@@ -47,8 +60,9 @@ export default function Knowledge() {
   useEffect(() => {
     let active = true;
     getTopics()
-      .then((nextTopics) => {
+      .then((data) => {
         if (!active) return;
+        const nextTopics = data as unknown as Topics;
         setTopics(nextTopics);
         const keys = Object.keys(nextTopics);
         setSelected((current) => current && nextTopics[current] ? current : (keys[0] ?? null));
@@ -59,15 +73,13 @@ export default function Knowledge() {
     return () => { active = false; };
   }, []);
 
-  const loadCore = useCallback(async (topic) => {
+  const loadCore = useCallback(async (topic: string) => {
     try {
-      const files = await getCoreKnowledge(topic);
+      const files = (await getCoreKnowledge(topic)) as unknown as CoreFile[];
       setCoreFiles(files);
       setExpandedFile(files[0]?.filename ?? null);
       setCoreEditing(null);
-      const buf = {};
-      files.forEach((f) => { buf[f.filename] = f.content; });
-      setEditContent(buf);
+      setEditContent(Object.fromEntries(files.map((file) => [file.filename, file.content])));
     } catch { setCoreFiles([]); }
   }, []);
 
@@ -75,14 +87,16 @@ export default function Knowledge() {
     if (!selected) return;
     let active = true;
     Promise.all([getCoreKnowledge(selected), getHighFreq(selected)])
-      .then(([files, highFreqData]) => {
+      .then(([filesData, highFreqData]) => {
         if (!active) return;
+        const files = filesData as unknown as CoreFile[];
+        const highFreqContent = (highFreqData as unknown as { content?: string | null }).content || "";
         setCoreFiles(files);
         setExpandedFile(files[0]?.filename ?? null);
         setCoreEditing(null);
         setEditContent(Object.fromEntries(files.map((file) => [file.filename, file.content])));
-        setHighFreq(highFreqData.content || "");
-        setHighFreqDraft(highFreqData.content || "");
+        setHighFreq(highFreqContent);
+        setHighFreqDraft(highFreqContent);
         setHfEditing(false);
       })
       .catch(() => {
@@ -95,27 +109,30 @@ export default function Knowledge() {
     return () => { active = false; };
   }, [selected]);
 
-  const handleSaveCore = async (filename) => {
+  const handleSaveCore = async (filename: string) => {
+    if (!selected) return;
     setCoreSaving(filename);
     try {
       await updateCoreKnowledge(selected, filename, editContent[filename] || "");
       setCoreFiles((prev) => prev.map((f) => f.filename === filename ? { ...f, content: editContent[filename] } : f));
       setCoreEditing(null);
-    } catch (e) { alert("保存失败: " + e.message); }
+    } catch (e) { alert("保存失败: " + errorMessage(e)); }
     setTimeout(() => setCoreSaving(null), 1500);
   };
 
   const handleSaveHighFreq = async () => {
+    if (!selected) return;
     setHfSaving(true);
     try {
       await updateHighFreq(selected, highFreqDraft);
       setHighFreq(highFreqDraft);
       setHfEditing(false);
-    } catch (e) { alert("保存失败: " + e.message); }
+    } catch (e) { alert("保存失败: " + errorMessage(e)); }
     setTimeout(() => setHfSaving(false), 1500);
   };
 
   const handleCreateFile = async () => {
+    if (!selected) return;
     const name = newFileName.trim();
     if (!name) return;
     const fname = name.endsWith(".md") ? name : name + ".md";
@@ -124,51 +141,46 @@ export default function Knowledge() {
       setNewFileName("");
       setShowNewFile(false);
       loadCore(selected);
-    } catch (e) { alert("创建失败: " + e.message); }
+    } catch (e) { alert("创建失败: " + errorMessage(e)); }
   };
 
-  const handleDeleteFile = async (filename) => {
+  const handleDeleteFile = async (filename: string) => {
+    if (!selected) return;
     if (!confirm(`确定删除「${filename}」？此操作不可撤销。`)) return;
     try {
       await deleteCoreKnowledge(selected, filename);
       setCoreFiles((prev) => prev.filter((f) => f.filename !== filename));
       if (expandedFile === filename) setExpandedFile(null);
-    } catch (e) { alert("删除失败: " + e.message); }
+    } catch (e) { alert("删除失败: " + errorMessage(e)); }
   };
 
   const handleGenerate = async () => {
+    if (!selected) return;
     setGenerating(true);
     try {
       await generateKnowledge(selected);
       await loadCore(selected);
       setExpandedFile("README.md");
-    } catch (e) { alert("生成失败: " + e.message); }
+    } catch (e) { alert("生成失败: " + errorMessage(e)); }
     setGenerating(false);
   };
 
   const coreIsEmpty = coreFiles.length === 0 ||
     (coreFiles.length === 1 && coreFiles[0].filename === "README.md" && (coreFiles[0].content?.length || 0) <= 20);
 
-  const handleAddTopic = async () => {
-    const name = newTopicName.trim();
-    if (!name) return;
-    try {
-      const result = await createTopic(name, newTopicIcon);
-      setNewTopicName(""); setNewTopicIcon("FileText");
-      setShowAddTopic(false);
-      await refreshTopics();
-      setSelected(result.key);
-    } catch (e) { alert("添加失败: " + e.message); }
+  const handleTopicCreated = async (key: string) => {
+    await refreshTopics();
+    setSelected(key);
   };
 
-  const handleDeleteTopic = async (key) => {
+  const handleDeleteTopic = async (key: string) => {
     if (!confirm(`确定删除「${topics[key]?.name || key}」？`)) return;
     try {
       await deleteTopic(key);
       const t = await refreshTopics();
       const keys = Object.keys(t);
       if (selected === key) setSelected(keys.length > 0 ? keys[0] : null);
-    } catch (e) { alert("删除失败: " + e.message); }
+    } catch (e) { alert("删除失败: " + errorMessage(e)); }
   };
 
   const topicKeys = Object.keys(topics);
@@ -219,46 +231,15 @@ export default function Knowledge() {
         <div className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {showAddTopic && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={() => setShowAddTopic(false)}>
-          <Card className="w-[380px] max-w-[90vw] animate-bounce-in" onClick={(e) => e.stopPropagation()}>
-            <CardContent className="p-6 md:p-8">
-              <div className="text-lg font-semibold mb-5">新增训练领域</div>
-              <div className="mb-3.5 space-y-1.5">
-                <Label>名称</Label>
-                <Input placeholder="Docker 容器化" value={newTopicName} onChange={(e) => setNewTopicName(e.target.value)} autoFocus />
-              </div>
-              <div className="mb-3.5 space-y-1.5">
-                <Label>图标</Label>
-                <div className="grid grid-cols-8 gap-1.5">
-                  {ICON_OPTIONS.map(({ name, Icon }) => (
-                    <button
-                      key={name}
-                      type="button"
-                      className={cn(
-                        "w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer border",
-                        newTopicIcon === name ? "bg-primary/20 text-primary border-primary" : "bg-hover text-dim border-transparent hover:text-text"
-                      )}
-                      onClick={() => setNewTopicIcon(name)}
-                      title={name}
-                    >
-                      <Icon size={16} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2.5 justify-end mt-6">
-                <Button variant="outline" onClick={() => { setShowAddTopic(false); setNewTopicName(""); setNewTopicIcon("FileText"); }}>取消</Button>
-                <Button variant="gradient" onClick={handleAddTopic} disabled={!newTopicName.trim()}>添加</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <AddTopicDialog
+        open={showAddTopic}
+        onClose={() => setShowAddTopic(false)}
+        onCreated={handleTopicCreated}
+      />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex border-b border-border px-4 md:px-6 bg-card">
-          {["core", "high_freq"].map((t) => (
+          {(["core", "high_freq"] as const).map((t) => (
             <button
               key={t}
               className={cn(
