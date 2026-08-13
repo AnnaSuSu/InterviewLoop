@@ -17,8 +17,6 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-# 仅剩 update_profile_after_interview 的消息遍历在用,随 LangGraph 拆除一并删除
-from langchain_core.messages import HumanMessage as LCHumanMessage, SystemMessage as LCSystemMessage
 
 from backend.config import settings
 from backend.llm_provider import HumanMessage, SystemMessage, get_llm
@@ -1392,11 +1390,10 @@ async def update_profile_after_interview(
     # ── Stage 1: Extract insights ──
     transcript_lines = []
     for msg in messages:
-        if hasattr(msg, "content"):
-            if isinstance(msg, LCHumanMessage):
-                transcript_lines.append(f"候选人: {msg.content}")
-            elif hasattr(msg, "content") and not isinstance(msg, LCSystemMessage):
-                transcript_lines.append(f"面试官: {msg.content}")
+        if msg.get("role") == "user":
+            transcript_lines.append(f"候选人: {msg.get('content', '')}")
+        elif msg.get("role") == "assistant":
+            transcript_lines.append(f"面试官: {msg.get('content', '')}")
 
     score_text = ""
     if scores:

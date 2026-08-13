@@ -8,13 +8,17 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage
 
 from backend.auth import get_current_user
 from backend.graphs.job_prep import (
     evaluate_job_prep_answers,
     generate_job_prep_preview,
     generate_job_prep_questions,
+)
+from backend.graphs.resume_interview import (
+    start_interview as start_resume_interview,
+    stream_turn as resume_stream_turn,
+    take_turn as resume_take_turn,
 )
 from backend.graphs.review import generate_review
 from backend.graphs.topic_drill import evaluate_drill_answers, generate_drill_questions
@@ -25,7 +29,6 @@ from backend.models import (
     ChatRequest,
     EndDrillRequest,
     InterviewMode,
-    InterviewPhase,
     JobPrepPreviewRequest,
     JobPrepStartRequest,
     StartInterviewRequest,
@@ -33,11 +36,10 @@ from backend.models import (
 from backend.review_formatters import format_drill_review, format_job_prep_review
 from backend.runtime import (
     _drill_sessions,
-    _graphs,
     _job_prep_sessions,
     _task_status,
-    get_or_restore_resume_graph,
 )
+from backend.storage.interview_state import load_state as load_resume_state
 from backend.storage.sessions import (
     STATUS_ENDED,
     STATUS_ONGOING,
@@ -184,8 +186,6 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
         }
 
     if req.mode == InterviewMode.RESUME:
-        from backend.graphs.resume_interview import compile_resume_interview
-
         target_role = (req.target_role or "").strip()
         if not target_role:
             target_role = (get_profile(user_id).get("target_role") or "").strip()
@@ -195,25 +195,13 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
 
         await update_target_role(user_id, target_role)
 
-        config = {"configurable": {"thread_id": session_id}}
         try:
-            # 启动会调 LLM/Embedding，并往 sqlite 写会话与 langgraph checkpoint。
+            # 启动会调 LLM/Embedding，并往 sqlite 写会话与面试状态。
             # 任一失败(模型报错 / 磁盘写满 / OOM 连接中断)都在这里兜住，
             # 返回可读原因，而不是裸奔成一句 Internal Server Error。
-            graph = compile_resume_interview(user_id)
-            result = await graph.ainvoke(
-                {
-                    "target_role": target_role,
-                    "job_description": job_description,
-                },
-                config,
+            ai_message = await start_resume_interview(
+                session_id, user_id, target_role, job_description,
             )
-
-            ai_message = ""
-            for msg in reversed(result["messages"]):
-                if isinstance(msg, AIMessage):
-                    ai_message = msg.content
-                    break
 
             create_session(
                 session_id, req.mode.value, req.topic,
@@ -233,13 +221,6 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
             logger.exception("简历面试启动失败")
             raise HTTPException(502, f"面试启动失败:模型或服务调用出错。{exc}")
 
-        _graphs[session_id] = {
-            "graph": graph,
-            "config": config,
-            "mode": req.mode,
-            "topic": req.topic,
-            "user_id": user_id,
-        }
         return {
             "session_id": session_id,
             "mode": req.mode.value,
@@ -255,34 +236,17 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
 @router.post("/interview/chat")
 async def chat(req: ChatRequest, user_id: str = Depends(get_current_user)):
     """Send user answer, get next interviewer response (resume mode only)."""
-    entry = await get_or_restore_resume_graph(req.session_id, user_id)
-    if entry is None:
+    state = load_resume_state(req.session_id, user_id=user_id)
+    if state is None:
         raise HTTPException(404, "Session not found or no recoverable state.")
-
-    graph = entry["graph"]
-    config = entry["config"]
-    state = await graph.aget_state(config)
-    if not state.next:
+    if state.get("is_finished"):
         return {"session_id": req.session_id, "message": "", "is_finished": True}
 
-    await graph.aupdate_state(config, {"messages": [HumanMessage(content=req.message)]})
-    result = await graph.ainvoke(None, config)
     append_message(req.session_id, "user", req.message, user_id=user_id)
+    ai_message, is_finished = await resume_take_turn(req.session_id, user_id, state, req.message)
+    if ai_message:
+        append_message(req.session_id, "assistant", ai_message, user_id=user_id)
 
-    is_finished = False
-    if isinstance(result, dict):
-        is_finished = result.get("is_finished", False)
-        phase = result.get("phase", "")
-        if phase in (InterviewPhase.END.value, "end"):
-            is_finished = True
-
-    ai_message = ""
-    for msg in reversed(result["messages"]):
-        if isinstance(msg, AIMessage):
-            ai_message = msg.content
-            break
-
-    append_message(req.session_id, "assistant", ai_message, user_id=user_id)
     return {
         "session_id": req.session_id,
         "message": ai_message,
@@ -293,20 +257,15 @@ async def chat(req: ChatRequest, user_id: str = Depends(get_current_user)):
 @router.post("/interview/chat/stream")
 async def chat_stream(req: ChatRequest, user_id: str = Depends(get_current_user)):
     """SSE streaming version of /interview/chat with real token streaming."""
-    entry = await get_or_restore_resume_graph(req.session_id, user_id)
-    if entry is None:
+    state = load_resume_state(req.session_id, user_id=user_id)
+    if state is None:
         raise HTTPException(404, "Session not found or no recoverable state.")
-
-    graph = entry["graph"]
-    config = entry["config"]
-    state = await graph.aget_state(config)
-    if not state.next:
+    if state.get("is_finished"):
         async def finished_gen():
             yield f"data: {json.dumps({'done': True, 'is_finished': True})}\n\n"
 
         return StreamingResponse(finished_gen(), media_type="text/event-stream")
 
-    await graph.aupdate_state(config, {"messages": [HumanMessage(content=req.message)]})
     append_message(req.session_id, "user", req.message, user_id=user_id)
 
     async def event_generator():
@@ -314,18 +273,11 @@ async def chat_stream(req: ChatRequest, user_id: str = Depends(get_current_user)
         pending = ""
 
         try:
-            async for event in graph.astream_events(None, config, version="v2"):
-                if event["event"] != "on_chat_model_stream":
-                    continue
-                chunk = event["data"].get("chunk")
-                if not chunk or not hasattr(chunk, "content") or not chunk.content:
-                    continue
-
-                token = chunk.content
+            async for token in resume_stream_turn(req.session_id, user_id, state, req.message):
                 pending += token
 
                 # Hide inline <!--EVAL:...--> tags from the client while still
-                # letting the graph persist them in state for scoring.
+                # persisting them in state for scoring.
                 if _EVAL_TAG_PREFIX in pending:
                     start = pending.index(_EVAL_TAG_PREFIX)
                     if _EVAL_TAG_SUFFIX in pending[start:]:
@@ -346,66 +298,48 @@ async def chat_stream(req: ChatRequest, user_id: str = Depends(get_current_user)
                 full_text += pending
                 yield f"data: {json.dumps({'token': pending})}\n\n"
         except Exception as exc:
-            logger.exception("chat/stream astream_events failed")
+            logger.exception("chat/stream failed")
             yield f"data: {json.dumps({'error': str(exc)})}\n\n"
             return
 
-        final_state = await graph.aget_state(config)
-        is_finished = False
-        if isinstance(final_state.values, dict):
-            is_finished = final_state.values.get("is_finished", False)
-            phase = final_state.values.get("phase", "")
-            if phase in (InterviewPhase.END.value, "end"):
-                is_finished = True
-
-        append_message(req.session_id, "assistant", full_text, user_id=user_id)
-        yield f"data: {json.dumps({'done': True, 'is_finished': is_finished})}\n\n"
+        # stream_turn 就地更新 state 并已落盘
+        if full_text:
+            append_message(req.session_id, "assistant", full_text, user_id=user_id)
+        yield f"data: {json.dumps({'done': True, 'is_finished': bool(state.get('is_finished'))})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 async def _run_resume_review(session_id: str, user_id: str):
-    """Background: restore graph state from checkpoint, run review, persist.
+    """Background: load interview state, run review, persist.
 
     Self-contained — reads everything it needs from SQLite, so it survives
     process restarts and can be retried via /interview/review/{id}/generate.
     """
     try:
-        entry = await get_or_restore_resume_graph(session_id, user_id)
-        if entry is None:
+        state = load_resume_state(session_id, user_id=user_id)
+        if state is None:
             raise RuntimeError("会话状态已失效，无法恢复")
 
-        graph = entry["graph"]
-        config = entry["config"]
-        state = await graph.aget_state(config)
-        values = state.values or {}
-        messages = list(values.get("messages", []))
-        scores = values.get("scores", [])
-        weak_points = values.get("weak_points", [])
-        eval_history = values.get("eval_history", [])
-        resume_context = values.get("resume_context", "")
-        topic_name = values.get("topic_name", entry.get("topic"))
-        mode = entry["mode"]
-        topic = entry.get("topic")
+        session = get_session(session_id, user_id=user_id)
+        topic = (session or {}).get("topic")
+        messages = list(state.get("messages", []))
 
         review = await asyncio.to_thread(
             generate_review,
-            mode=mode,
+            mode=InterviewMode.RESUME,
             messages=messages,
-            scores=scores,
-            weak_points=weak_points,
-            topic=topic_name,
-            eval_history=eval_history,
-            resume_context=resume_context,
+            topic=topic,
+            eval_history=state.get("eval_history", []),
+            resume_context=state.get("resume_context", ""),
             user_id=user_id,
         )
 
         extraction = await update_profile_after_interview(
-            mode=mode.value,
+            mode=InterviewMode.RESUME.value,
             topic=topic,
             messages=messages,
             user_id=user_id,
-            scores=scores,
             session_id=session_id,
         )
 
@@ -415,10 +349,9 @@ async def _run_resume_review(session_id: str, user_id: str):
         if extraction.get("avg_score"):
             resume_overall["avg_score"] = extraction["avg_score"]
 
-        save_review(session_id, review, scores, weak_points,
+        save_review(session_id, review, [], [],
                     overall=resume_overall, user_id=user_id)
         _task_status[session_id] = {"status": "done", "type": "resume_review"}
-        _graphs.pop(session_id, None)
         logger.info("Review generated for session %s", session_id)
     except Exception as exc:
         logger.exception("Review generation failed for session %s", session_id)
@@ -731,7 +664,7 @@ async def get_session_for_resume(
 ):
     """Return everything needed to reopen a session in the UI.
 
-    For resume-mode chats, also checks whether the LangGraph checkpoint can
+    For resume-mode chats, also checks whether the saved interview state can
     still drive another turn (can_continue=True ⇒ user can keep answering).
     """
     expire_stale_reviewing(user_id=user_id)
@@ -743,12 +676,10 @@ async def get_session_for_resume(
     is_finished = False
 
     if session["mode"] == InterviewMode.RESUME.value:
-        entry = await get_or_restore_resume_graph(session_id, user_id)
-        if entry is not None:
-            state = await entry["graph"].aget_state(entry["config"])
-            values = state.values or {}
-            is_finished = bool(values.get("is_finished"))
-            can_continue = bool(state.next) and not is_finished
+        state = load_resume_state(session_id, user_id=user_id)
+        if state is not None:
+            is_finished = bool(state.get("is_finished"))
+            can_continue = not is_finished
 
     meta = session.get("meta") or {}
     return {
@@ -884,7 +815,7 @@ async def generate_reference_answer(body: dict, user_id: str = Depends(get_curre
         raise HTTPException(400, "Session missing topic or question text.")
 
     from backend.indexer import retrieve_topic_context
-    from backend.llm_provider import HumanMessage as UserMessage, get_llm
+    from backend.llm_provider import HumanMessage, get_llm
     from backend.prompts.interviewer import REFERENCE_ANSWER_PROMPT
 
     topics = load_topics(user_id)
@@ -899,7 +830,7 @@ async def generate_reference_answer(body: dict, user_id: str = Depends(get_curre
     )
 
     llm = get_llm(user_id)
-    response = llm.invoke([UserMessage(content=prompt)])
+    response = llm.invoke([HumanMessage(content=prompt)])
     answer = response.strip()
     save_reference_answer(session_id, qid, answer, user_id=user_id)
     return {"reference_answer": answer, "cached": False}

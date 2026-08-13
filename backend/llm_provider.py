@@ -173,21 +173,6 @@ def get_llm(user_id: str | None = None) -> ChatLLM:
     return ChatLLM(c["model"], c["api_key"], c["api_base"], c["temperature"])
 
 
-def get_langchain_llm(user_id: str | None = None):
-    """LangChain ChatModel — 仅剩简历面试 LangGraph 在用,随图拆除一并删除。"""
-    from langchain_openai import ChatOpenAI
-
-    c = resolve_llm_config(user_id)
-    _require_llm(c)
-    return ChatOpenAI(
-        model=c["model"],
-        api_key=c["api_key"],
-        base_url=c["api_base"],
-        temperature=c["temperature"],
-        streaming=True,
-    )
-
-
 def get_copilot_llm(user_id: str | None = None) -> ChatLLM:
     """Copilot uses the user's own main LLM (no separate Copilot provider)."""
     c = resolve_llm_config(user_id)

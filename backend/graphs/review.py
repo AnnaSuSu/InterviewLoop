@@ -1,7 +1,5 @@
 """复盘系统：面试结束后生成复盘报告。"""
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-
-from backend.llm_provider import get_langchain_llm
+from backend.llm_provider import HumanMessage, SystemMessage, get_llm
 from backend.prompts.reviewer import REVIEW_SYSTEM
 from backend.models import InterviewMode
 
@@ -18,13 +16,13 @@ def generate_review(
 ) -> str:
     """Generate a structured review report from interview transcript."""
 
-    # Build transcript from messages
+    # Build transcript from messages ({role, content} dicts)
     transcript_lines = []
     for msg in messages:
-        if isinstance(msg, HumanMessage):
-            transcript_lines.append(f"**候选人**: {msg.content}")
-        elif isinstance(msg, AIMessage):
-            transcript_lines.append(f"**面试官**: {msg.content}")
+        if msg.get("role") == "user":
+            transcript_lines.append(f"**候选人**: {msg.get('content', '')}")
+        elif msg.get("role") == "assistant":
+            transcript_lines.append(f"**面试官**: {msg.get('content', '')}")
     transcript = "\n\n".join(transcript_lines)
 
     # Build extra context
@@ -79,10 +77,8 @@ def generate_review(
         extra_context=extra,
     )
 
-    llm = get_langchain_llm(user_id)
-    response = llm.invoke([
+    llm = get_llm(user_id)
+    return llm.invoke([
         SystemMessage(content=prompt),
         HumanMessage(content="请生成复盘报告。"),
     ])
-
-    return response.content

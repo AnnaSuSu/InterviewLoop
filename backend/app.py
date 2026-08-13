@@ -23,14 +23,12 @@ from backend.routers import (
     topics,
     voiceprint,
 )
-from backend.graphs.resume_interview import init_resume_checkpointer
 from backend.startup import preload_models
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     preload_models()
-    await init_resume_checkpointer()
     yield
 
 

@@ -1,21 +1,22 @@
-"""模式1: 简历模拟面试 LangGraph."""
+"""模式1: 简历模拟面试 — 显式状态机。
+
+每轮: 追加用户回答 → 路由(继续问 / 进入下一阶段 / 结束) → 至多一次 LLM 调用
+生成下一问 → 状态整体落盘(SQLite,resume_interview_state 表)。
+messages 为 OpenAI 格式 [{"role", "content"}],只含 user/assistant 轮次。
+"""
 import asyncio
 import json
 import logging
 import re
-
-import aiosqlite
-
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from collections.abc import AsyncIterator
 
 from backend.models import ResumeInterviewState, InterviewPhase
 from backend.config import settings
-from backend.llm_provider import get_langchain_llm
+from backend.llm_provider import AIMessage, HumanMessage, SystemMessage, get_llm
 from backend.indexer import load_resume_text
 from backend.memory import get_profile_summary
 from backend.prompts.interviewer import RESUME_INTERVIEWER_SYSTEM
+from backend.storage.interview_state import save_state
 
 logger = logging.getLogger("uvicorn")
 
@@ -36,33 +37,6 @@ HARD_MAX_PER_PHASE = 10
 
 _EVAL_PATTERN = re.compile(r"<!--EVAL:(.*?)-->", re.DOTALL)
 
-# Shared AsyncSqliteSaver — single long-lived aiosqlite connection across sessions.
-# State is keyed by thread_id (= session_id), so one DB safely serves all users.
-# Initialized once via init_resume_checkpointer() in the FastAPI lifespan.
-_CHECKPOINTER: AsyncSqliteSaver | None = None
-
-
-async def init_resume_checkpointer() -> None:
-    """Open the aiosqlite connection and create tables. Call once at startup."""
-    global _CHECKPOINTER
-    if _CHECKPOINTER is not None:
-        return
-    path = settings.base_dir / "data" / "langgraph_checkpoints.sqlite"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = await aiosqlite.connect(str(path))
-    saver = AsyncSqliteSaver(conn)
-    await saver.setup()
-    _CHECKPOINTER = saver
-
-
-def _get_checkpointer() -> AsyncSqliteSaver:
-    if _CHECKPOINTER is None:
-        raise RuntimeError(
-            "Resume checkpointer not initialized. "
-            "init_resume_checkpointer() must run in the FastAPI lifespan."
-        )
-    return _CHECKPOINTER
-
 
 def _parse_inline_eval(content: str) -> tuple[str, dict | None]:
     """Extract and strip hidden eval JSON from interviewer response.
@@ -82,90 +56,49 @@ def _parse_inline_eval(content: str) -> tuple[str, dict | None]:
         return clean, None
 
 
-def _make_init_interview(user_id: str):
-    """Create init_interview node bound to a specific user."""
-    async def init_interview(state: ResumeInterviewState) -> dict:
-        """Load resume context and prepare the opening."""
-        resume_ctx = await asyncio.to_thread(load_resume_text, user_id)
-        profile_summary = await asyncio.to_thread(get_profile_summary, user_id)
-
-        target_role = (state.get("target_role") or "").strip() or "候选人应聘岗位"
-        job_description = (state.get("job_description") or "").strip()
-        system_prompt = RESUME_INTERVIEWER_SYSTEM.format(
-            target_role=target_role,
-            job_description=job_description or "未提供岗位 JD，请主要结合目标岗位和候选人简历进行面试。",
-            resume_context=resume_ctx,
-            phase=InterviewPhase.GREETING.value,
-            asked_questions="无",
-            user_profile=profile_summary,
-        )
-
-        llm = get_langchain_llm(user_id)
-        response = await llm.ainvoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content="面试开始，请开场并让候选人做自我介绍。"),
-        ])
-
-        return {
-            "messages": [response],
-            "resume_context": resume_ctx,
-            "target_role": target_role,
-            "job_description": job_description,
-            "phase": InterviewPhase.GREETING.value,
-            "questions_asked": [],
-            "phase_question_count": 0,
-            "is_finished": False,
-            "eval_history": [],
-        }
-    return init_interview
+async def _system_prompt(state: ResumeInterviewState, user_id: str) -> str:
+    """Interviewer system prompt for the current phase."""
+    asked = state.get("questions_asked", [])
+    asked_str = "\n".join(f"- {q}" for q in asked) if asked else "无"
+    profile_summary = await asyncio.to_thread(get_profile_summary, user_id)
+    job_description = (state.get("job_description") or "").strip()
+    return RESUME_INTERVIEWER_SYSTEM.format(
+        target_role=(state.get("target_role") or "").strip() or "候选人应聘岗位",
+        job_description=job_description or "未提供岗位 JD，请主要结合目标岗位和候选人简历进行面试。",
+        resume_context=state.get("resume_context", ""),
+        phase=state.get("phase", "technical"),
+        asked_questions=asked_str,
+        user_profile=profile_summary,
+    )
 
 
-def _make_interviewer_ask(user_id: str):
-    """Create interviewer_ask node bound to a specific user."""
-    async def interviewer_ask(state: ResumeInterviewState) -> dict:
-        """Generate next question based on current phase and conversation."""
-        asked = state.get("questions_asked", [])
-        asked_str = "\n".join(f"- {q}" for q in asked) if asked else "无"
+async def start_interview(
+    session_id: str, user_id: str, target_role: str, job_description: str,
+) -> str:
+    """初始化状态并生成面试官开场白,落盘后返回开场白文本。"""
+    resume_ctx = await asyncio.to_thread(load_resume_text, user_id)
+    state: ResumeInterviewState = {
+        "messages": [],
+        "phase": InterviewPhase.GREETING.value,
+        "target_role": (target_role or "").strip() or "候选人应聘岗位",
+        "job_description": (job_description or "").strip(),
+        "resume_context": resume_ctx,
+        "questions_asked": [],
+        "phase_question_count": 0,
+        "is_finished": False,
+        "last_eval": {},
+        "eval_history": [],
+    }
 
-        profile_summary = await asyncio.to_thread(get_profile_summary, user_id)
-        target_role = (state.get("target_role") or "").strip() or "候选人应聘岗位"
-        job_description = (state.get("job_description") or "").strip()
-        system_prompt = RESUME_INTERVIEWER_SYSTEM.format(
-            target_role=target_role,
-            job_description=job_description or "未提供岗位 JD，请主要结合目标岗位和候选人简历进行面试。",
-            resume_context=state.get("resume_context", ""),
-            phase=state.get("phase", "technical"),
-            asked_questions=asked_str,
-            user_profile=profile_summary,
-        )
+    system = await _system_prompt(state, user_id)
+    opening = await get_llm(user_id).ainvoke([
+        SystemMessage(content=system),
+        HumanMessage(content="面试开始，请开场并让候选人做自我介绍。"),
+    ])
 
-        llm = get_langchain_llm(user_id)
-        messages = [SystemMessage(content=system_prompt)] + list(state.get("messages", []))
-        response = await llm.ainvoke(messages)
-
-        # Parse and strip inline eval from response
-        clean_content, eval_data = _parse_inline_eval(response.content)
-        count = state.get("phase_question_count", 0)
-
-        result = {
-            "messages": [AIMessage(content=clean_content)],
-            "questions_asked": asked + [clean_content[:100]],
-            "phase_question_count": count + 1,
-        }
-
-        if eval_data:
-            eval_data["phase"] = state.get("phase", "")
-            eval_data["question_index"] = count
-            result["last_eval"] = eval_data
-            result["eval_history"] = list(state.get("eval_history", [])) + [eval_data]
-            logger.info(
-                f"Inline eval: phase={eval_data['phase']}, "
-                f"score={eval_data.get('score')}, "
-                f"should_advance={eval_data.get('should_advance')}"
-            )
-
-        return result
-    return interviewer_ask
+    state["messages"].append(AIMessage(content=opening))
+    save_state(session_id, state, user_id=user_id)
+    return opening
 
 
 def route_after_answer(state: ResumeInterviewState) -> str:
@@ -209,58 +142,90 @@ def route_after_answer(state: ResumeInterviewState) -> str:
     return "ask"
 
 
-def advance_phase(state: ResumeInterviewState) -> dict:
-    """Move to the next interview phase."""
-    current_phase = state.get("phase", "greeting")
-
+def _advance_phase(state: ResumeInterviewState) -> None:
+    """Move to the next interview phase; mark finished when already at the last one."""
     try:
-        idx = PHASE_ORDER.index(current_phase)
+        idx = PHASE_ORDER.index(state.get("phase", "greeting"))
     except ValueError:
-        return {"is_finished": True}
-
+        state["is_finished"] = True
+        return
     if idx >= len(PHASE_ORDER) - 1:
-        return {"is_finished": True}
-
-    return {
-        "phase": PHASE_ORDER[idx + 1],
-        "phase_question_count": 0,
-        "last_eval": {},
-    }
+        state["is_finished"] = True
+        return
+    state["phase"] = PHASE_ORDER[idx + 1]
+    state["phase_question_count"] = 0
+    state["last_eval"] = {}
 
 
-def wait_for_answer(state: ResumeInterviewState) -> dict:
-    """Graph pauses here for user input."""
-    return {}
+def _apply_answer(state: ResumeInterviewState, user_message: str) -> bool:
+    """记录用户回答并路由。返回是否还需要生成下一问(False = 面试结束)。"""
+    state["messages"].append(HumanMessage(content=user_message))
+    decision = route_after_answer(state)
+    if decision == "end":
+        state["is_finished"] = True
+        return False
+    if decision == "advance":
+        _advance_phase(state)
+        if state.get("is_finished"):
+            return False
+    return True
 
 
-def end_interview(state: ResumeInterviewState) -> dict:
-    """Mark interview as finished before reaching END."""
-    return {"is_finished": True}
+def _absorb_reply(state: ResumeInterviewState, raw: str) -> str:
+    """吸收面试官原始输出:剥离内联 EVAL、更新问题记录与计数,返回干净文本。"""
+    clean, eval_data = _parse_inline_eval(raw)
+    count = state.get("phase_question_count", 0)
+
+    state["messages"].append(AIMessage(content=clean))
+    state["questions_asked"] = state.get("questions_asked", []) + [clean[:100]]
+    state["phase_question_count"] = count + 1
+
+    if eval_data:
+        eval_data["phase"] = state.get("phase", "")
+        eval_data["question_index"] = count
+        state["last_eval"] = eval_data
+        state["eval_history"] = list(state.get("eval_history", [])) + [eval_data]
+        logger.info(
+            f"Inline eval: phase={eval_data['phase']}, "
+            f"score={eval_data.get('score')}, "
+            f"should_advance={eval_data.get('should_advance')}"
+        )
+    return clean
 
 
-def compile_resume_interview(user_id: str):
-    """Build and compile the resume interview graph."""
-    graph = StateGraph(ResumeInterviewState)
+async def take_turn(
+    session_id: str, user_id: str, state: ResumeInterviewState, user_message: str,
+) -> tuple[str, bool]:
+    """处理一轮回答。返回 (面试官回复, is_finished);面试结束时回复为空串。"""
+    if not _apply_answer(state, user_message):
+        save_state(session_id, state, user_id=user_id)
+        return "", True
 
-    graph.add_node("init", _make_init_interview(user_id))
-    graph.add_node("ask", _make_interviewer_ask(user_id))
-    graph.add_node("advance", advance_phase)
-    graph.add_node("wait", wait_for_answer)
-    graph.add_node("end_node", end_interview)
-
-    graph.add_edge(START, "init")
-    graph.add_edge("init", "wait")
-    graph.add_edge("ask", "wait")
-    graph.add_edge("advance", "ask")
-    graph.add_edge("end_node", END)
-
-    graph.add_conditional_edges("wait", route_after_answer, {
-        "ask": "ask",
-        "advance": "advance",
-        "end": "end_node",
-    })
-
-    return graph.compile(
-        checkpointer=_get_checkpointer(),
-        interrupt_before=["wait"],
+    system = await _system_prompt(state, user_id)
+    raw = await get_llm(user_id).ainvoke(
+        [SystemMessage(content=system)] + list(state["messages"])
     )
+    clean = _absorb_reply(state, raw)
+    save_state(session_id, state, user_id=user_id)
+    return clean, bool(state.get("is_finished"))
+
+
+async def stream_turn(
+    session_id: str, user_id: str, state: ResumeInterviewState, user_message: str,
+) -> AsyncIterator[str]:
+    """处理一轮回答(流式)。逐段产出面试官原始输出(含内联 EVAL 标签,由调用方
+    过滤展示);流结束后解析 EVAL 并整体落盘。面试结束时不产出任何内容。"""
+    if not _apply_answer(state, user_message):
+        save_state(session_id, state, user_id=user_id)
+        return
+
+    system = await _system_prompt(state, user_id)
+    chunks: list[str] = []
+    async for token in get_llm(user_id).astream(
+        [SystemMessage(content=system)] + list(state["messages"])
+    ):
+        chunks.append(token)
+        yield token
+
+    _absorb_reply(state, "".join(chunks))
+    save_state(session_id, state, user_id=user_id)
