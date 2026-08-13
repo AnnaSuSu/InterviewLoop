@@ -19,9 +19,23 @@ const PAGE_CLASS = "flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-7 md:py
 const SIMILARITY_THRESHOLD = 0.65;
 const GRAPH_MIN_HEIGHT = 480;
 const GRAPH_STACKED_MAX_HEIGHT = 760;
-const REPULSION_MAX_SPEED = 7;
-const REPULSION_MAX_DISPLACEMENT = 54;
 const REPULSION_STOP_SPEED = 0.045;
+
+// 普通模式保留完整的拖拽排斥反馈；减少动态效果模式只缩短和减弱位移，不取消功能性交互反馈。
+const DEFAULT_MOTION_CONFIG = {
+  maxImpulse: 3.8,
+  maxSpeed: 7,
+  maxDisplacement: 54,
+  draggingDamping: 0.78,
+  releasedDamping: 0.84,
+};
+const REDUCED_MOTION_CONFIG = {
+  maxImpulse: 1.9,
+  maxSpeed: 3.5,
+  maxDisplacement: 27,
+  draggingDamping: 0.61,
+  releasedDamping: 0.71,
+};
 
 const SCORE_FILTERS = [
   { key: "all", label: "全部" },
@@ -43,7 +57,12 @@ export default function Graph() {
   const [areaFilter, setAreaFilter] = useState("all");
   const [zoomLevel, setZoomLevel] = useState(1);
   const [graphReady, setGraphReady] = useState(false);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [isPageVisible, setIsPageVisible] = useState(() => document.visibilityState === "visible");
+  const [isGraphInViewport, setIsGraphInViewport] = useState(true);
+  const [isNodeMotionActive, setIsNodeMotionActive] = useState(false);
   const pageRef = useRef(null);
   const containerRef = useRef(null);
   const detailsColumnRef = useRef(null);
@@ -58,7 +77,17 @@ export default function Graph() {
     velocities: new Map(),
     origins: new Map(),
   });
+  const motionConfigRef = useRef(DEFAULT_MOTION_CONFIG);
   const [dimensions, setDimensions] = useState({ width: 960, height: 620 });
+
+  const isGraphVisible = isPageVisible && isGraphInViewport;
+  const needsContinuousRedraw = isGraphVisible
+    && (!prefersReducedMotion || isNodeMotionActive);
+
+  // 自定义 RAF 通过 ref 读取最新参数，确保用户运行中切换系统偏好时无需中断当前拖拽反馈。
+  motionConfigRef.current = prefersReducedMotion
+    ? REDUCED_MOTION_CONFIG
+    : DEFAULT_MOTION_CONFIG;
 
   useEffect(() => {
     getTopics().then(setTopics).catch(() => {});
@@ -71,6 +100,28 @@ export default function Graph() {
     updatePreference();
     mediaQuery.addEventListener?.("change", updatePreference);
     return () => mediaQuery.removeEventListener?.("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    const updatePageVisibility = () => {
+      setIsPageVisible(document.visibilityState === "visible");
+    };
+
+    document.addEventListener("visibilitychange", updatePageVisibility);
+    return () => document.removeEventListener("visibilitychange", updatePageVisibility);
+  }, []);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    // 完全离开视口后才暂停，避免图谱贴近视口边缘时频繁启停渲染循环。
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsGraphInViewport(entry.isIntersecting);
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => () => {
@@ -268,6 +319,7 @@ export default function Graph() {
     motion.draggedNodeId = null;
     motion.velocities.clear();
     motion.origins.clear();
+    setIsNodeMotionActive(false);
   }, []);
 
   // 节点集合变化时必须终止旧动画，避免筛选或切换领域后继续修改已经离开画布的对象。
@@ -275,9 +327,15 @@ export default function Graph() {
 
   const runNodeMotionFrame = useCallback((time) => {
     const motion = nodeMotionRef.current;
+    const motionConfig = motionConfigRef.current;
     const elapsed = motion.lastFrameTime == null ? 16.67 : Math.min(time - motion.lastFrameTime, 33.34);
     const frameScale = elapsed / 16.67;
-    const damping = Math.pow(motion.draggedNodeId == null ? 0.84 : 0.78, frameScale);
+    const damping = Math.pow(
+      motion.draggedNodeId == null
+        ? motionConfig.releasedDamping
+        : motionConfig.draggingDamping,
+      frameScale,
+    );
     let hasMovingNode = false;
     const nodesById = new Map(activeGraph.nodes.map((node) => [node.id, node]));
 
@@ -298,7 +356,7 @@ export default function Graph() {
         node,
         velocity,
         frameScale,
-        REPULSION_MAX_DISPLACEMENT,
+        motionConfig.maxDisplacement,
       );
       node.x = nextPosition.x;
       node.y = nextPosition.y;
@@ -317,15 +375,25 @@ export default function Graph() {
       return;
     }
 
-    motion.frameId = null;
-    motion.lastFrameTime = null;
-    if (motion.draggedNodeId == null) motion.origins.clear();
+    // 多保留一个持续绘制帧，让本帧写入的最终坐标一定能落到 Canvas；若期间收到新冲量则直接续跑。
+    motion.frameId = requestAnimationFrame((finalFrameTime) => {
+      if (motion.velocities.size > 0) {
+        runNodeMotionFrame(finalFrameTime);
+        return;
+      }
+
+      motion.frameId = null;
+      motion.lastFrameTime = null;
+      if (motion.draggedNodeId == null) motion.origins.clear();
+      setIsNodeMotionActive(false);
+    });
   }, [activeGraph.nodes]);
 
   const ensureNodeMotionFrame = useCallback(() => {
     const motion = nodeMotionRef.current;
     if (motion.frameId == null) {
       motion.lastFrameTime = null;
+      setIsNodeMotionActive(true);
       motion.frameId = requestAnimationFrame(runNodeMotionFrame);
     }
   }, [runNodeMotionFrame]);
@@ -340,6 +408,7 @@ export default function Graph() {
       motion.origins.clear();
     }
 
+    const motionConfig = motionConfigRef.current;
     let receivedImpulse = false;
     for (const nearbyNode of activeGraph.nodes) {
       if (nearbyNode.id === draggedNode.id) continue;
@@ -349,6 +418,7 @@ export default function Graph() {
         nearbyNode,
         draggedRadius: getNodeRadius(draggedNode),
         nearbyRadius: getNodeRadius(nearbyNode),
+        maxImpulse: motionConfig.maxImpulse,
       });
       if (impulse.strength === 0) continue;
 
@@ -359,7 +429,7 @@ export default function Graph() {
       motion.velocities.set(nearbyNode.id, limitVector({
         x: currentVelocity.x + impulse.x,
         y: currentVelocity.y + impulse.y,
-      }, REPULSION_MAX_SPEED));
+      }, motionConfig.maxSpeed));
       receivedImpulse = true;
     }
 
@@ -517,6 +587,20 @@ export default function Graph() {
   const graphIsBuilding = loading || Boolean(
     selectedTopic && graphData?.nodes?.length > 0 && !graphReady
   );
+
+  useEffect(() => {
+    const graph = fgRef.current;
+    if (!graph) return;
+
+    if (isGraphVisible) {
+      graph.resumeAnimation?.();
+      return;
+    }
+
+    // 页面或图谱不可见时，停止底层循环并丢弃旧动量，避免返回页面后节点突然继续位移。
+    stopNodeMotion();
+    graph.pauseAnimation?.();
+  }, [graphHasData, isGraphVisible, stopNodeMotion]);
 
   return (
     <div ref={pageRef} className={PAGE_CLASS}>
@@ -716,8 +800,8 @@ export default function Graph() {
                   width={dimensions.width}
                   height={dimensions.height}
                   backgroundColor="transparent"
-                  // 摇摆依赖持续 Canvas 重绘；布局停止后仍不重新运行 D3 simulation。
-                  autoPauseRedraw={false}
+                  // 装饰性摇摆需要持续绘制；减少动态效果时仅在拖拽排斥运行期间临时保持逐帧刷新。
+                  autoPauseRedraw={!needsContinuousRedraw}
                   nodeCanvasObject={paintNode}
                   nodePointerAreaPaint={(node, color, ctx) => {
                     const radius = getNodeRadius(node) + 6;
