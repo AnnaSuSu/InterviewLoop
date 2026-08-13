@@ -1,13 +1,21 @@
 """Knowledge and graph routes."""
 
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+import tempfile
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from backend.auth import get_current_user
 from backend.config import settings
 from backend.graph import build_graph
 from backend.indexer import invalidate_topic, load_topics
 from backend.llm_provider import HumanMessage, SystemMessage, get_llm
+from backend.personal_agent import MAX_UPLOAD_BYTES, extract_document_text
 from backend.utils import resolve_path_within, safe_child_path
+
+# 知识库导入只收能稳定转成纯文本的格式;其余格式提示用户先转换
+IMPORT_EXTS = {".md", ".markdown", ".txt", ".pdf", ".docx"}
 
 router = APIRouter(prefix="/api")
 
@@ -105,6 +113,70 @@ async def create_core_knowledge(topic: str, body: dict, user_id: str = Depends(g
 
     filepath.write_text(body.get("content", ""), encoding="utf-8")
     invalidate_topic(topic, user_id)
+    return {"ok": True, "filename": filename}
+
+
+def import_core_document(topic: str, filename: str, content: bytes, user_id: str) -> str:
+    """Extract text from an uploaded document and store it as a topic .md file.
+
+    Returns the created filename. Raises ValueError on invalid input,
+    FileExistsError when the target filename is taken.
+    """
+    topics = load_topics(user_id)
+    if topic not in topics:
+        raise ValueError(f"Unknown topic: {topic}")
+
+    original = Path(filename or "").name.strip()
+    suffix = Path(original).suffix.lower()
+    if suffix not in IMPORT_EXTS:
+        raise ValueError(f"暂不支持 {suffix or '无扩展名'} 文件，请使用 md / txt / pdf / docx")
+    if not content:
+        raise ValueError("文件内容为空")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise ValueError(f"文件不能超过 {MAX_UPLOAD_BYTES // 1024 // 1024} MB")
+
+    # extract_document_text 走文件路径,先落到临时文件
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+    try:
+        text = extract_document_text(tmp_path, suffix).strip()
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    if not text:
+        raise ValueError("没有提取到文字内容；扫描版 PDF 请先 OCR 或转成文字版")
+
+    stem = Path(original).stem.strip() or "导入文档"
+    target_name = f"{stem}.md"
+    root = settings.user_knowledge_path(user_id)
+    topic_dir = resolve_path_within(root, str(topics[topic].get("dir") or ""))
+    topic_dir.mkdir(parents=True, exist_ok=True)
+    filepath = safe_child_path(topic_dir, target_name)
+    if filepath.exists():
+        raise FileExistsError(f"已存在同名文件: {target_name}")
+
+    filepath.write_text(text, encoding="utf-8")
+    invalidate_topic(topic, user_id)
+    return target_name
+
+
+@router.post("/knowledge/{topic}/upload")
+async def upload_core_knowledge(
+    topic: str,
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user),
+):
+    """Import an uploaded document (md/txt/pdf/docx) as a core knowledge file."""
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    await file.close()
+    try:
+        filename = await asyncio.to_thread(
+            import_core_document, topic, file.filename or "", content, user_id
+        )
+    except FileExistsError as exc:
+        raise HTTPException(409, str(exc))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     return {"ok": True, "filename": filename}
 
 

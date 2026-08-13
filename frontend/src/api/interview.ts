@@ -425,6 +425,23 @@ export async function createCoreKnowledge(
   return res.json();
 }
 
+export async function uploadKnowledgeDoc(
+  topic: string,
+  file: File
+): Promise<ApiResponse<"/api/knowledge/{topic}/upload", "post">> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await authFetch(
+    `${API_BASE}/knowledge/${encodeURIComponent(topic)}/upload`,
+    {
+      method: "POST",
+      body: form,
+    }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function generateKnowledge(
   topic: string
 ): Promise<ApiResponse<"/api/knowledge/{topic}/generate", "post">> {

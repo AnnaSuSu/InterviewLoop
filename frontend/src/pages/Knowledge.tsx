@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import ReactMarkdown from "react-markdown";
-import { Menu, X, Sparkles, ChevronRight, ChevronDown } from "lucide-react";
+import { Menu, X, Sparkles, Upload, ChevronRight, ChevronDown } from "lucide-react";
 import { getTopicIcon } from "../utils/topicIcons";
 import {
   getTopics, getCoreKnowledge, updateCoreKnowledge, createCoreKnowledge,
   deleteCoreKnowledge, getHighFreq, updateHighFreq, deleteTopic, generateKnowledge,
+  uploadKnowledgeDoc,
 } from "../api/interview";
 import AddTopicDialog from "../components/AddTopicDialog";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,8 @@ export default function Knowledge() {
   const [newFileName, setNewFileName] = useState("");
   const [showNewFile, setShowNewFile] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showAddTopic, setShowAddTopic] = useState(false);
 
@@ -152,6 +155,25 @@ export default function Knowledge() {
       setCoreFiles((prev) => prev.filter((f) => f.filename !== filename));
       if (expandedFile === filename) setExpandedFile(null);
     } catch (e) { alert("删除失败: " + errorMessage(e)); }
+  };
+
+  const handleUploadFiles = async (files: File[]) => {
+    if (!selected || files.length === 0) return;
+    setUploading(true);
+    const failed: string[] = [];
+    let lastUploaded: string | null = null;
+    for (const file of files) {
+      try {
+        const result = (await uploadKnowledgeDoc(selected, file)) as unknown as { filename: string };
+        lastUploaded = result.filename;
+      } catch (e) {
+        failed.push(`${file.name}: ${errorMessage(e)}`);
+      }
+    }
+    await loadCore(selected);
+    if (lastUploaded) setExpandedFile(lastUploaded);
+    if (failed.length) alert("以下文件导入失败:\n" + failed.join("\n"));
+    setUploading(false);
   };
 
   const handleGenerate = async () => {
@@ -259,8 +281,20 @@ export default function Knowledge() {
           ) : tab === "core" ? (
             <div>
               <div className="text-[13px] text-dim mb-3">
-                AI 出题和评分的参考依据，编辑后影响该领域的题目质量。支持 Markdown 格式。
+                AI 出题和评分的参考依据，编辑后影响该领域的题目质量。支持 Markdown 编辑，也可导入 md / txt / pdf / docx 文档。
               </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".md,.markdown,.txt,.pdf,.docx"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = e.target.files ? Array.from(e.target.files) : [];
+                  e.target.value = "";
+                  handleUploadFiles(files);
+                }}
+              />
               <div className="flex gap-2 mb-4">
                 {showNewFile ? (
                   <div className="flex gap-2 flex-1">
@@ -271,6 +305,9 @@ export default function Knowledge() {
                 ) : (
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setShowNewFile(true)}>+ 新增文件</Button>
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                      {uploading ? "导入中..." : <><Upload size={14} /> 导入文档</>}
+                    </Button>
                     {coreIsEmpty && (
                       <Button variant="outline" size="sm" className="border-primary/40 text-primary" onClick={handleGenerate} disabled={generating}>
                         {generating ? "正在生成..." : <><Sparkles size={14} /> AI 生成基础内容</>}
