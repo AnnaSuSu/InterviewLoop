@@ -8,11 +8,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  calculateRepulsionImpulse,
+  getBoundedPosition,
+  getNodeSway,
+  limitVector,
+} from "./graphMotion";
 
 const PAGE_CLASS = "flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-7 md:py-8 xl:px-10 2xl:px-12";
 const SIMILARITY_THRESHOLD = 0.65;
 const GRAPH_MIN_HEIGHT = 480;
 const GRAPH_STACKED_MAX_HEIGHT = 760;
+const REPULSION_MAX_SPEED = 7;
+const REPULSION_MAX_DISPLACEMENT = 54;
+const REPULSION_STOP_SPEED = 0.045;
 
 const SCORE_FILTERS = [
   { key: "all", label: "全部" },
@@ -34,20 +43,40 @@ export default function Graph() {
   const [areaFilter, setAreaFilter] = useState("all");
   const [zoomLevel, setZoomLevel] = useState(1);
   const [graphReady, setGraphReady] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const pageRef = useRef(null);
   const containerRef = useRef(null);
   const detailsColumnRef = useRef(null);
   const fgRef = useRef(null);
   const initialFitPendingRef = useRef(false);
   const revealFrameRef = useRef(null);
+  const zoomFrameRef = useRef(null);
+  const nodeMotionRef = useRef({
+    frameId: null,
+    lastFrameTime: null,
+    draggedNodeId: null,
+    velocities: new Map(),
+    origins: new Map(),
+  });
   const [dimensions, setDimensions] = useState({ width: 960, height: 620 });
 
   useEffect(() => {
     getTopics().then(setTopics).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener?.("change", updatePreference);
+    return () => mediaQuery.removeEventListener?.("change", updatePreference);
+  }, []);
+
   useEffect(() => () => {
     if (revealFrameRef.current != null) cancelAnimationFrame(revealFrameRef.current);
+    if (zoomFrameRef.current != null) cancelAnimationFrame(zoomFrameRef.current);
+    if (nodeMotionRef.current.frameId != null) cancelAnimationFrame(nodeMotionRef.current.frameId);
   }, []);
 
   useEffect(() => {
@@ -231,6 +260,121 @@ export default function Graph() {
 
   const activeGraph = filteredGraphData || { nodes: [], links: [] };
 
+  const stopNodeMotion = useCallback(() => {
+    const motion = nodeMotionRef.current;
+    if (motion.frameId != null) cancelAnimationFrame(motion.frameId);
+    motion.frameId = null;
+    motion.lastFrameTime = null;
+    motion.draggedNodeId = null;
+    motion.velocities.clear();
+    motion.origins.clear();
+  }, []);
+
+  // 节点集合变化时必须终止旧动画，避免筛选或切换领域后继续修改已经离开画布的对象。
+  useEffect(() => stopNodeMotion, [activeGraph.nodes, stopNodeMotion]);
+
+  const runNodeMotionFrame = useCallback((time) => {
+    const motion = nodeMotionRef.current;
+    const elapsed = motion.lastFrameTime == null ? 16.67 : Math.min(time - motion.lastFrameTime, 33.34);
+    const frameScale = elapsed / 16.67;
+    const damping = Math.pow(motion.draggedNodeId == null ? 0.84 : 0.78, frameScale);
+    let hasMovingNode = false;
+    const nodesById = new Map(activeGraph.nodes.map((node) => [node.id, node]));
+
+    motion.lastFrameTime = time;
+
+    for (const [nodeId, velocity] of motion.velocities) {
+      const node = nodesById.get(nodeId);
+      const origin = motion.origins.get(nodeId);
+
+      if (!node || !origin) {
+        motion.velocities.delete(nodeId);
+        motion.origins.delete(nodeId);
+        continue;
+      }
+
+      const nextPosition = getBoundedPosition(
+        origin,
+        node,
+        velocity,
+        frameScale,
+        REPULSION_MAX_DISPLACEMENT,
+      );
+      node.x = nextPosition.x;
+      node.y = nextPosition.y;
+
+      const nextVelocity = { x: velocity.x * damping, y: velocity.y * damping };
+      if (Math.hypot(nextVelocity.x, nextVelocity.y) > REPULSION_STOP_SPEED) {
+        motion.velocities.set(nodeId, nextVelocity);
+        hasMovingNode = true;
+      } else {
+        motion.velocities.delete(nodeId);
+      }
+    }
+
+    if (hasMovingNode) {
+      motion.frameId = requestAnimationFrame(runNodeMotionFrame);
+      return;
+    }
+
+    motion.frameId = null;
+    motion.lastFrameTime = null;
+    if (motion.draggedNodeId == null) motion.origins.clear();
+  }, [activeGraph.nodes]);
+
+  const ensureNodeMotionFrame = useCallback(() => {
+    const motion = nodeMotionRef.current;
+    if (motion.frameId == null) {
+      motion.lastFrameTime = null;
+      motion.frameId = requestAnimationFrame(runNodeMotionFrame);
+    }
+  }, [runNodeMotionFrame]);
+
+  const handleNodeDrag = useCallback((draggedNode) => {
+    // 直接按住节点拖动也视为选中，避免必须先单击一次、再进行第二次拖动才触发互斥反馈。
+    if (draggedNode.id !== selectedNodeId) setSelectedNodeId(draggedNode.id);
+
+    const motion = nodeMotionRef.current;
+    if (motion.draggedNodeId == null) {
+      motion.draggedNodeId = draggedNode.id;
+      motion.origins.clear();
+    }
+
+    let receivedImpulse = false;
+    for (const nearbyNode of activeGraph.nodes) {
+      if (nearbyNode.id === draggedNode.id) continue;
+
+      const impulse = calculateRepulsionImpulse({
+        draggedNode,
+        nearbyNode,
+        draggedRadius: getNodeRadius(draggedNode),
+        nearbyRadius: getNodeRadius(nearbyNode),
+      });
+      if (impulse.strength === 0) continue;
+
+      if (!motion.origins.has(nearbyNode.id)) {
+        motion.origins.set(nearbyNode.id, { x: nearbyNode.x, y: nearbyNode.y });
+      }
+      const currentVelocity = motion.velocities.get(nearbyNode.id) || { x: 0, y: 0 };
+      motion.velocities.set(nearbyNode.id, limitVector({
+        x: currentVelocity.x + impulse.x,
+        y: currentVelocity.y + impulse.y,
+      }, REPULSION_MAX_SPEED));
+      receivedImpulse = true;
+    }
+
+    if (receivedImpulse) ensureNodeMotionFrame();
+  }, [activeGraph.nodes, ensureNodeMotionFrame, selectedNodeId]);
+
+  const handleNodeDragEnd = useCallback((draggedNode) => {
+    const motion = nodeMotionRef.current;
+    if (motion.draggedNodeId !== draggedNode.id) return;
+
+    motion.draggedNodeId = null;
+    if (motion.velocities.size > 0) ensureNodeMotionFrame();
+    else motion.origins.clear();
+  }, [ensureNodeMotionFrame]);
+
   const selectionMeta = useMemo(() => {
     const connectedNodeIds = new Set();
     const connectedLinkKeys = new Set();
@@ -268,6 +412,7 @@ export default function Graph() {
     const isLight = !document.documentElement.classList.contains("dark");
     const textColor = isLight ? "#18181B" : "#FAFAF9";
     const radius = baseRadius + (selected ? 2.5 : hovered ? 1.2 : 0);
+    const sway = getNodeSway(nodeId, performance.now(), selected || prefersReducedMotion);
 
     ctx.save();
     ctx.globalAlpha = dimmed ? 0.2 : 1;
@@ -277,17 +422,38 @@ export default function Graph() {
       ctx.shadowBlur = selected ? 24 : 14;
     }
 
+    // 形变始终以节点中心为原点，视觉摇摆不会污染力导向坐标、连线位置或点击命中区域。
+    ctx.save();
+    ctx.translate(node.x, node.y);
+    ctx.rotate(sway.angle);
+    if (sway.active) {
+      // 动态虚线模拟掠过节点边缘的风痕，增强小尺寸节点上的可感知度，同时保持几何中心不动。
+      ctx.save();
+      ctx.globalAlpha *= 0.2 + Math.abs(sway.wind) * 0.045;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.9;
+      ctx.setLineDash([radius * 0.72, radius * 1.08]);
+      ctx.lineDashOffset = sway.dashOffset;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, radius + 3.4, radius + 2.4, sway.angle * 0.65, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // 剪切与非等比缩放共同形成摇曳感；所有变换都围绕 (0, 0)，不会让节点中心漂移。
+    ctx.transform(1, sway.shear, sway.shear * 0.32, 1, 0, 0);
+    ctx.scale(sway.scaleX, sway.scaleY);
     ctx.beginPath();
-    ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+    ctx.arc(0, 0, radius, 0, 2 * Math.PI);
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.shadowBlur = 0;
-
     if (selected || hovered) {
       ctx.strokeStyle = selected ? textColor : "rgba(250,250,249,0.85)";
       ctx.lineWidth = selected ? 2.2 : 1.4;
       ctx.stroke();
     }
+    // 恢复 force-graph 当前的缩放和平移变换，确保标签仍在原始坐标系绘制。
+    ctx.restore();
+    ctx.shadowBlur = 0;
 
     const label = node.focus_area || truncate(node.question, 18);
     ctx.font = `${selected || hovered ? 12 : 10}px DM Sans, sans-serif`;
@@ -296,7 +462,7 @@ export default function Graph() {
     ctx.globalAlpha = dimmed ? 0.28 : selected || hovered ? 1 : 0.76;
     ctx.fillText(label, node.x, node.y - radius - 7);
     ctx.restore();
-  }, [hoveredNode, selectedNodeId, selectionMeta.connectedNodeIds]);
+  }, [hoveredNode, prefersReducedMotion, selectedNodeId, selectionMeta.connectedNodeIds]);
 
   const paintLink = useCallback((link, ctx) => {
     const sourceId = getEntityId(link.source);
@@ -329,6 +495,15 @@ export default function Graph() {
     const current = graph.zoom?.() || zoomLevel || 1;
     graph.zoom(clamp(current * factor, 0.45, 6), 250);
   };
+
+  const handleZoomChange = useCallback(({ k }) => {
+    // ForceGraph 可能在自身渲染阶段同步派发 onZoom；合并到下一帧可避免跨组件 render-phase 更新。
+    if (zoomFrameRef.current != null) cancelAnimationFrame(zoomFrameRef.current);
+    zoomFrameRef.current = requestAnimationFrame(() => {
+      zoomFrameRef.current = null;
+      setZoomLevel(roundScore(k));
+    });
+  }, []);
 
   const handleResetView = () => {
     setSelectedNodeId(null);
@@ -541,6 +716,8 @@ export default function Graph() {
                   width={dimensions.width}
                   height={dimensions.height}
                   backgroundColor="transparent"
+                  // 摇摆依赖持续 Canvas 重绘；布局停止后仍不重新运行 D3 simulation。
+                  autoPauseRedraw={false}
                   nodeCanvasObject={paintNode}
                   nodePointerAreaPaint={(node, color, ctx) => {
                     const radius = getNodeRadius(node) + 6;
@@ -552,8 +729,10 @@ export default function Graph() {
                   linkCanvasObject={paintLink}
                   onNodeHover={setHoveredNode}
                   onNodeClick={handleNodeClick}
+                  onNodeDrag={handleNodeDrag}
+                  onNodeDragEnd={handleNodeDragEnd}
                   onBackgroundClick={() => setSelectedNodeId(null)}
-                  onZoom={({ k }) => setZoomLevel(roundScore(k))}
+                  onZoom={handleZoomChange}
                   onEngineStop={() => {
                     if (!initialFitPendingRef.current) return;
                     initialFitPendingRef.current = false;
@@ -563,7 +742,10 @@ export default function Graph() {
                       setGraphReady(true);
                     });
                   }}
-                  cooldownTicks={100}
+                  // 初始阶段保留力导向布局计算；布局稳定并显示后，将后续模拟计算立即停止。
+                  // react-force-graph 会在拖动节点时自动重新加热 simulation，如果继续执行 tick，
+                  // 其他节点会被排斥力推离。设为 0 不影响被拖节点的坐标更新，只阻止其余节点重排。
+                  cooldownTicks={graphReady ? 0 : 100}
                   d3AlphaDecay={0.026}
                   d3VelocityDecay={0.33}
                 />
