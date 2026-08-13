@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import { ArrowLeft } from "lucide-react";
@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Logo from "../components/Logo";
+import { loadRegistrationConfig } from "../lib/registrationConfig";
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
-  const [allowReg, setAllowReg] = useState(null);
+  const [registrationStatus, setRegistrationStatus] = useState("loading");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -19,12 +20,19 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetch("/api/auth/config")
-      .then((r) => r.json())
-      .then((d) => setAllowReg(d.allow_registration))
-      .catch(() => setAllowReg(false));
+  const refreshRegistrationStatus = useCallback(async () => {
+    setRegistrationStatus("loading");
+    try {
+      const allowed = await loadRegistrationConfig();
+      setRegistrationStatus(allowed ? "allowed" : "disabled");
+    } catch {
+      setRegistrationStatus("error");
+    }
   }, []);
+
+  useEffect(() => {
+    refreshRegistrationStatus();
+  }, [refreshRegistrationStatus]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -117,7 +125,7 @@ export default function Login() {
               </Button>
             </form>
 
-            {allowReg && (
+            {registrationStatus === "allowed" && (
               <div className="mt-6 pt-5 border-t border-border text-center">
                 <span className="text-sm text-dim">
                   {isRegister ? "已有账号？" : "还没有账号？"}
@@ -127,6 +135,25 @@ export default function Login() {
                   className="text-sm text-primary font-medium ml-1.5 hover:underline cursor-pointer"
                 >
                   {isRegister ? "去登录" : "注册"}
+                </button>
+              </div>
+            )}
+
+            {registrationStatus === "loading" && (
+              <div className="mt-6 pt-5 border-t border-border text-center text-sm text-dim">
+                正在检查是否开放注册…
+              </div>
+            )}
+
+            {registrationStatus === "error" && (
+              <div className="mt-6 pt-5 border-t border-border text-center">
+                <span className="text-sm text-dim">注册状态加载失败</span>
+                <button
+                  type="button"
+                  onClick={refreshRegistrationStatus}
+                  className="text-sm text-primary font-medium ml-1.5 hover:underline cursor-pointer"
+                >
+                  重试
                 </button>
               </div>
             )}

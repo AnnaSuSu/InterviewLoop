@@ -111,6 +111,10 @@ class Settings(BaseSettings):
     def user_settings_path(self, user_id: str) -> Path:
         return self.user_data_dir(user_id) / "settings.json"
 
+    def system_settings_path(self) -> Path:
+        """Persisted admin-controlled flags that override bootstrap .env values."""
+        return self.base_dir / "data" / "system_settings.json"
+
     def user_provider_path(self, user_id: str) -> Path:
         """Per-user LLM/Embedding provider overrides."""
         return self.user_data_dir(user_id) / "provider.json"

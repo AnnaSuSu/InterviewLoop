@@ -27,6 +27,7 @@ from backend.storage.user_settings import (
     save_user_provider,
     save_user_settings,
 )
+from backend.storage.system_settings import save_system_settings
 
 logger = logging.getLogger("uvicorn")
 
@@ -77,6 +78,7 @@ def put_user_settings(payload: SettingsResponse, user_id: str = Depends(get_curr
 
     # 仅 admin 能改全局账户开关；非 admin 的请求即便带了 system 字段也直接忽略。
     if is_admin_user(user_id):
+        save_system_settings(payload.system)
         settings.allow_registration = payload.system.allow_registration
 
     save_user_settings(payload.training, user_id)

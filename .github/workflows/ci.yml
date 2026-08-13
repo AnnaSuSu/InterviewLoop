@@ -44,5 +44,8 @@ jobs:
       - name: 安装依赖(npm ci:严格按 lockfile,顺带查 lock 是否同步)
         run: npm ci
 
+      - name: 运行前端回归测试
+        run: npm test
+
       - name: 构建前端(vite build,拦语法错误/坏 import/漏装依赖)
         run: npm run build
