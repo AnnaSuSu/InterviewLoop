@@ -138,7 +138,8 @@ async def upload_resume(file: UploadFile = File(...), user_id: str = Depends(get
         if temp.exists():
             temp.unlink()
 
-    # Drop stale resume vectors; the next query_resume lazily re-ingests the new PDF.
+    # Remove vectors created by older deployments. Current resume flows read the
+    # complete PDF text directly and do not rebuild these vectors.
     invalidate_resume(user_id)
 
     return {"ok": True, "filename": filename, "size": len(content)}

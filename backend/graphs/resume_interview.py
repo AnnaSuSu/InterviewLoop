@@ -13,7 +13,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.models import ResumeInterviewState, InterviewPhase
 from backend.config import settings
 from backend.llm_provider import get_langchain_llm
-from backend.indexer import query_resume
+from backend.indexer import load_resume_text
 from backend.memory import get_profile_summary
 from backend.prompts.interviewer import RESUME_INTERVIEWER_SYSTEM
 
@@ -86,9 +86,7 @@ def _make_init_interview(user_id: str):
     """Create init_interview node bound to a specific user."""
     async def init_interview(state: ResumeInterviewState) -> dict:
         """Load resume context and prepare the opening."""
-        resume_ctx = await asyncio.to_thread(
-            query_resume, "列出候选人的所有项目经历、技能和教育背景", user_id
-        )
+        resume_ctx = await asyncio.to_thread(load_resume_text, user_id)
         profile_summary = await asyncio.to_thread(get_profile_summary, user_id)
 
         target_role = (state.get("target_role") or "").strip() or "候选人应聘岗位"

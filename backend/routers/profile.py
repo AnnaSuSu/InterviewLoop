@@ -45,14 +45,12 @@ def infer_target_role(user_id: str = Depends(get_current_user)):
     if not resume_dir.exists() or not any(p.suffix.lower() == ".pdf" for p in resume_dir.iterdir()):
         raise HTTPException(400, "请先上传简历")
 
-    from backend.indexer import query_resume
+    from backend.indexer import load_resume_text
     from backend.llm_provider import get_langchain_llm
     from backend.prompts.interviewer import INFER_TARGET_ROLE_PROMPT
 
     try:
-        resume_ctx = query_resume(
-            "列出候选人的技术栈、项目方向、教育背景与目标岗位相关线索", user_id
-        )
+        resume_ctx = load_resume_text(user_id)
     except Exception as exc:
         raise HTTPException(500, f"读取简历失败: {exc}")
 

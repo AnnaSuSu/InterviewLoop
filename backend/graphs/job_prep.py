@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from backend.config import settings
 from backend.graphs.topic_drill import _parse_json_response
-from backend.indexer import query_resume
+from backend.indexer import load_resume_text
 from backend.llm_provider import get_langchain_llm
 from backend.memory import get_profile_summary
 from backend.prompts.job_prep import (
@@ -30,15 +30,11 @@ def _get_resume_context(user_id: str, use_resume: bool) -> tuple[str, bool]:
         return "未启用简历联动", False
 
     try:
-        resume_context = query_resume(
-            "总结候选人的项目经历、技术栈、AI/后端/工程化相关实践，以及最适合拿来面这个岗位的经历",
-            user_id,
-            top_k=4,
-        )
+        resume_context = load_resume_text(user_id)
         return str(resume_context)[:5000], True
     except Exception as exc:
-        logger.warning(f"Failed to load resume context for JD prep: {exc}")
-        return "简历检索失败，本次按无简历联动处理", False
+        logger.warning(f"Failed to read resume context for JD prep: {exc}")
+        return "简历读取失败，本次按无简历联动处理", False
 
 
 def _normalize_preview(

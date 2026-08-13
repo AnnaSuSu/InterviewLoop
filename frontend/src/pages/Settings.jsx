@@ -730,7 +730,7 @@ export default function Settings() {
               <span className="text-base font-semibold">Embedding 模型</span>
             </div>
             <div className="text-[13px] text-dim mb-6">
-              你自己的 Embedding，仅对你生效；用于题库 / 简历 / 知识库的向量化，必须配置。
+              你自己的 Embedding，仅对你生效；用于题库、知识库、个人资料库和记忆的向量化，必须配置。简历会直接读取全文，不使用 Embedding。
               <span className="text-amber-500/90">更换模型后请点下方「更新向量索引」重建（会清空并重算向量，历史会话记忆向量无法恢复）。</span>
             </div>
 
@@ -860,7 +860,7 @@ export default function Settings() {
               <div className="mt-6 flex items-start gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4 text-[13px] text-amber-500/90">
                 <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                 <span>
-                  你更换了 Embedding 模型，旧向量已失效。点击下方按钮重建简历 / 知识库 / 记忆向量；
+                  你更换了 Embedding 模型，旧向量已失效。点击下方按钮重建知识库 / 个人资料库 / 记忆向量；
                   在重建前，相关检索结果会暂时为空。
                 </span>
               </div>
@@ -897,7 +897,7 @@ export default function Settings() {
                     </span>
                   ) : (
                     <span className="text-[12px] text-dim">
-                      更换 Embedding 模型并保存后，点此用新模型重建简历 / 知识库 / 记忆向量
+                      更换 Embedding 模型并保存后，点此用新模型重建知识库 / 个人资料库 / 记忆向量
                     </span>
                   ))}
               </div>

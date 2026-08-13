@@ -125,7 +125,7 @@ def test_embedding_connection(payload: EmbeddingSettings, user_id: str = Depends
 
 @router.post("/settings/rebuild-index")
 def rebuild_index(user_id: str = Depends(get_current_user)):
-    """Re-embed the user's resume / personal documents / knowledge bases / weak-point memory with their
+    """Re-embed the user's personal documents / knowledge bases / weak-point memory with their
     current embedding model. Streams SSE progress so the UI can show a determinate bar.
 
     Idempotent: clears stale vectors first. Best-effort per source — a missing/empty
@@ -137,7 +137,6 @@ def rebuild_index(user_id: str = Depends(get_current_user)):
 
     def event_stream():
         from backend.indexer import (
-            ingest_resume,
             ingest_topic,
             invalidate_user_embeddings,
             load_topics,
@@ -147,12 +146,8 @@ def rebuild_index(user_id: str = Depends(get_current_user)):
 
         try:
             topics = load_topics(user_id)  # {key: {name, dir, ...}}
-            resume_dir = settings.user_resume_path(user_id)
-            has_resume = resume_dir.exists() and any(p.is_file() for p in resume_dir.rglob("*"))
 
             plan = [("cleanup", "清理旧向量"), ("weak_points", "记忆 / 薄弱点")]
-            if has_resume:
-                plan.append(("resume", "简历"))
             if list_documents(user_id):
                 plan.append(("personal_documents", "个人资料库"))
             for key, meta in topics.items():
@@ -163,7 +158,7 @@ def rebuild_index(user_id: str = Depends(get_current_user)):
             yield f"data: {json.dumps({'fatal': True, 'error': str(exc)})}\n\n"
             return
 
-        result = {"weak_points": False, "resume": False, "personal_documents": False, "topics": []}
+        result = {"weak_points": False, "personal_documents": False, "topics": []}
         done = 0
 
         for key, label in plan:
@@ -174,9 +169,6 @@ def rebuild_index(user_id: str = Depends(get_current_user)):
                 elif key == "weak_points":
                     rebuild_index_from_profile(user_id)
                     result["weak_points"] = True
-                elif key == "resume":
-                    ingest_resume(user_id)
-                    result["resume"] = True
                 elif key == "personal_documents":
                     reindex_all_documents(user_id)
                     result["personal_documents"] = True

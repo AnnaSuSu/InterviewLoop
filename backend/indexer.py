@@ -1,11 +1,15 @@
-"""Lightweight RAG over the user's resume and knowledge bases.
+"""Lightweight RAG over the user's knowledge bases.
 
 Replaces LlamaIndex with: pypdf / plain-text loading, paragraph-aware chunking,
 the user's embedding model, and numpy brute-force retrieval. Chunk vectors live in
-the shared `memory_vectors` table (chunk_type 'resume_chunk' / 'topic_chunk'), so
-there is one vector store and one invalidation path. The resume PDF and knowledge
-files stay the source of truth; vectors are a rebuildable cache (lazily built on
-first query, force-rebuilt from Settings → 更新向量索引).
+the shared `memory_vectors` table, so there is one vector store and one invalidation
+path. Knowledge files stay the source of truth; vectors are a rebuildable cache
+(lazily built on first query, force-rebuilt from Settings → 更新向量索引).
+
+Resume PDFs are intentionally loaded verbatim into interview prompts. A normal
+single-page resume is small enough that vector retrieval adds failure modes without
+meaningfully reducing prompt size. `RESUME_CHUNK` remains only to clean up vectors
+created by older deployments.
 """
 import json
 import logging
@@ -16,7 +20,7 @@ from pathlib import Path
 import numpy as np
 
 from backend.config import settings
-from backend.llm_provider import get_copilot_llm, get_embedding
+from backend.llm_provider import get_embedding
 from backend.vector_memory import (
     _cosine_similarity,
     _deserialize,
@@ -79,6 +83,24 @@ def _read_pdf(path: Path) -> str:
     except Exception as exc:  # noqa: BLE001 - corrupt/locked PDF shouldn't crash ingest
         logger.warning("Failed to read PDF %s: %s", path, exc)
         return ""
+
+
+def load_resume_text(user_id: str) -> str:
+    """Return the user's complete resume text without Embedding or retrieval."""
+    resume_dir = settings.user_resume_path(user_id)
+    if not resume_dir.exists():
+        return ""
+
+    parts: list[str] = []
+    pdfs = sorted(
+        (path for path in resume_dir.iterdir() if path.is_file() and path.suffix.lower() == ".pdf"),
+        key=lambda path: path.name,
+    )
+    for pdf in pdfs:
+        text = _read_pdf(pdf).strip()
+        if text:
+            parts.append(text)
+    return "\n\n---\n\n".join(parts)
 
 
 def _read_text(path: Path) -> str:
@@ -166,18 +188,6 @@ def _store_chunks(user_id: str, chunk_type: str, topic: str | None, items: list[
 
 # ── Ingestion (force-rebuild a source's vectors) ──
 
-def ingest_resume(user_id: str) -> int:
-    """(Re)build resume chunk vectors from the user's PDF(s)."""
-    resume_dir = settings.user_resume_path(user_id)
-    items: list[tuple[str, str]] = []
-    if resume_dir.exists():
-        for pdf in sorted(resume_dir.glob("*.pdf")):
-            items.extend((c, pdf.name) for c in _chunk_text(_read_pdf(pdf)))
-    n = _store_chunks(user_id, RESUME_CHUNK, None, items)
-    logger.info("Ingested %d resume chunks for user %s.", n, user_id)
-    return n
-
-
 def ingest_topic(topic: str, user_id: str) -> int:
     """(Re)build knowledge-base chunk vectors for a topic."""
     topic_map = get_topic_map(user_id)
@@ -196,11 +206,6 @@ def ingest_topic(topic: str, user_id: str) -> int:
 
 
 # ── Source presence (gates lazy ingest so empty corpora don't re-ingest each call) ──
-
-def _resume_has_pdf(user_id: str) -> bool:
-    resume_dir = settings.user_resume_path(user_id)
-    return resume_dir.exists() and any(p.suffix.lower() == ".pdf" for p in resume_dir.iterdir())
-
 
 def _topic_has_docs(topic: str, user_id: str) -> bool:
     topic_map = get_topic_map(user_id)
@@ -235,29 +240,6 @@ def _retrieve(user_id: str, chunk_type: str, topic: str | None, query: str, top_
     sims = _cosine_similarity(query_vec, matrix)
     order = np.argsort(sims)[::-1][:top_k]
     return [rows[i]["content"] for i in order]
-
-
-def _synthesize(question: str, chunks: list[str], user_id: str) -> str:
-    """Stuff retrieved chunks into the prompt and let the user's LLM answer."""
-    context = "\n\n---\n\n".join(chunks)
-    prompt = (
-        "你是简历检索助手。仅依据下面的简历片段回答问题,片段中没有的信息不要编造。\n\n"
-        f"简历片段:\n{context}\n\n问题:{question}\n\n回答:"
-    )
-    resp = get_copilot_llm(user_id).invoke(prompt)
-    return (getattr(resp, "content", None) or str(resp)).strip()
-
-
-def query_resume(question: str, user_id: str, top_k: int = 3) -> str:
-    """Retrieve resume chunks and synthesize an answer. Lazily ingests on first use;
-    returns '' when no resume is uploaded."""
-    chunks = _retrieve(user_id, RESUME_CHUNK, None, question, top_k)
-    if not chunks and _resume_has_pdf(user_id):
-        ingest_resume(user_id)
-        chunks = _retrieve(user_id, RESUME_CHUNK, None, question, top_k)
-    if not chunks:
-        return ""
-    return _synthesize(question, chunks, user_id)
 
 
 def retrieve_topic_context(topic: str, question: str, user_id: str, top_k: int = 5) -> list[str]:
@@ -317,7 +299,7 @@ def get_topic_knowledge(
 # ── Invalidation ──
 
 def invalidate_resume(user_id: str):
-    """Drop stored resume chunk vectors (called when the resume file changes)."""
+    """Drop legacy resume vectors created before resumes became direct context."""
     _delete_chunks(user_id, RESUME_CHUNK, None)
 
 
@@ -328,7 +310,7 @@ def invalidate_topic(topic: str, user_id: str):
 
 def invalidate_user_embeddings(user_id: str):
     """Drop everything embedded with the user's previous embedding model: the cached
-    embedding client, all memory_vectors rows (weak points + resume/topic/personal-document chunks),
+    embedding client, all memory_vectors rows (weak points + topic/personal-document chunks),
     and cached question embeddings. Called when a user changes embedding config."""
     from backend.graph import clear_user_question_embeddings
     from backend.llm_provider import reset_embedding_cache
