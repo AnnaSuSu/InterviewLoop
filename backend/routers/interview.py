@@ -884,7 +884,7 @@ async def generate_reference_answer(body: dict, user_id: str = Depends(get_curre
         raise HTTPException(400, "Session missing topic or question text.")
 
     from backend.indexer import retrieve_topic_context
-    from backend.llm_provider import get_langchain_llm
+    from backend.llm_provider import HumanMessage as UserMessage, get_llm
     from backend.prompts.interviewer import REFERENCE_ANSWER_PROMPT
 
     topics = load_topics(user_id)
@@ -898,8 +898,8 @@ async def generate_reference_answer(body: dict, user_id: str = Depends(get_curre
         knowledge_context=knowledge_context,
     )
 
-    llm = get_langchain_llm(user_id)
-    response = llm.invoke([HumanMessage(content=prompt)])
-    answer = response.content.strip()
+    llm = get_llm(user_id)
+    response = llm.invoke([UserMessage(content=prompt)])
+    answer = response.strip()
     save_reference_answer(session_id, qid, answer, user_id=user_id)
     return {"reference_answer": answer, "cached": False}

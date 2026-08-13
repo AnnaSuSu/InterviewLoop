@@ -6,9 +6,7 @@ import logging
 import json
 import time
 
-from langchain_core.messages import SystemMessage, HumanMessage
-
-from backend.llm_provider import get_copilot_llm
+from backend.llm_provider import HumanMessage, SystemMessage, get_copilot_llm
 
 logger = logging.getLogger("uvicorn")
 
@@ -85,7 +83,7 @@ async def analyze_interview(
             )),
         ])
         logger.info(f"Interview Monitor completed in {time.monotonic() - t0:.1f}s")
-        return _parse_monitor(resp.content)
+        return _parse_monitor(resp)
     except Exception as e:
         logger.error(f"Interview Monitor failed after {time.monotonic() - t0:.1f}s: {type(e).__name__}: {e}")
         return None

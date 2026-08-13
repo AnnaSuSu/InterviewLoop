@@ -11,8 +11,9 @@ backends (esp. local HuggingFace models) are expensive, so they are cached per
 """
 
 import logging
+from collections.abc import AsyncIterator
 
-from langchain_openai import ChatOpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from backend.config import (
     DEFAULT_API_EMBED_BATCH_SIZE,
@@ -107,15 +108,75 @@ def _embedding_cache_sig(c: dict) -> str:
     )
 
 
+# ── 消息构造 ──
+# 统一 OpenAI 消息格式(纯 dict,可直接 JSON 序列化/入库)。构造一律经这三个
+# 助手,以后换供应商或扩展字段只改这里。
+
+def SystemMessage(content: str) -> dict:
+    return {"role": "system", "content": content}
+
+
+def HumanMessage(content: str) -> dict:
+    return {"role": "user", "content": content}
+
+
+def AIMessage(content: str) -> dict:
+    return {"role": "assistant", "content": content}
+
+
 # ── LLM ──
+
+class ChatLLM:
+    """OpenAI 兼容 Chat 客户端。messages 用上面的消息助手构造;
+    invoke/ainvoke 返回回复文本,astream 逐段产出增量文本。"""
+
+    def __init__(self, model: str, api_key: str, api_base: str, temperature: float):
+        self.model = model
+        self.temperature = temperature
+        self._api_key = api_key
+        self._api_base = api_base or None
+
+    def invoke(self, messages: list[dict]) -> str:
+        client = OpenAI(api_key=self._api_key, base_url=self._api_base)
+        resp = client.chat.completions.create(
+            model=self.model, messages=messages, temperature=self.temperature,
+        )
+        return resp.choices[0].message.content or ""
+
+    async def ainvoke(self, messages: list[dict]) -> str:
+        client = AsyncOpenAI(api_key=self._api_key, base_url=self._api_base)
+        resp = await client.chat.completions.create(
+            model=self.model, messages=messages, temperature=self.temperature,
+        )
+        return resp.choices[0].message.content or ""
+
+    async def astream(self, messages: list[dict]) -> AsyncIterator[str]:
+        client = AsyncOpenAI(api_key=self._api_key, base_url=self._api_base)
+        stream = await client.chat.completions.create(
+            model=self.model, messages=messages, temperature=self.temperature,
+            stream=True,
+        )
+        async for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
 
 def _require_llm(c: dict):
     if not c["api_key"] or not c["model"]:
         raise ProviderNotConfigured("LLM")
 
 
+def get_llm(user_id: str | None = None) -> ChatLLM:
+    """当前用户的主 LLM。"""
+    c = resolve_llm_config(user_id)
+    _require_llm(c)
+    return ChatLLM(c["model"], c["api_key"], c["api_base"], c["temperature"])
+
+
 def get_langchain_llm(user_id: str | None = None):
-    """LangChain ChatModel for LangGraph nodes (via OpenAI-compatible proxy)."""
+    """LangChain ChatModel — 仅剩简历面试 LangGraph 在用,随图拆除一并删除。"""
+    from langchain_openai import ChatOpenAI
+
     c = resolve_llm_config(user_id)
     _require_llm(c)
     return ChatOpenAI(
@@ -127,17 +188,11 @@ def get_langchain_llm(user_id: str | None = None):
     )
 
 
-def get_copilot_llm(user_id: str | None = None, streaming: bool = False):
+def get_copilot_llm(user_id: str | None = None) -> ChatLLM:
     """Copilot uses the user's own main LLM (no separate Copilot provider)."""
     c = resolve_llm_config(user_id)
     _require_llm(c)
-    return ChatOpenAI(
-        model=c["model"],
-        api_key=c["api_key"],
-        base_url=c["api_base"],
-        temperature=_COPILOT_TEMPERATURE,
-        streaming=streaming,
-    )
+    return ChatLLM(c["model"], c["api_key"], c["api_base"], _COPILOT_TEMPERATURE)
 
 
 # ── Embedding ──

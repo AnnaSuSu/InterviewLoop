@@ -8,12 +8,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from backend.auth import get_current_user
 from backend.config import settings
 from backend.indexer import _read_pdf, invalidate_resume
-from backend.llm_provider import get_langchain_llm
+from backend.llm_provider import HumanMessage, SystemMessage, get_llm
 from backend.prompts.resume_import import RESUME_PARSE_PROMPT
 from backend.utils import parse_json_response, safe_child_path
 
@@ -78,7 +77,7 @@ async def parse_resume(user_id: str = Depends(get_current_user)):
         raise HTTPException(500, "无法从 PDF 提取文本(可能是扫描件或图片型简历)")
 
     # ProviderNotConfigured 由全局 handler 转 400 引导配置,这里不拦
-    llm = get_langchain_llm(user_id)
+    llm = get_llm(user_id)
     prompt = RESUME_PARSE_PROMPT.format(resume_text=text[:MAX_PARSE_CHARS])
     messages = [
         SystemMessage(content="你是简历解析引擎。只返回 JSON，不要其他内容。"),
@@ -90,8 +89,8 @@ async def parse_resume(user_id: str = Depends(get_current_user)):
     last_error: Exception | None = None
     for attempt in range(2):
         try:
-            response = await asyncio.to_thread(llm.invoke, messages)
-            candidate = parse_json_response(response.content)
+            response = await llm.ainvoke(messages)
+            candidate = parse_json_response(response)
             if not isinstance(candidate, dict):
                 raise ValueError(f"expected dict, got {type(candidate)}")
             parsed = candidate

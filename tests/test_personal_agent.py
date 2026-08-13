@@ -4,7 +4,6 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from backend import personal_agent, vector_memory
@@ -106,7 +105,7 @@ class PersonalAgentConversationTests(unittest.TestCase):
         class FakeLLM:
             def invoke(self, messages):
                 captured["messages"] = messages
-                return SimpleNamespace(content="根据你的记录，建议先复习 GIL。")
+                return "根据你的记录，建议先复习 GIL。"
 
         document_hits = [{
             "document_id": "doc-1",
@@ -123,7 +122,7 @@ class PersonalAgentConversationTests(unittest.TestCase):
         ):
             result = personal_agent.chat_with_personal_agent("我该先复习什么？", "user-a")
 
-        system_prompt = captured["messages"][0].content
+        system_prompt = captured["messages"][0]["content"]
         self.assertIn("后端工程师", system_prompt)
         self.assertIn("解释 GIL", system_prompt)
         self.assertIn("python-notes.md", system_prompt)

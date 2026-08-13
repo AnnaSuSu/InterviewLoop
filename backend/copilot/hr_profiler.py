@@ -6,9 +6,7 @@ import logging
 import json
 import time
 
-from langchain_core.messages import SystemMessage, HumanMessage
-
-from backend.llm_provider import get_copilot_llm
+from backend.llm_provider import HumanMessage, SystemMessage, get_copilot_llm
 
 logger = logging.getLogger("uvicorn")
 
@@ -56,7 +54,7 @@ async def analyze_hr(conversation: list[dict]) -> dict | None:
             HumanMessage(content=_HR_PROFILE_PROMPT.format(conversation=conv_text)),
         ])
         logger.info(f"HR Profiler completed in {time.monotonic() - t0:.1f}s")
-        return _parse_profile(resp.content)
+        return _parse_profile(resp)
     except Exception as e:
         logger.error(f"HR Profiler failed after {time.monotonic() - t0:.1f}s: {type(e).__name__}: {e}")
         return None

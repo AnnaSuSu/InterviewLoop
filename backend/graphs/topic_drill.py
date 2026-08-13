@@ -1,10 +1,8 @@
-"""模式2: 专项强化训练 — 批量出题 + 批量评估（不再使用 LangGraph）."""
+"""模式2: 专项强化训练 — 批量出题 + 批量评估."""
 import json
 
-from langchain_core.messages import SystemMessage, HumanMessage
-
 from backend.config import settings
-from backend.llm_provider import get_langchain_llm
+from backend.llm_provider import HumanMessage, SystemMessage, get_llm
 from backend.indexer import (
     retrieve_topic_context, load_topics, get_topic_knowledge,
     load_topic_documents, KNOWLEDGE_CHAR_BUDGET,
@@ -150,14 +148,14 @@ def generate_drill_questions(
         weak_count=weak_count,
     )
 
-    llm = get_langchain_llm(user_id)
+    llm = get_llm(user_id)
     response = llm.invoke([
         SystemMessage(content="你是专项训练出题引擎。只返回 JSON 数组，不要其他内容。"),
         HumanMessage(content=prompt),
     ])
 
     try:
-        questions = _parse_json_response(response.content)
+        questions = _parse_json_response(response)
         if not isinstance(questions, list):
             raise ValueError(f"Expected a list, got {type(questions)}")
         # Ensure each question has an id
@@ -169,7 +167,7 @@ def generate_drill_questions(
         import logging
         logger = logging.getLogger("uvicorn")
         logger.error(f"Drill question generation failed: {e}")
-        logger.error(f"LLM raw response: {response.content[:500]}")
+        logger.error(f"LLM raw response: {response[:500]}")
         raise RuntimeError(f"出题失败，LLM 返回格式异常: {e}")
 
 
@@ -209,14 +207,14 @@ def evaluate_drill_answers(topic: str, questions: list[dict], answers: list[dict
         references=references,
     )
 
-    llm = get_langchain_llm(user_id)
+    llm = get_llm(user_id)
     response = llm.invoke([
         SystemMessage(content="你是训练评估引擎。只返回 JSON，不要其他内容。"),
         HumanMessage(content=prompt),
     ])
 
     try:
-        result = _parse_json_response(response.content)
+        result = _parse_json_response(response)
         if not isinstance(result, dict):
             raise ValueError(f"Expected a dict, got {type(result)}")
         return result
@@ -224,7 +222,7 @@ def evaluate_drill_answers(topic: str, questions: list[dict], answers: list[dict
         import logging
         logger = logging.getLogger("uvicorn")
         logger.error(f"Drill evaluation failed: {e}")
-        logger.error(f"LLM raw response: {response.content[:500]}")
+        logger.error(f"LLM raw response: {response[:500]}")
         # Fail loudly so the session is marked review_failed and the UI shows a retry —
         # a fallback "解析失败" review would persist as reviewed (dead end).
         raise RuntimeError("评估结果解析失败，请重新提交。") from e

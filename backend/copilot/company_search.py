@@ -2,9 +2,7 @@
 import json
 import logging
 
-from langchain_core.messages import SystemMessage, HumanMessage
-
-from backend.llm_provider import get_copilot_llm, resolve_tavily_key
+from backend.llm_provider import HumanMessage, SystemMessage, get_copilot_llm, resolve_tavily_key
 
 logger = logging.getLogger("uvicorn")
 
@@ -80,7 +78,7 @@ async def search_company(company: str, position: str = "") -> str:
         HumanMessage(content=f"公司: {company}\n岗位: {position}\n\n搜索结果:\n{json.dumps(all_results, ensure_ascii=False)}"),
     ]
     resp = await llm.ainvoke(messages)
-    text = resp.content.strip()
+    text = resp.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
         if text.endswith("```"):

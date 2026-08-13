@@ -3,9 +3,7 @@ import logging
 import time
 from collections.abc import AsyncIterator
 
-from langchain_core.messages import SystemMessage, HumanMessage
-
-from backend.llm_provider import get_copilot_llm
+from backend.llm_provider import HumanMessage, SystemMessage, get_copilot_llm
 from backend.copilot.strategy_tree import StrategyTreeNavigator
 
 logger = logging.getLogger("uvicorn")
@@ -92,23 +90,22 @@ def prepare_advice_context(
 
 async def stream_advice(prompt: str) -> AsyncIterator[dict]:
     """流式调用 LLM。yield dict: {"type": "chunk", "text": ...} 或 {"type": "meta", ...}。"""
-    llm = get_copilot_llm(streaming=True)
-    logger.info(f"Answer Coach streaming: model={llm.model_name}")
+    llm = get_copilot_llm()
+    logger.info(f"Answer Coach streaming: model={llm.model}")
     t0 = time.monotonic()
     chunk_count = 0
     first_token_ms = None
     try:
-        async for chunk in llm.astream([
+        async for token in llm.astream([
             SystemMessage(content="直接输出答案，不要 JSON 格式"),
             HumanMessage(content=prompt),
         ]):
-            if chunk.content:
-                chunk_count += 1
-                if chunk_count == 1:
-                    first_token_ms = round((time.monotonic() - t0) * 1000)
-                    logger.info(f"Answer Coach first token at {first_token_ms}ms")
-                    yield {"type": "meta", "first_token_ms": first_token_ms}
-                yield {"type": "chunk", "text": chunk.content}
+            chunk_count += 1
+            if chunk_count == 1:
+                first_token_ms = round((time.monotonic() - t0) * 1000)
+                logger.info(f"Answer Coach first token at {first_token_ms}ms")
+                yield {"type": "meta", "first_token_ms": first_token_ms}
+            yield {"type": "chunk", "text": token}
         total_ms = round((time.monotonic() - t0) * 1000)
         logger.info(f"Answer Coach completed in {total_ms}ms, {chunk_count} chunks")
         yield {"type": "done", "total_ms": total_ms, "chunk_count": chunk_count}

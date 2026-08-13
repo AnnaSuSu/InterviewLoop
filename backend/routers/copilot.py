@@ -6,7 +6,6 @@ import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, WebSocket, WebSocketDisconnect
-from langchain_core.messages import HumanMessage
 
 from backend.auth import get_current_user
 from backend.llm_provider import resolve_dashscope_key
@@ -416,18 +415,17 @@ async def _run_warmup(ws: WebSocket):
     """连接后自动测一次 LLM 速度。"""
     import time
 
-    from backend.llm_provider import get_copilot_llm
+    from backend.llm_provider import HumanMessage, get_copilot_llm
 
     try:
-        llm = get_copilot_llm(streaming=True)
+        llm = get_copilot_llm()
         start = time.monotonic()
         chunk_count = 0
         first_token_ms = None
-        async for chunk in llm.astream([HumanMessage(content="说一个字：好")]):
-            if chunk.content:
-                chunk_count += 1
-                if chunk_count == 1:
-                    first_token_ms = round((time.monotonic() - start) * 1000)
+        async for _token in llm.astream([HumanMessage(content="说一个字：好")]):
+            chunk_count += 1
+            if chunk_count == 1:
+                first_token_ms = round((time.monotonic() - start) * 1000)
         total_ms = round((time.monotonic() - start) * 1000)
         await ws.send_json({"type": "answer_meta", "first_token_ms": first_token_ms or total_ms})
         await ws.send_json({"type": "answer_done", "total_ms": total_ms, "chunk_count": chunk_count})

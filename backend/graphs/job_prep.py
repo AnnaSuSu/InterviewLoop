@@ -2,12 +2,10 @@
 import json
 import logging
 
-from langchain_core.messages import HumanMessage, SystemMessage
-
 from backend.config import settings
 from backend.graphs.topic_drill import _parse_json_response
 from backend.indexer import load_resume_text
-from backend.llm_provider import get_langchain_llm
+from backend.llm_provider import HumanMessage, SystemMessage, get_llm
 from backend.memory import get_profile_summary
 from backend.prompts.job_prep import (
     JOB_PREP_EVAL_PROMPT,
@@ -85,19 +83,19 @@ def generate_job_prep_preview(
         resume_context=resume_context,
     )
 
-    llm = get_langchain_llm(user_id)
+    llm = get_llm(user_id)
     response = llm.invoke([
         SystemMessage(content="你是 JD 备面分析引擎。只返回 JSON。"),
         HumanMessage(content=prompt),
     ])
 
     try:
-        parsed = _parse_json_response(response.content)
+        parsed = _parse_json_response(response)
         if not isinstance(parsed, dict):
             raise ValueError(f"Expected dict, got {type(parsed)}")
     except Exception as exc:
         logger.error(f"JD prep preview failed: {exc}")
-        logger.error(f"LLM raw response: {response.content[:800]}")
+        logger.error(f"LLM raw response: {response[:800]}")
         raise RuntimeError("JD 分析失败，LLM 返回格式异常。请重试。")
 
     return _normalize_preview(
@@ -127,19 +125,19 @@ def generate_job_prep_questions(
         resume_context=resume_context,
     )
 
-    llm = get_langchain_llm(user_id)
+    llm = get_llm(user_id)
     response = llm.invoke([
         SystemMessage(content="你是 JD 备面出题引擎。只返回 JSON 数组。"),
         HumanMessage(content=prompt),
     ])
 
     try:
-        questions = _parse_json_response(response.content)
+        questions = _parse_json_response(response)
         if not isinstance(questions, list):
             raise ValueError(f"Expected list, got {type(questions)}")
     except Exception as exc:
         logger.error(f"JD prep question generation failed: {exc}")
-        logger.error(f"LLM raw response: {response.content[:800]}")
+        logger.error(f"LLM raw response: {response[:800]}")
         raise RuntimeError("JD 备面出题失败，LLM 返回格式异常。请重试。")
 
     normalized = []
@@ -186,20 +184,20 @@ def evaluate_job_prep_answers(
         qa_pairs="\n\n".join(qa_lines) or "候选人未作答",
     )
 
-    llm = get_langchain_llm(user_id)
+    llm = get_llm(user_id)
     response = llm.invoke([
         SystemMessage(content="你是 JD 备面评估引擎。只返回 JSON。"),
         HumanMessage(content=prompt),
     ])
 
     try:
-        result = _parse_json_response(response.content)
+        result = _parse_json_response(response)
         if not isinstance(result, dict):
             raise ValueError(f"Expected dict, got {type(result)}")
         return result
     except Exception as exc:
         logger.error(f"JD prep evaluation failed: {exc}")
-        logger.error(f"LLM raw response: {response.content[:800]}")
+        logger.error(f"LLM raw response: {response[:800]}")
         # Fail loudly: the caller marks the session review_failed and the UI offers a
         # retry. A fallback "解析失败" review would persist as reviewed — a dead end.
         raise RuntimeError("评估结果解析失败，请重新提交。") from exc

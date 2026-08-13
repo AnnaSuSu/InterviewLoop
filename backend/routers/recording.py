@@ -5,9 +5,9 @@ import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from backend.auth import get_current_user
+from backend.llm_provider import HumanMessage, SystemMessage
 from backend.memory import extract_behavior_ops, llm_update_profile
 from backend.models import RecordingAnalyzeRequest
 from backend.review_formatters import format_drill_review, format_solo_review
@@ -60,7 +60,7 @@ def _analyze_recording_background(
     """Background task: analyze recording transcript."""
     try:
         from backend.graphs.topic_drill import _parse_json_response
-        from backend.llm_provider import get_langchain_llm
+        from backend.llm_provider import get_llm
         from backend.memory import get_profile_summary
         from backend.prompts.recording import (
             RECORDING_DUAL_EVAL_PROMPT,
@@ -68,7 +68,7 @@ def _analyze_recording_background(
             RECORDING_STRUCTURE_PROMPT,
         )
 
-        llm = get_langchain_llm(user_id)
+        llm = get_llm(user_id)
         profile_summary = get_profile_summary(user_id)
 
         if req_recording_mode == "dual":
@@ -77,7 +77,7 @@ def _analyze_recording_background(
                 SystemMessage(content="你是面试记录分析引擎。只返回 JSON，不要其他内容。"),
                 HumanMessage(content=structure_prompt),
             ])
-            structured = _parse_json_response(response.content)
+            structured = _parse_json_response(response)
             qa_pairs = structured.get("qa_pairs", [])
 
             questions, answers = [], []
@@ -106,7 +106,7 @@ def _analyze_recording_background(
                 SystemMessage(content="你是面试评估引擎。只返回 JSON，不要其他内容。"),
                 HumanMessage(content=eval_prompt),
             ])
-            eval_result = _parse_json_response(eval_response.content)
+            eval_result = _parse_json_response(eval_response)
             scores = eval_result.get("scores", [])
             overall = eval_result.get("overall", {})
             for score in scores:
@@ -132,7 +132,7 @@ def _analyze_recording_background(
                 SystemMessage(content="你是录音评估引擎。只返回 JSON，不要其他内容。"),
                 HumanMessage(content=eval_prompt),
             ])
-            eval_result = _parse_json_response(response.content)
+            eval_result = _parse_json_response(response)
             topics_covered = eval_result.get("topics_covered", [])
             overall = eval_result.get("overall", {})
             overall["topics_covered"] = topics_covered

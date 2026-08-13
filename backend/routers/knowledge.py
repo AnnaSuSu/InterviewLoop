@@ -1,13 +1,12 @@
 """Knowledge and graph routes."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from backend.auth import get_current_user
 from backend.config import settings
 from backend.graph import build_graph
 from backend.indexer import invalidate_topic, load_topics
-from backend.llm_provider import get_langchain_llm
+from backend.llm_provider import HumanMessage, SystemMessage, get_llm
 from backend.utils import resolve_path_within, safe_child_path
 
 router = APIRouter(prefix="/api")
@@ -117,7 +116,7 @@ async def generate_core_knowledge(topic: str, user_id: str = Depends(get_current
         raise HTTPException(400, f"Unknown topic: {topic}")
 
     topic_name = topics[topic].get("name", topic)
-    llm = get_langchain_llm(user_id)
+    llm = get_llm(user_id)
     response = llm.invoke([
         SystemMessage(content="你是一位资深技术面试官，擅长梳理技术领域的核心知识体系。"),
         HumanMessage(content=(
@@ -132,7 +131,7 @@ async def generate_core_knowledge(topic: str, user_id: str = Depends(get_current
             "- 直接输出 Markdown 内容，不要包裹在代码块中"
         )),
     ])
-    content = response.content.strip()
+    content = response.strip()
 
     topic_dir = _topic_dir(topics[topic], user_id)
     topic_dir.mkdir(parents=True, exist_ok=True)

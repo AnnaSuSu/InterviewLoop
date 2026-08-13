@@ -693,22 +693,18 @@ class RecordingPersistenceTests(unittest.TestCase):
             def invoke(self, _messages):
                 self.calls += 1
                 if self.calls == 1:
-                    return SimpleNamespace(
-                        content=json.dumps({
-                            "qa_pairs": [{
-                                "id": 1,
-                                "question": "Q?",
-                                "answer": "A.",
-                                "focus_area": "Python",
-                            }]
-                        })
-                    )
-                return SimpleNamespace(
-                    content=json.dumps({
-                        "scores": [{"question_id": 1, "score": 8}],
-                        "overall": {"avg_score": 8, "summary": "Good"},
+                    return json.dumps({
+                        "qa_pairs": [{
+                            "id": 1,
+                            "question": "Q?",
+                            "answer": "A.",
+                            "focus_area": "Python",
+                        }]
                     })
-                )
+                return json.dumps({
+                    "scores": [{"question_id": 1, "score": 8}],
+                    "overall": {"avg_score": 8, "summary": "Good"},
+                })
 
         async def no_behavior(*_args, **_kwargs):
             return []
@@ -717,7 +713,7 @@ class RecordingPersistenceTests(unittest.TestCase):
             return None
 
         with (
-            patch("backend.llm_provider.get_langchain_llm", return_value=FakeLLM()),
+            patch("backend.llm_provider.get_llm", return_value=FakeLLM()),
             patch("backend.memory.get_profile_summary", return_value=""),
             patch.object(recording, "extract_behavior_ops", no_behavior),
             patch.object(recording, "llm_update_profile", no_profile_update),
@@ -746,7 +742,7 @@ class RecordingPersistenceTests(unittest.TestCase):
                 raise RuntimeError("provider unavailable")
 
         with (
-            patch("backend.llm_provider.get_langchain_llm", return_value=FailingLLM()),
+            patch("backend.llm_provider.get_llm", return_value=FailingLLM()),
             patch("backend.memory.get_profile_summary", return_value=""),
         ):
             with self.assertLogs(recording.logger, level="ERROR"):

@@ -18,11 +18,10 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import numpy as np
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from backend.config import settings
 from backend.indexer import _chunk_text, _read_pdf
-from backend.llm_provider import get_copilot_llm, get_embedding
+from backend.llm_provider import AIMessage, HumanMessage, SystemMessage, get_copilot_llm, get_embedding
 from backend.memory import get_profile
 from backend.spaced_repetition import get_due_reviews
 from backend.vector_memory import (
@@ -551,17 +550,6 @@ def _profile_context(user_id: str) -> dict:
     }
 
 
-def _content_text(value: object) -> str:
-    if isinstance(value, str):
-        return value.strip()
-    if isinstance(value, list):
-        return "\n".join(
-            str(item.get("text", "")) if isinstance(item, dict) else str(item)
-            for item in value
-        ).strip()
-    return str(value).strip()
-
-
 def chat_with_personal_agent(
     message: str,
     user_id: str,
@@ -612,17 +600,16 @@ def chat_with_personal_agent(
 {document_context[:14000]}
 """
 
-    langchain_messages = [SystemMessage(content=system_prompt)]
+    llm_messages = [SystemMessage(content=system_prompt)]
     for item in conversation["messages"][-12:]:
         content = item.get("content", "")
         if item.get("role") == "user":
-            langchain_messages.append(HumanMessage(content=content))
+            llm_messages.append(HumanMessage(content=content))
         elif item.get("role") == "assistant":
-            langchain_messages.append(AIMessage(content=content))
-    langchain_messages.append(HumanMessage(content=message))
+            llm_messages.append(AIMessage(content=content))
+    llm_messages.append(HumanMessage(content=message))
 
-    response = get_copilot_llm(user_id).invoke(langchain_messages)
-    answer = _content_text(getattr(response, "content", response))
+    answer = get_copilot_llm(user_id).invoke(llm_messages).strip()
     if not answer:
         raise RuntimeError("模型没有返回内容")
 

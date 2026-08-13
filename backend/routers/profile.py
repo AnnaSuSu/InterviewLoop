@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from backend.auth import get_current_user
 from backend.config import settings
@@ -46,7 +45,7 @@ def infer_target_role(user_id: str = Depends(get_current_user)):
         raise HTTPException(400, "请先上传简历")
 
     from backend.indexer import load_resume_text
-    from backend.llm_provider import get_langchain_llm
+    from backend.llm_provider import HumanMessage, SystemMessage, get_llm
     from backend.prompts.interviewer import INFER_TARGET_ROLE_PROMPT
 
     try:
@@ -54,12 +53,12 @@ def infer_target_role(user_id: str = Depends(get_current_user)):
     except Exception as exc:
         raise HTTPException(500, f"读取简历失败: {exc}")
 
-    llm = get_langchain_llm(user_id)
+    llm = get_llm(user_id)
     response = llm.invoke([
         SystemMessage(content="你是岗位推断引擎。只返回岗位名称，不要任何其他内容。"),
         HumanMessage(content=INFER_TARGET_ROLE_PROMPT.format(resume_context=resume_ctx)),
     ])
-    role = (response.content or "").strip().strip('"').strip("「」").strip()
+    role = response.strip().strip('"').strip("「」").strip()
     if not role:
         raise HTTPException(500, "推断失败，请手动填写")
     return {"target_role": role}
@@ -105,7 +104,7 @@ def get_topic_history(topic: str, user_id: str = Depends(get_current_user)):
 def _generate_retrospective_background(task_id: str, topic: str, user_id: str):
     """Background task: generate topic retrospective."""
     try:
-        from backend.llm_provider import get_langchain_llm
+        from backend.llm_provider import HumanMessage, SystemMessage, get_llm
         from backend.memory import _load_profile, _save_profile
         from backend.prompts.interviewer import TOPIC_RETROSPECTIVE_PROMPT
 
@@ -144,13 +143,13 @@ def _generate_retrospective_background(task_id: str, topic: str, user_id: str):
             mastery_info=mastery_text,
         )
 
-        llm = get_langchain_llm(user_id)
+        llm = get_llm(user_id)
         response = llm.invoke([
             SystemMessage(content="你是面试教练。用 markdown 生成回顾报告。"),
             HumanMessage(content=prompt),
         ])
 
-        retrospective = response.content.strip()
+        retrospective = response.strip()
         generated_at = datetime.now().isoformat()
         profile.setdefault("topic_mastery", {}).setdefault(topic, {})["retrospective"] = retrospective
         profile["topic_mastery"][topic]["retrospective_at"] = generated_at
