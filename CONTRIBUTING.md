@@ -26,7 +26,7 @@ cd frontend && npm install && npm run dev
 ## 项目结构速览
 
 ```
-backend/            FastAPI 后端(routers/ 路由、graphs/ LangGraph 流程、prompts/ 提示词)
+backend/            FastAPI 后端(routers/ 路由、graphs/ 面试流程、prompts/ 提示词)
 frontend/src/       React 19 + Vite + Tailwind 4
   pages/            页面(大页面拆同名小写文件夹)
   api/              fetch 封装 + openapi 生成的接口类型
@@ -54,7 +54,7 @@ tests/              后端回归测试
 **后端**
 
 - 路由按域拆在 `backend/routers/`,`prefix="/api"`;鉴权统一 `Depends(get_current_user)`。
-- LLM 调用一律走 `llm_provider.get_langchain_llm(user_id)`,让 LLM 只返回 JSON 时用 `parse_json_response` 解析并做一次重试。
+- LLM 调用一律走 `llm_provider.get_llm(user_id)`(消息用同模块的 `SystemMessage/HumanMessage/AIMessage` 构造),让 LLM 只返回 JSON 时用 `parse_json_response` 解析并做一次重试。
 - 回归测试:`pytest tests/`。
 
 **通用原则**

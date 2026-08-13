@@ -1,4 +1,4 @@
-"""简历模拟面试状态持久化 (SQLite) — 每会话一行 JSON,取代 LangGraph checkpoint。"""
+"""简历模拟面试状态持久化 (SQLite) — 每会话一行 JSON。"""
 import json
 import sqlite3
 

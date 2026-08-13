@@ -10,7 +10,6 @@
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Powered-1C3C3C.svg)](https://www.langchain.com/langgraph)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](LICENSE)
 
@@ -101,7 +100,7 @@ TechSpar 要解决的不是“生成更多题”，而是把一次次训练、�
 
 #### 简历模拟面试
 
-AI 读取简历，通过 LangGraph 状态机推进完整流程：自我介绍 -> 技术问题 -> 项目深挖 -> 反问环节。
+AI 读取简历，通过内置状态机推进完整流程：自我介绍 -> 技术问题 -> 项目深挖 -> 反问环节。
 
 #### JD 定向备面
 
@@ -242,7 +241,7 @@ http://localhost:5173/copilot
 
 | Component | Technology |
 | --- | --- |
-| Backend | FastAPI, LangChain, LangGraph |
+| Backend | FastAPI |
 | Frontend | React 19, React Router v7, Vite, Tailwind CSS v4 |
 | Storage | SQLite, semantic embeddings |
 | Auth | JWT, bcrypt |
@@ -280,7 +279,7 @@ python3 scripts/import_data.py techspar-backup-<timestamp>.tar.gz
 UI 导入会把归档中的数据全部归到当前登录账户（即使原 `user_id` 不同），适合个人换机；CLI 默认保留原 `user_id`，适合管理员级整库迁移。
 
 打包内容：`data/interviews.db` + `data/users/<user_id>/`（画像/简历/知识库/题库/训练偏好）。
-**不打包**：`.index_cache/`（导入后会自动重建）、`langgraph_checkpoints*`（运行时状态）、`.env`（只剩 `JWT_SECRET`/管理员账号等引导项，需手工同步；模型密钥已存在 `data/users/` 里随包迁移）。
+**不打包**：`.index_cache/`（导入后会自动重建）、`.env`（只剩 `JWT_SECRET`/管理员账号等引导项，需手工同步；模型密钥已存在 `data/users/` 里随包迁移）。
 
 可选参数：
 - `--user-id <id>`：仅导出指定用户（多用户部署时使用）

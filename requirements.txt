@@ -1,10 +1,4 @@
-# LLM Frameworks
-langchain>=0.3.0
-langchain-openai>=0.2.0
-langgraph>=0.2.0
-langgraph-checkpoint-sqlite>=2.0.0
-
-# OpenAI-compatible embedding client (RAG / 记忆向量;自写轻量检索,无 LlamaIndex)
+# OpenAI-compatible client (Chat LLM + Embedding;封装在 llm_provider.py)
 openai>=1.0.0
 # 向量余弦检索的数值后端（indexer / memory / graph / copilot 直接 import）
 numpy>=1.26.0
@@ -18,9 +12,6 @@ pypdf>=4.0.0
 fastapi>=0.115.0
 uvicorn>=0.32.0
 python-multipart>=0.0.12
-
-# Storage
-aiosqlite>=0.20.0
 
 # Speech-to-text (Alibaba Cloud OSS + DashScope cloud ASR)
 # OSS 只用于长音频异步转写（录音复盘）；短音频走 base64 同步链路，无需 OSS。

@@ -10,7 +10,6 @@
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Powered-1C3C3C.svg)](https://www.langchain.com/langgraph)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](LICENSE)
 
@@ -101,7 +100,7 @@ Train around one domain, prioritize historical weak spots, and adapt difficulty 
 
 #### Resume mock interview
 
-The AI reads your resume and uses a LangGraph state machine to drive a full flow: self-introduction -> technical questions -> project deep dive -> candidate Q&A.
+The AI reads your resume and uses a built-in state machine to drive a full flow: self-introduction -> technical questions -> project deep dive -> candidate Q&A.
 
 #### JD-based prep
 
@@ -240,7 +239,7 @@ http://localhost:5173/copilot
 
 | Component | Technology |
 | --- | --- |
-| Backend | FastAPI, LangChain, LangGraph |
+| Backend | FastAPI |
 | Frontend | React 19, React Router v7, Vite, Tailwind CSS v4 |
 | Storage | SQLite, semantic embeddings |
 | Auth | JWT, bcrypt |
@@ -278,7 +277,7 @@ python3 scripts/import_data.py techspar-backup-<timestamp>.tar.gz
 UI import assigns all archived data to the currently logged-in account, even if the original `user_id` is different. This is suitable for personal machine migration. CLI import preserves the original `user_id` by default, which is better for admin-level full-database migration.
 
 Packed content: `data/interviews.db` + `data/users/<user_id>/` (profile, resume, knowledge base, question bank, and training preferences).  
-Not packed: `.index_cache/` (rebuilt after import), `langgraph_checkpoints*` (runtime state), `.env` (now only `JWT_SECRET`/admin account/bootstrap flags, synced manually; model keys live under `data/users/` and travel with the archive).
+Not packed: `.index_cache/` (rebuilt after import), `.env` (now only `JWT_SECRET`/admin account/bootstrap flags, synced manually; model keys live under `data/users/` and travel with the archive).
 
 Optional arguments:
 
