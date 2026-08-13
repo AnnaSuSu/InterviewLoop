@@ -81,8 +81,7 @@ export default function TopicDrill() {
             <Target size={21} />
           </div>
           <div>
-            <div className="text-[11px] font-semibold tracking-[0.18em] text-dim/70">专项练习</div>
-            <h1 className="mt-0.5 text-2xl font-display font-bold tracking-tight text-text md:text-[30px]">专项训练</h1>
+            <h1 className="text-2xl font-display font-bold tracking-tight text-text md:text-[30px]">专项训练</h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-dim">
               选择一个训练领域，AI 会参考该领域的核心知识和高频题目动态追问。
             </p>
@@ -100,34 +99,13 @@ export default function TopicDrill() {
         </Button>
       </header>
 
-      <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-border/75 bg-card/55 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <BookOpen size={16} />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-text">训练内容从哪里来？</div>
-            <div className="mt-0.5 text-[12px] leading-5 text-dim">
-              训练领域中维护的知识与高频题目，会直接影响 AI 的出题方向和评分依据。
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate("/knowledge")}
-          className="shrink-0 pl-11 text-left text-[12px] font-medium text-primary transition-opacity hover:opacity-80 sm:pl-0"
-        >
-          查看和编辑领域
-        </button>
-      </div>
-
-      <section className="mt-7">
+      <section className="mt-6">
         <div className="mb-4 flex items-end justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <Layers size={18} className="text-primary" />
             <div>
               <h2 className="text-base font-semibold text-text">选择训练领域</h2>
-              <p className="mt-0.5 text-[12px] text-dim">预置领域只是示例，可增删修改；没找到你的方向，就新建一个。</p>
+              <p className="mt-0.5 text-[12px] text-dim">选择一个领域开始训练，没有合适的可以新建。</p>
             </div>
           </div>
           {!pageLoading && topicEntries.length > 0 && (
@@ -177,7 +155,7 @@ export default function TopicDrill() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] font-extrabold leading-snug tracking-tight text-text transition-colors duration-300 group-hover:text-primary/95 md:text-[15px]">
-                  自定义领域
+                  新建领域
                 </div>
                 <div className="mt-0.5 text-[12px] text-dim">没找到你的方向？新建一个</div>
               </div>

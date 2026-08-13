@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/resume-manager", label: "简历管理", icon: FileUser },
   { path: "/recording", label: "录音复盘", icon: Mic },
   { path: "/copilot", label: "面试 Copilot", icon: Brain },
-  { path: "/knowledge", label: "训练领域", icon: BookOpen },
+  { path: "/knowledge", label: "领域管理", icon: BookOpen },
   { path: "/graph", label: "图谱", icon: GitFork },
   { path: "/history", label: "历史记录", icon: Clock },
   { path: "/settings", label: "设置", icon: SettingsIcon },
