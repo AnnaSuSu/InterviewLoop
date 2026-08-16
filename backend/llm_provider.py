@@ -22,6 +22,7 @@ from backend.config import (
     embedding_local_path_of,
     embedding_mode_of,
     embedding_target_of,
+    normalize_embedding_api_base,
     settings,
 )
 from backend.storage.user_settings import load_user_provider, load_user_services
@@ -197,7 +198,8 @@ class _APIEmbedding:
     def __init__(self, model: str, api_key: str, api_base: str, batch_size: int):
         from openai import OpenAI
 
-        self._client = OpenAI(api_key=api_key, base_url=api_base or None)
+        normalized_base = normalize_embedding_api_base(api_base)
+        self._client = OpenAI(api_key=api_key, base_url=normalized_base or None)
         self._model = model
         self._batch = max(1, batch_size)
         self._array_input_supported: bool | None = None
@@ -353,7 +355,8 @@ def probe_embedding(config: dict) -> None:
             raise RuntimeError("Embedding Model 必填")
         from openai import OpenAI
 
-        client = OpenAI(api_key=config["api_key"], base_url=config["api_base"] or None,
+        normalized_base = normalize_embedding_api_base(config["api_base"])
+        client = OpenAI(api_key=config["api_key"], base_url=normalized_base or None,
                         timeout=20.0, max_retries=0)
         # Scalar input is the common denominator across OpenAI-compatible embedding
         # services; runtime batch calls negotiate array support independently.

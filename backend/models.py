@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Literal, TypedDict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from backend.config import DEFAULT_API_EMBED_BATCH_SIZE
+from backend.config import DEFAULT_API_EMBED_BATCH_SIZE, normalize_embedding_api_base
 
 
 # ── Enums ──
@@ -187,6 +187,13 @@ class EmbeddingSettings(BaseModel):
     local_path: str = ""
     # API 单批文本数上限,因服务商而异(如 DashScope 10、OpenAI 上千)。默认保守取小值;仅 API 模式生效。
     api_batch_size: int = Field(default=DEFAULT_API_EMBED_BATCH_SIZE, ge=1, le=2048)
+
+    @field_validator("api_base", mode="before")
+    @classmethod
+    def normalize_api_base(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_embedding_api_base(value)
+        return value
 
 
 class ServiceSettings(BaseModel):

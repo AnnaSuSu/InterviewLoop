@@ -167,7 +167,7 @@ DEFAULT_NAME=admin
 ALLOW_REGISTRATION=false
 ```
 
-Every model and service key is **per-user**, entered in **Settings** after login. A two-step first-login wizard walks you through **LLM + Embedding** (Embedding is required — it vectorizes resume / knowledge base / memory):
+Every model and service key is **per-user**, entered in **Settings** after login. A two-step first-login wizard walks you through **LLM + Embedding** (Embedding is required for knowledge bases, personal documents, and memory; resumes are read in full):
 
 - **LLM**: any OpenAI-compatible endpoint (API Base + Key + Model).
 - **Embedding**: `api` mode via a compatible endpoint, or `local` mode with a local HuggingFace model (needs `pip install -r requirements.local-embedding.txt`).
@@ -175,7 +175,7 @@ Every model and service key is **per-user**, entered in **Settings** after login
 No keys? You can run it for free (both providers offer free quota, and they can differ):
 
 - Main LLM: ModelScope `ZhipuAI/GLM-5`, base `https://api-inference.modelscope.cn/v1`, key = ModelScope SDK Token (<https://modelscope.cn/home>)
-- Embedding: SiliconFlow `BAAI/bge-large-zh-v1.5`, base `https://api.siliconflow.cn/v1`, key = SiliconFlow API Key (<https://cloud.siliconflow.cn/>)
+- Embedding: SiliconFlow `BAAI/bge-large-zh-v1.5`, base `https://api.siliconflow.cn/v1`, key = SiliconFlow API Key (<https://cloud.siliconflow.cn/>). If you paste the full `.../v1/embeddings` endpoint from provider documentation, TechSpar automatically normalizes it to the base URL.
 
 **Optional services** are also per-user, filled under **Settings → Optional Services / Voiceprint** as needed (left blank = that feature stays off):
 

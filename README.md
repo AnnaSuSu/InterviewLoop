@@ -167,7 +167,7 @@ cp .env.example .env
 没有 key 也能零成本跑通，免费示例（两家都有免费额度，可分开用）：
 
 - 主 LLM：ModelScope 的 `ZhipuAI/GLM-5`，Base `https://api-inference.modelscope.cn/v1`，Key 填 ModelScope SDK Token（<https://modelscope.cn/home>）
-- Embedding：SiliconFlow 的 `BAAI/bge-large-zh-v1.5`，Base `https://api.siliconflow.cn/v1`，Key 填 SiliconFlow API Key（<https://cloud.siliconflow.cn/>）
+- Embedding：SiliconFlow 的 `BAAI/bge-large-zh-v1.5`，Base `https://api.siliconflow.cn/v1`，Key 填 SiliconFlow API Key（<https://cloud.siliconflow.cn/>）。如果从服务商文档复制了完整的 `.../v1/embeddings` 地址，系统会自动转换为 Base URL。
 
 认证默认值如下，不配置也能启动：
 
