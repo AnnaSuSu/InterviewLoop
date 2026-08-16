@@ -12,6 +12,22 @@ DEFAULT_API_EMBED_BATCH_SIZE = 10
 # Free functions so both the global Settings object and per-user resolved
 # configs compute backend/model/path identically.
 
+def normalize_embedding_api_base(api_base: str) -> str:
+    """Accept an API base or a copied full ``/embeddings`` endpoint.
+
+    OpenAI-compatible clients append ``/embeddings`` themselves. Provider docs
+    commonly show the complete request URL, so treating that URL as the base
+    would otherwise produce ``.../embeddings/embeddings``.
+    """
+    value = api_base.strip().rstrip("/")
+    suffix = "/embeddings"
+    if value.lower().endswith(suffix):
+        base = value[:-len(suffix)].rstrip("/")
+        if base:
+            return base
+    return value
+
+
 def embedding_mode_of(backend: str, api_base: str, api_key: str) -> str:
     if backend:
         b = backend.strip().lower()

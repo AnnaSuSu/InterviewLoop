@@ -37,7 +37,7 @@ EMBEDDING_API_MODEL=your-embedding-model
 * `API_KEY`：上面这个 LLM 接口的密钥。
 * `MODEL`：主 LLM 模型名。
 * `EMBEDDING_BACKEND`：Embedding 走哪条路，只能是 `api` 或 `local`。
-* `EMBEDDING_API_BASE`：Embedding 接口地址。如果你用官方 OpenAI Embedding，这个值可以留空。
+* `EMBEDDING_API_BASE`：Embedding 的 Base URL，通常填到 `/v1`。如果粘贴了完整的 `.../v1/embeddings` 地址，系统会自动转换；如果你用官方 OpenAI Embedding，这个值可以留空。
 * `EMBEDDING_API_KEY`：Embedding 接口密钥。
 * `EMBEDDING_API_MODEL`：Embedding 模型名。这里不要照抄示例，应该改成你的服务实际支持的模型。
 
