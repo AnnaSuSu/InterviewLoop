@@ -17,12 +17,29 @@ USER = "user"
 PLATFORM = "platform"
 
 
-class QuotaExceeded(RuntimeError):
-    """平台额度用尽。映射为 402,前端据此引导到订阅页。"""
+class QuotaExceeded(Exception):
+    """平台额度用尽。映射为 402,前端据此引导到订阅页。
+
+    刻意不继承 RuntimeError:这是控制信号不是故障,而路由层普遍用
+    `except RuntimeError -> 500` 兜 LLM 调用,继承它会让用户收到一句裸 500。
+    """
 
     def __init__(self, detail: str):
         self.detail = detail
         super().__init__(detail)
+
+
+def client_signals() -> tuple[type[Exception], ...]:
+    """需要原样交给 app 级处理器的控制信号。
+
+    路由层普遍用宽泛的 `except Exception` 兜住 LLM 调用、翻译成 500/502。那对
+    真故障是对的,但这两个信号必须带着自己的状态码和 code 抵达前端——一个引导去
+    配置,一个引导去订阅,吞成 500 用户就只剩一句看不懂的报错。
+    在宽泛 except 之前先写 `except client_signals(): raise`。
+    """
+    from backend.llm_provider import ProviderNotConfigured
+
+    return (ProviderNotConfigured, QuotaExceeded)
 
 
 def _get_conn() -> sqlite3.Connection:

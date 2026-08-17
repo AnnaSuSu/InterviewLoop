@@ -40,10 +40,15 @@ _DEFAULT_TEMPERATURE = 0.7
 _COPILOT_TEMPERATURE = 0.3  # Copilot 场景偏确定性
 
 
-class ProviderNotConfigured(RuntimeError):
-    """A user tried to use an LLM/Embedding they haven't configured. There is no
-    global fallback — every user brings their own key. Mapped to a 400 with a
-    'go configure' hint in app.py so the UI can route them to onboarding."""
+class ProviderNotConfigured(Exception):
+    """A user tried to use an LLM/Embedding that neither they nor the platform has
+    configured. Mapped to a 400 with a 'go configure' hint in app.py so the UI can
+    route them to onboarding.
+
+    Deliberately NOT a RuntimeError: this is a control signal, not a failure, and
+    routers wrap LLM calls in `except RuntimeError -> 500`. Inheriting from it sent
+    users a raw 500 instead of the onboarding redirect.
+    """
 
     def __init__(self, what: str):
         self.what = what  # "LLM" | "Embedding"

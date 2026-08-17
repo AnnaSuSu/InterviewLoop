@@ -226,6 +226,30 @@ class QuotaTests(unittest.TestCase):
             usage.record_call("u1", usage.PLATFORM, "m")  # 不应抛
 
 
+class ControlSignalTests(unittest.TestCase):
+    """路由层用 `except RuntimeError -> 500` 兜 LLM 调用。这两个信号一旦继承
+    RuntimeError 就会被就地吞成 500,用户看到的是裸报错而不是"去配置"/"去订阅"。
+    实际发生过:专项训练启动返回 500,body 里却是额度提示。"""
+
+    def test_signals_are_not_runtime_errors(self):
+        self.assertNotIsInstance(usage.QuotaExceeded("x"), RuntimeError)
+        self.assertNotIsInstance(llm_provider.ProviderNotConfigured("LLM"), RuntimeError)
+
+    def test_signals_survive_a_runtime_error_handler(self):
+        for exc in (usage.QuotaExceeded("x"), llm_provider.ProviderNotConfigured("LLM")):
+            with self.subTest(exc=type(exc).__name__):
+                with self.assertRaises(type(exc)):
+                    try:
+                        raise exc
+                    except RuntimeError:
+                        self.fail(f"{type(exc).__name__} 被 except RuntimeError 吞掉了")
+
+    def test_client_signals_covers_both(self):
+        signals = usage.client_signals()
+        self.assertIn(usage.QuotaExceeded, signals)
+        self.assertIn(llm_provider.ProviderNotConfigured, signals)
+
+
 class ChatLLMMeteringTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

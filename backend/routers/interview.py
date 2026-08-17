@@ -23,7 +23,7 @@ from backend.graphs.resume_interview import (
 from backend.graphs.review import generate_review
 from backend.graphs.topic_drill import evaluate_drill_answers, generate_drill_questions
 from backend.indexer import load_topics
-from backend.llm_provider import ProviderNotConfigured
+from backend.usage import client_signals
 from backend.memory import extract_behavior_ops, get_profile, llm_update_profile, update_profile_after_interview, update_target_role
 from backend.models import (
     ChatRequest,
@@ -212,8 +212,8 @@ async def start_interview(req: StartInterviewRequest, user_id: str = Depends(get
                 user_id=user_id,
             )
             append_message(session_id, "assistant", ai_message, user_id=user_id)
-        except ProviderNotConfigured:
-            raise  # 交给全局处理器 → 400 引导去「设置」配置
+        except client_signals():
+            raise  # 交给全局处理器 → 400 去配置 / 402 去订阅
         except (sqlite3.OperationalError, OSError) as exc:
             logger.exception("简历面试启动：本地存储写入失败")
             raise HTTPException(500, f"服务器存储异常(磁盘可能已满)，请联系管理员。{exc}")
