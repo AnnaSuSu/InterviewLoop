@@ -123,6 +123,38 @@ class EmbeddingFallbackTests(unittest.TestCase):
         self.assertEqual(c["source"], usage.USER)
 
 
+class OnboardingGateTests(unittest.TestCase):
+    """首次登录的引导门读 provider_status。平台 key 若不能让它放行,免配 key 体验
+    就是空话——用户照样卡在配置页,这次改动的意义全没了。"""
+
+    PLATFORM_BOTH = {
+        **PLATFORM_LLM,
+        "platform_embedding_api_key": "pe-key",
+        "platform_embedding_model": "pe-model",
+    }
+
+    def test_gate_blocks_unconfigured_user_without_platform(self):
+        with _PlatformSettings(), patch.object(
+            llm_provider, "load_user_provider", return_value=(None, None)
+        ):
+            status = llm_provider.provider_status("u1")
+        self.assertEqual(status, {"llm": False, "embedding": False})
+
+    def test_platform_config_opens_the_gate(self):
+        with _PlatformSettings(**self.PLATFORM_BOTH), patch.object(
+            llm_provider, "load_user_provider", return_value=(None, None)
+        ):
+            status = llm_provider.provider_status("u1")
+        self.assertEqual(status, {"llm": True, "embedding": True})
+
+    def test_llm_only_platform_still_blocks_on_embedding(self):
+        with _PlatformSettings(**PLATFORM_LLM), patch.object(
+            llm_provider, "load_user_provider", return_value=(None, None)
+        ):
+            status = llm_provider.provider_status("u1")
+        self.assertEqual(status, {"llm": True, "embedding": False})
+
+
 class QuotaTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
