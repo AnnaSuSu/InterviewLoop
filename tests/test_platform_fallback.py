@@ -194,6 +194,21 @@ class QuotaTests(unittest.TestCase):
                 usage.record_call("u1", usage.PLATFORM, "m")
             usage.check_quota("u1", usage.PLATFORM)
 
+    def test_status_reports_default_limit(self):
+        with _PlatformSettings(platform_daily_call_limit=5):
+            usage.record_call("u1", usage.PLATFORM, "m")
+            self.assertEqual(usage.quota_status("u1"), {"used": 1, "limit": 5})
+
+    def test_status_limit_none_when_unlimited(self):
+        with _PlatformSettings(platform_daily_call_limit=0):
+            self.assertEqual(usage.quota_status("u1"), {"used": 0, "limit": None})
+
+    def test_status_reporter_is_replaceable(self):
+        """策略和上报必须成对替换,否则订阅用户会被放行却仍显示额度已满。"""
+        self.addCleanup(usage.set_quota_status_reporter, usage._default_status)
+        usage.set_quota_status_reporter(lambda uid: {"used": 99, "limit": None})
+        self.assertEqual(usage.quota_status("whoever"), {"used": 99, "limit": None})
+
     def test_policy_is_replaceable(self):
         """商业版靠这个钩子挂订阅判定,不改开源代码。"""
         def subscription_policy(user_id):

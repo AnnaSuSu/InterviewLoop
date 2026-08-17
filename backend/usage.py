@@ -102,7 +102,16 @@ def _default_policy(user_id: str) -> None:
         )
 
 
+def _default_status(user_id: str) -> dict:
+    limit = settings.platform_daily_call_limit
+    return {
+        "used": platform_calls_today(user_id),
+        "limit": limit if limit > 0 else None,
+    }
+
+
 _policy = _default_policy
+_status_reporter = _default_status
 
 
 def set_quota_policy(policy) -> None:
@@ -112,8 +121,23 @@ def set_quota_policy(policy) -> None:
     _policy = policy
 
 
+def set_quota_status_reporter(reporter) -> None:
+    """替换额度状态上报(返回 {"used": int, "limit": int | None},None 表示不限)。
+
+    必须和 set_quota_policy 成对替换:策略决定拦不拦,上报决定界面显示什么。
+    只换策略不换上报,订阅用户明明已放行,界面上却仍然显示"额度已用完"。
+    """
+    global _status_reporter
+    _status_reporter = reporter
+
+
 def check_quota(user_id: str | None, source: str) -> None:
     """平台调用前的放行判定;自带 key 直接放行。"""
     if source != PLATFORM or not user_id:
         return
     _policy(user_id)
+
+
+def quota_status(user_id: str) -> dict:
+    """当前额度状态,由生效中的策略自报。"""
+    return _status_reporter(user_id)
