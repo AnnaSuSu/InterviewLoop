@@ -22,6 +22,7 @@ from backend.routers import (
     resume,
     settings,
     topics,
+    usage as usage_routes,
     voiceprint,
 )
 from backend.startup import preload_models
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
     app.include_router(personal_agent.router)
     app.include_router(history.router)
     app.include_router(data_migration.router)
+    app.include_router(usage_routes.router)
     app.include_router(copilot.rest_router)
     app.include_router(copilot.ws_router)
     return app

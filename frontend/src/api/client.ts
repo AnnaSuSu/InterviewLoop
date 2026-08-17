@@ -17,6 +17,34 @@ export type ApiResponse<
   M extends keyof paths[P],
 > = paths[P][M] extends { responses: { 200: infer R } } ? JsonBody<R> : unknown;
 
+/**
+ * 后端错误码的全局处理器。401 已在下面直接处理(必须跳登录,没有商量余地);
+ * 其余带 code 的错误交给这里,让不同部署各自决定怎么呈现——比如额度用尽是
+ * 引导去设置、还是弹自家的付费流程。未注册处理器时行为与从前一致:原样把
+ * Response 交回调用方。
+ *
+ * 返回 true 表示已接管(调用方会拿到一个 rejected promise,不必再自行处理)。
+ */
+export type ApiErrorHandler = (
+  code: string,
+  body: Record<string, unknown>,
+  res: Response
+) => boolean | void;
+
+let apiErrorHandler: ApiErrorHandler | null = null;
+
+export function setApiErrorHandler(handler: ApiErrorHandler | null): void {
+  apiErrorHandler = handler;
+}
+
+/** 处理器接管后抛出的标记异常,调用方可据此跳过自己的错误提示。 */
+export class HandledApiError extends Error {
+  constructor(public code: string) {
+    super(code);
+    this.name = "HandledApiError";
+  }
+}
+
 function authHeaders(extra: HeadersInit = {}): Record<string, string> {
   const token = localStorage.getItem("token");
   const headers: Record<string, string> = { ...(extra as Record<string, string>) };
@@ -35,6 +63,17 @@ export async function authFetch(
     localStorage.removeItem("user");
     window.location.href = "/login";
     throw new Error("Session expired");
+  }
+  if (!res.ok && apiErrorHandler) {
+    // clone:处理器只是旁观,body 必须原样留给调用方。
+    const body = await res
+      .clone()
+      .json()
+      .catch(() => null);
+    const code = typeof body?.code === "string" ? body.code : "";
+    if (code && apiErrorHandler(code, body, res) === true) {
+      throw new HandledApiError(code);
+    }
   }
   return res;
 }
