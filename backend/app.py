@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.llm_provider import ProviderNotConfigured
+from backend.usage import QuotaExceeded
 from backend.user_context import CurrentUserMiddleware
 from backend.routers import (
     auth,
@@ -53,6 +54,14 @@ def create_app() -> FastAPI:
                 "code": "provider_not_configured",
                 "provider": exc.what,
             },
+        )
+
+    @app.exception_handler(QuotaExceeded)
+    async def _quota_exceeded(_: Request, exc: QuotaExceeded):
+        # 402 而非 429:这不是限速,是额度用完了,前端据 code 引导到订阅/填自己 key。
+        return JSONResponse(
+            status_code=402,
+            content={"detail": exc.detail, "code": "quota_exceeded"},
         )
 
     app.include_router(auth.router)

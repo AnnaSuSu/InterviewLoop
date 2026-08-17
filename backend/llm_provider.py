@@ -1,9 +1,11 @@
 """Per-user LLM and embedding providers.
 
-Each provider resolves config in this order: explicit user_id arg → current-user
-ContextVar → global .env defaults. Per-user overrides live in provider.json;
-empty fields inherit the global default per-field, and a wholly-unset user
-inherits the global config entirely.
+Whose config to load resolves as: explicit user_id arg → current-user ContextVar.
+That user's provider.json wins; when they haven't configured one, resolution falls
+back to the optional platform_* settings (empty by default, in which case the user
+must bring their own key). Every resolved config carries a "source" field —
+"user" or "platform" — which is what decides whether a call counts against the
+platform's quota. See backend.usage.
 
 LLM clients are cheap to construct, so they are built per call. Embedding
 backends (esp. local HuggingFace models) are expensive, so they are cached per
@@ -26,6 +28,7 @@ from backend.config import (
     settings,
 )
 from backend.storage.user_settings import load_user_provider, load_user_services
+from backend.usage import PLATFORM, USER, check_quota, record_call
 from backend.user_context import get_current_user_id
 
 # user_key ("__global__" or user_id) → (signature, embed_instance)
@@ -53,39 +56,87 @@ def _effective_uid(user_id: str | None) -> str | None:
 
 # ── Config resolution ──
 
+def _platform_llm_config() -> dict | None:
+    """平台兜底 LLM;未配置返回 None。"""
+    if not (settings.platform_llm_api_key and settings.platform_llm_model):
+        return None
+    return {
+        "api_base": settings.platform_llm_api_base,
+        "api_key": settings.platform_llm_api_key,
+        "model": settings.platform_llm_model,
+        "temperature": _DEFAULT_TEMPERATURE,
+        "source": PLATFORM,
+    }
+
+
+def _platform_embedding_config() -> dict | None:
+    """平台兜底 Embedding;未配置返回 None。平台只提供 API 模式——本地模型是
+    部署方自己的机器资源,没有"代付"一说。"""
+    if not (settings.platform_embedding_api_key and settings.platform_embedding_model):
+        return None
+    return {
+        "backend": "api",
+        "api_base": settings.platform_embedding_api_base,
+        "api_key": settings.platform_embedding_api_key,
+        "api_model": settings.platform_embedding_model,
+        "local_model": "", "local_path": "",
+        "api_batch_size": DEFAULT_API_EMBED_BATCH_SIZE,
+        "source": PLATFORM,
+    }
+
+
 def resolve_llm_config(user_id: str | None = None) -> dict:
-    """Resolve this user's LLM config. Per-user only — no global fallback; missing
-    fields stay empty and surface as ProviderNotConfigured when a client is built."""
+    """Resolve this user's LLM config: their own key if configured, else the
+    platform fallback, else empty (surfacing as ProviderNotConfigured at build)."""
     uid = _effective_uid(user_id)
     override = load_user_provider(uid)[0] if uid else None
-    if override is None:
-        return {"api_base": "", "api_key": "", "model": "", "temperature": _DEFAULT_TEMPERATURE}
+    if override is not None and override.api_key and override.model:
+        return {
+            "api_base": override.api_base,
+            "api_key": override.api_key,
+            "model": override.model,
+            "temperature": override.temperature,
+            "source": USER,
+        }
+    platform = _platform_llm_config()
+    if platform is not None:
+        return platform
     return {
-        "api_base": override.api_base,
-        "api_key": override.api_key,
-        "model": override.model,
-        "temperature": override.temperature,
+        "api_base": "", "api_key": "", "model": "",
+        "temperature": _DEFAULT_TEMPERATURE, "source": USER,
     }
 
 
 def resolve_embedding_config(user_id: str | None = None) -> dict:
-    """Resolve this user's embedding config (per-user only, no global fallback)."""
+    """Resolve this user's embedding config: their own if configured, else the
+    platform fallback, else empty."""
     uid = _effective_uid(user_id)
     override = load_user_provider(uid)[1] if uid else None
-    if override is None:
+    # backend == "local" 也算已配置:用内置默认模型时 local_model/local_path 都为空,
+    # 漏掉它会把这类用户误判为未配置而推去平台 API,凭空触发一次索引重建。
+    configured = override is not None and (
+        override.api_key or override.local_model or override.local_path
+        or override.backend == "local"
+    )
+    if configured:
         return {
-            "backend": "", "api_base": "", "api_key": "",
-            "api_model": "", "local_model": "", "local_path": "",
-            "api_batch_size": DEFAULT_API_EMBED_BATCH_SIZE,
+            "backend": override.backend,
+            "api_base": override.api_base,
+            "api_key": override.api_key,
+            "api_model": override.api_model,
+            "local_model": override.local_model,
+            "local_path": override.local_path,
+            "api_batch_size": override.api_batch_size,
+            "source": USER,
         }
+    platform = _platform_embedding_config()
+    if platform is not None:
+        return platform
     return {
-        "backend": override.backend,
-        "api_base": override.api_base,
-        "api_key": override.api_key,
-        "api_model": override.api_model,
-        "local_model": override.local_model,
-        "local_path": override.local_path,
-        "api_batch_size": override.api_batch_size,
+        "backend": "", "api_base": "", "api_key": "",
+        "api_model": "", "local_model": "", "local_path": "",
+        "api_batch_size": DEFAULT_API_EMBED_BATCH_SIZE,
+        "source": USER,
     }
 
 
@@ -131,35 +182,58 @@ class ChatLLM:
     """OpenAI 兼容 Chat 客户端。messages 用上面的消息助手构造;
     invoke/ainvoke 返回回复文本,astream 逐段产出增量文本。"""
 
-    def __init__(self, model: str, api_key: str, api_base: str, temperature: float):
+    def __init__(
+        self, model: str, api_key: str, api_base: str, temperature: float,
+        user_id: str | None = None, source: str = USER,
+    ):
         self.model = model
         self.temperature = temperature
         self._api_key = api_key
         self._api_base = api_base or None
+        self._user_id = user_id
+        self._source = source
+
+    def _record(self, resp=None) -> None:
+        """流式响应默认不带 usage,token 数记 0——配额是按调用次数算的,不依赖它。"""
+        usage = getattr(resp, "usage", None)
+        record_call(
+            self._user_id, self._source, self.model,
+            getattr(usage, "prompt_tokens", 0) or 0,
+            getattr(usage, "completion_tokens", 0) or 0,
+        )
 
     def invoke(self, messages: list[dict]) -> str:
+        check_quota(self._user_id, self._source)
         client = OpenAI(api_key=self._api_key, base_url=self._api_base)
         resp = client.chat.completions.create(
             model=self.model, messages=messages, temperature=self.temperature,
         )
+        self._record(resp)
         return resp.choices[0].message.content or ""
 
     async def ainvoke(self, messages: list[dict]) -> str:
+        check_quota(self._user_id, self._source)
         client = AsyncOpenAI(api_key=self._api_key, base_url=self._api_base)
         resp = await client.chat.completions.create(
             model=self.model, messages=messages, temperature=self.temperature,
         )
+        self._record(resp)
         return resp.choices[0].message.content or ""
 
     async def astream(self, messages: list[dict]) -> AsyncIterator[str]:
+        check_quota(self._user_id, self._source)
         client = AsyncOpenAI(api_key=self._api_key, base_url=self._api_base)
         stream = await client.chat.completions.create(
             model=self.model, messages=messages, temperature=self.temperature,
             stream=True,
         )
-        async for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+        try:
+            async for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+        finally:
+            # finally 而非循环后:消费方中途放弃时 token 已经烧掉了,照记不误。
+            self._record()
 
 
 def _require_llm(c: dict):
@@ -171,14 +245,20 @@ def get_llm(user_id: str | None = None) -> ChatLLM:
     """当前用户的主 LLM。"""
     c = resolve_llm_config(user_id)
     _require_llm(c)
-    return ChatLLM(c["model"], c["api_key"], c["api_base"], c["temperature"])
+    return ChatLLM(
+        c["model"], c["api_key"], c["api_base"], c["temperature"],
+        user_id=_effective_uid(user_id), source=c["source"],
+    )
 
 
 def get_copilot_llm(user_id: str | None = None) -> ChatLLM:
     """Copilot uses the user's own main LLM (no separate Copilot provider)."""
     c = resolve_llm_config(user_id)
     _require_llm(c)
-    return ChatLLM(c["model"], c["api_key"], c["api_base"], _COPILOT_TEMPERATURE)
+    return ChatLLM(
+        c["model"], c["api_key"], c["api_base"], _COPILOT_TEMPERATURE,
+        user_id=_effective_uid(user_id), source=c["source"],
+    )
 
 
 # ── Embedding ──

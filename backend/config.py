@@ -72,10 +72,10 @@ def embedding_target_of(
 
 
 class Settings(BaseSettings):
-    # No provider/service secrets live here. LLM, Embedding, DashScope, Tavily and
-    # OSS keys are all per-user (data/users/<id>/provider.json + voiceprint.json),
-    # resolved at request time by backend.llm_provider. The .env only carries the
-    # bootstrap config below — never an API key.
+    # Per-user by default: LLM, Embedding, DashScope, Tavily and OSS keys all live
+    # in data/users/<id>/provider.json + voiceprint.json, resolved at request time
+    # by backend.llm_provider. The only secrets that may appear here are the
+    # optional platform_* fallback below — see the note on that block.
 
     # Paths
     base_dir: Path = Path(__file__).resolve().parent.parent
@@ -94,6 +94,19 @@ class Settings(BaseSettings):
     # Interview settings
     max_questions_per_phase: int = 5
     max_drill_questions: int = 15
+
+    # ── 平台兜底模型(可选) ──
+    # 留空 = 保持原样,每个用户必须自带 key。填上之后,没配 key 的用户自动回退到
+    # 这里,部署方替他们承担成本——托管服务和机构统一配一把 key 的场景都靠它。
+    # 已配置自己 key 的用户不受影响,依旧走自己的。
+    platform_llm_api_base: str = ""
+    platform_llm_api_key: str = ""
+    platform_llm_model: str = ""
+    platform_embedding_api_base: str = ""
+    platform_embedding_api_key: str = ""
+    platform_embedding_model: str = ""
+    # 平台 key 的每用户每日调用上限,0 = 不限。防刷闸门,自带 key 的用户不受限。
+    platform_daily_call_limit: int = 0
 
     def user_data_dir(self, user_id: str) -> Path:
         return self.base_dir / "data" / "users" / user_id
