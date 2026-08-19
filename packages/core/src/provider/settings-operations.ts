@@ -1,0 +1,85 @@
+import { AuthenticationError } from '../kernel/errors.ts'
+import type { RequestContext } from '../kernel/context.ts'
+import type { KnowledgeVectorRepository, KnowledgeStore } from '../knowledge/ports.ts'
+import type { PersonalAgentUseCases } from '../personal-agent/ports.ts'
+import type { ProfileUseCases } from '../profile/ports.ts'
+import { embeddingModeOf, normalizeEmbeddingSettings } from './config.ts'
+import { USER_PROVIDER, type EmbeddingSettings, type LlmSettings } from './model.ts'
+import type { ChatDriverFactory, EmbeddingDriverFactory, ProviderSettingsRepository, SettingsOperationsUseCases, VectorIndexControl } from './ports.ts'
+
+export interface TopicIndexRebuilder extends VectorIndexControl {
+  rebuildTopic(context: RequestContext, topic: string): Promise<void>
+}
+
+function message(error: unknown): string {
+  const value = error as { status?: number; name?: string; message?: string }
+  if (value.status === 401 || value.name === 'AuthenticationError') return 'API Key 无效（认证失败）'
+  if (value.status === 403 || value.name === 'PermissionDeniedError') return 'Key 无该模型权限或被拒绝访问'
+  if (value.status === 404 || value.name === 'NotFoundError') return '模型不存在，或 Base URL 路径不正确'
+  if (value.name === 'APIConnectionError' || value.name === 'FetchError') return '无法连接到 Base URL，请检查地址与网络'
+  return String(value.message || error || '').replace(/\s+/g, ' ').slice(0, 300) || '连接失败'
+}
+function userId(context: RequestContext): string { if (!context.userId) throw new AuthenticationError(); return context.userId }
+
+export class SettingsOperationsService implements SettingsOperationsUseCases {
+  constructor(private readonly deps: {
+    chats: ChatDriverFactory
+    embeddingDrivers: EmbeddingDriverFactory
+    embeddings: { embed(context: RequestContext, texts: readonly string[]): Promise<readonly Float32Array[]> }
+    index: TopicIndexRebuilder
+    vectors: KnowledgeVectorRepository
+    knowledge: KnowledgeStore
+    personal: PersonalAgentUseCases
+    profile: ProfileUseCases
+    settings: ProviderSettingsRepository
+  }) {}
+
+  async testLlm(context: RequestContext, value: LlmSettings): Promise<{ ok: boolean; error?: string }> {
+    try {
+      if (!value.api_key.trim() || !value.model.trim()) throw new Error('请先填写必填字段')
+      await this.deps.chats.create({ ...value, source: USER_PROVIDER }).complete([{ role: 'user', content: 'ping' }], context.signal, { maxTokens: 1, temperature: 0 })
+      return { ok: true }
+    } catch (error) { return { ok: false, error: message(error) } }
+  }
+
+  async testEmbedding(context: RequestContext, value: EmbeddingSettings): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const config = normalizeEmbeddingSettings(value)
+      const mode = embeddingModeOf(config)
+      if (mode === 'api' && (!config.api_key.trim() || !config.api_model.trim())) throw new Error('请先填写必填字段')
+      const driver = await this.deps.embeddingDrivers.create({ ...config, backend: mode, source: USER_PROVIDER })
+      await driver.embed(['TechSpar embedding probe'], context.signal)
+      return { ok: true }
+    } catch (error) { return { ok: false, error: message(error) } }
+  }
+
+  async *rebuildIndex(context: RequestContext): AsyncIterable<Record<string, unknown>> {
+    const id = userId(context)
+    try {
+      const topics = await this.deps.knowledge.loadTopics(id)
+      const plan: Array<[string, string]> = [['cleanup', '清理旧向量'], ['weak_points', '记忆 / 薄弱点']]
+      if (await this.deps.personal.hasDocuments(context)) plan.push(['personal_documents', '个人资料库'])
+      for (const [key, topic] of Object.entries(topics)) plan.push([`topic:${key}`, `知识库 · ${topic.name || key}`])
+      const result: { weak_points: boolean; personal_documents: boolean; topics: string[] } = { weak_points: false, personal_documents: false, topics: [] }
+      let completed = 0
+      for (const [key, label] of plan) {
+        yield { completed, total: plan.length, label, status: 'running' }
+        try {
+          if (key === 'cleanup') await this.deps.index.invalidateUser(id)
+          else if (key === 'weak_points') {
+            const profile = await this.deps.profile.get(context)
+            const points = profile.weak_points.filter((point) => !point.improved && !point.archived).map((point) => `${point.topic || '综合'}: ${point.point}`)
+            const vectors = points.length ? await this.deps.embeddings.embed(context, points) : []
+            await this.deps.vectors.replaceChunks({ userId: id, chunkType: 'weak_point', chunks: points.map((content, index) => ({ content, source: 'profile.json', embedding: vectors[index]! })) })
+            result.weak_points = true
+          } else if (key === 'personal_documents') { await this.deps.personal.reindexAll(context); result.personal_documents = true }
+          else if (key.startsWith('topic:')) { const topic = key.slice(6); await this.deps.index.rebuildTopic(context, topic); result.topics.push(topic) }
+          completed += 1; yield { completed, total: plan.length, label, status: 'done' }
+        } catch (error) { completed += 1; yield { completed, total: plan.length, label, status: 'error', error: error instanceof Error ? error.message : String(error) } }
+      }
+      const now = new Date().toISOString().slice(0, 19)
+      await this.deps.settings.saveLastReindexAt(id, now)
+      yield { done: true, rebuilt: result, last_rebuild_at: now }
+    } catch (error) { yield { fatal: true, error: error instanceof Error ? error.message : String(error) } }
+  }
+}

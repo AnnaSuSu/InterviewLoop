@@ -1,0 +1,16 @@
+{
+  "name": "@techspar/api",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@hono/zod-openapi": "^1.1.5",
+    "@techspar/contracts": "workspace:*",
+    "@techspar/core": "workspace:*",
+    "@techspar/db": "workspace:*",
+    "@techspar/platform": "workspace:*",
+    "@techspar/providers": "workspace:*",
+    "hono": "^4.12.8",
+    "zod": "^4.3.6"
+  }
+}

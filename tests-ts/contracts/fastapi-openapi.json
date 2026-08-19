@@ -1,0 +1,3423 @@
+{
+  "components": {
+    "schemas": {
+      "Body_import_data_api_data_import_post": {
+        "properties": {
+          "db_strategy": {
+            "default": "skip",
+            "title": "Db Strategy",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "overwrite_files": {
+            "default": false,
+            "title": "Overwrite Files",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_data_api_data_import_post",
+        "type": "object"
+      },
+      "Body_recording_transcribe_api_recording_transcribe_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "mode": {
+            "default": "dual",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_recording_transcribe_api_recording_transcribe_post",
+        "type": "object"
+      },
+      "Body_start_copilot_prep_api_copilot_prep_post": {
+        "properties": {
+          "company": {
+            "default": "",
+            "title": "Company",
+            "type": "string"
+          },
+          "jd_text": {
+            "title": "Jd Text",
+            "type": "string"
+          },
+          "position": {
+            "default": "",
+            "title": "Position",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jd_text"
+        ],
+        "title": "Body_start_copilot_prep_api_copilot_prep_post",
+        "type": "object"
+      },
+      "Body_transcribe_api_transcribe_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_transcribe_api_transcribe_post",
+        "type": "object"
+      },
+      "Body_upload_core_knowledge_api_knowledge__topic__upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_core_knowledge_api_knowledge__topic__upload_post",
+        "type": "object"
+      },
+      "Body_upload_document_api_personal_agent_documents_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_api_personal_agent_documents_post",
+        "type": "object"
+      },
+      "Body_upload_resume_api_resume_upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_resume_api_resume_upload_post",
+        "type": "object"
+      },
+      "Body_voiceprint_enroll_api_voiceprint_enroll_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_voiceprint_enroll_api_voiceprint_enroll_post",
+        "type": "object"
+      },
+      "ChatRequest": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "message"
+        ],
+        "title": "ChatRequest",
+        "type": "object"
+      },
+      "EmbeddingSettings": {
+        "description": "Per-user embedding provider configuration.",
+        "properties": {
+          "api_base": {
+            "default": "",
+            "title": "Api Base",
+            "type": "string"
+          },
+          "api_batch_size": {
+            "default": 10,
+            "maximum": 2048.0,
+            "minimum": 1.0,
+            "title": "Api Batch Size",
+            "type": "integer"
+          },
+          "api_key": {
+            "default": "",
+            "title": "Api Key",
+            "type": "string"
+          },
+          "api_model": {
+            "default": "",
+            "title": "Api Model",
+            "type": "string"
+          },
+          "backend": {
+            "default": "",
+            "title": "Backend",
+            "type": "string"
+          },
+          "local_model": {
+            "default": "",
+            "title": "Local Model",
+            "type": "string"
+          },
+          "local_path": {
+            "default": "",
+            "title": "Local Path",
+            "type": "string"
+          }
+        },
+        "title": "EmbeddingSettings",
+        "type": "object"
+      },
+      "EndDrillRequest": {
+        "properties": {
+          "answers": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Answers",
+            "type": "array"
+          }
+        },
+        "title": "EndDrillRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InterviewMode": {
+        "enum": [
+          "resume",
+          "topic_drill",
+          "jd_prep",
+          "recording"
+        ],
+        "title": "InterviewMode",
+        "type": "string"
+      },
+      "JobPrepPreviewRequest": {
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "jd_text": {
+            "title": "Jd Text",
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "use_resume": {
+            "default": true,
+            "title": "Use Resume",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jd_text"
+        ],
+        "title": "JobPrepPreviewRequest",
+        "type": "object"
+      },
+      "JobPrepStartRequest": {
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "jd_text": {
+            "title": "Jd Text",
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "preview_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Data"
+          },
+          "use_resume": {
+            "default": true,
+            "title": "Use Resume",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jd_text"
+        ],
+        "title": "JobPrepStartRequest",
+        "type": "object"
+      },
+      "LLMSettings": {
+        "description": "Per-user LLM provider configuration.",
+        "properties": {
+          "api_base": {
+            "default": "",
+            "title": "Api Base",
+            "type": "string"
+          },
+          "api_key": {
+            "default": "",
+            "title": "Api Key",
+            "type": "string"
+          },
+          "model": {
+            "default": "",
+            "title": "Model",
+            "type": "string"
+          },
+          "temperature": {
+            "default": 0.7,
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Temperature",
+            "type": "number"
+          }
+        },
+        "title": "LLMSettings",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "PersonalAgentChatRequest": {
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "message": {
+            "maxLength": 12000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "PersonalAgentChatRequest",
+        "type": "object"
+      },
+      "RecordingAnalyzeRequest": {
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "recording_mode": {
+            "default": "dual",
+            "enum": [
+              "dual",
+              "solo"
+            ],
+            "title": "Recording Mode",
+            "type": "string"
+          },
+          "transcript": {
+            "minLength": 1,
+            "title": "Transcript",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transcript"
+        ],
+        "title": "RecordingAnalyzeRequest",
+        "type": "object"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "RegisterRequest",
+        "type": "object"
+      },
+      "ServiceSettings": {
+        "description": "Per-user optional service credentials. Each gates one feature; empty = that\nfeature stays off for this user (no global fallback).",
+        "properties": {
+          "dashscope_api_key": {
+            "default": "",
+            "title": "Dashscope Api Key",
+            "type": "string"
+          },
+          "oss_access_key_id": {
+            "default": "",
+            "title": "Oss Access Key Id",
+            "type": "string"
+          },
+          "oss_access_key_secret": {
+            "default": "",
+            "title": "Oss Access Key Secret",
+            "type": "string"
+          },
+          "oss_bucket": {
+            "default": "",
+            "title": "Oss Bucket",
+            "type": "string"
+          },
+          "oss_endpoint": {
+            "default": "",
+            "title": "Oss Endpoint",
+            "type": "string"
+          },
+          "tavily_api_key": {
+            "default": "",
+            "title": "Tavily Api Key",
+            "type": "string"
+          }
+        },
+        "title": "ServiceSettings",
+        "type": "object"
+      },
+      "SettingsResponse": {
+        "description": "Combined response for GET/PUT /settings.",
+        "properties": {
+          "configured": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Configured",
+            "type": "object"
+          },
+          "embedding": {
+            "$ref": "#/components/schemas/EmbeddingSettings"
+          },
+          "is_admin": {
+            "default": false,
+            "title": "Is Admin",
+            "type": "boolean"
+          },
+          "last_reindex_at": {
+            "default": "",
+            "title": "Last Reindex At",
+            "type": "string"
+          },
+          "llm": {
+            "$ref": "#/components/schemas/LLMSettings"
+          },
+          "services": {
+            "$ref": "#/components/schemas/ServiceSettings"
+          },
+          "system": {
+            "$ref": "#/components/schemas/SystemSettings"
+          },
+          "training": {
+            "$ref": "#/components/schemas/UserSettings"
+          }
+        },
+        "required": [
+          "llm",
+          "training"
+        ],
+        "title": "SettingsResponse",
+        "type": "object"
+      },
+      "StartInterviewRequest": {
+        "properties": {
+          "divergence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Divergence"
+          },
+          "job_description": {
+            "anyOf": [
+              {
+                "maxLength": 12000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Description"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/InterviewMode"
+          },
+          "num_questions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Num Questions"
+          },
+          "target_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Role"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "StartInterviewRequest",
+        "type": "object"
+      },
+      "SystemSettings": {
+        "description": "Global system flags.",
+        "properties": {
+          "allow_registration": {
+            "default": false,
+            "title": "Allow Registration",
+            "type": "boolean"
+          }
+        },
+        "title": "SystemSettings",
+        "type": "object"
+      },
+      "UserSettings": {
+        "description": "Per-user training preferences.",
+        "properties": {
+          "divergence": {
+            "default": 3,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Divergence",
+            "type": "integer"
+          },
+          "num_questions": {
+            "default": 10,
+            "maximum": 20.0,
+            "minimum": 5.0,
+            "title": "Num Questions",
+            "type": "integer"
+          }
+        },
+        "title": "UserSettings",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VoiceprintCredentials": {
+        "description": "腾讯云 VPR 凭据（per-user）。",
+        "properties": {
+          "app_id": {
+            "default": "",
+            "title": "App Id",
+            "type": "string"
+          },
+          "secret_id": {
+            "title": "Secret Id",
+            "type": "string"
+          },
+          "secret_key": {
+            "title": "Secret Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret_id",
+          "secret_key"
+        ],
+        "title": "VoiceprintCredentials",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "TechSpar",
+    "version": "0.2.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/": {
+      "get": {
+        "operationId": "root_api__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root"
+      }
+    },
+    "/api/auth/config": {
+      "get": {
+        "description": "Public endpoint — tells the frontend whether registration is enabled.",
+        "operationId": "auth_config_api_auth_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Config"
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login"
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "register_api_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register"
+      }
+    },
+    "/api/copilot/prep": {
+      "post": {
+        "description": "启动 Copilot Prep Phase（后台异步执行）。",
+        "operationId": "start_copilot_prep_api_copilot_prep_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_start_copilot_prep_api_copilot_prep_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Start Copilot Prep"
+      }
+    },
+    "/api/copilot/prep/{prep_id}": {
+      "delete": {
+        "description": "删除一个 Copilot Prep 会话。",
+        "operationId": "delete_copilot_prep_api_copilot_prep__prep_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "prep_id",
+            "required": true,
+            "schema": {
+              "title": "Prep Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Copilot Prep"
+      },
+      "get": {
+        "description": "查询 Copilot Prep 进度和结果。",
+        "operationId": "get_copilot_prep_status_api_copilot_prep__prep_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "prep_id",
+            "required": true,
+            "schema": {
+              "title": "Prep Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Copilot Prep Status"
+      }
+    },
+    "/api/copilot/prep/{prep_id}/tree": {
+      "get": {
+        "description": "获取策略树（前端可视化用）。",
+        "operationId": "get_copilot_strategy_tree_api_copilot_prep__prep_id__tree_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "prep_id",
+            "required": true,
+            "schema": {
+              "title": "Prep Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Copilot Strategy Tree"
+      }
+    },
+    "/api/copilot/preps": {
+      "get": {
+        "description": "列出当前用户的所有 Copilot Prep 会话。",
+        "operationId": "list_copilot_preps_api_copilot_preps_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Copilot Preps"
+      }
+    },
+    "/api/data/export": {
+      "get": {
+        "description": "管理员下载整站全量 tar.gz 备份。",
+        "operationId": "export_data_api_data_export_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Data"
+      }
+    },
+    "/api/data/export/personal": {
+      "get": {
+        "description": "Download the current user's portable backup.\n\nProvider/API keys and voiceprint credentials are excluded unless the user\nexplicitly opts in with include_sensitive=true.",
+        "operationId": "export_personal_data_api_data_export_personal_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_sensitive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Sensitive",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Personal Data"
+      }
+    },
+    "/api/data/import": {
+      "post": {
+        "description": "导入单账户备份归档。所有数据归到当前登录用户。",
+        "operationId": "import_data_api_data_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_data_api_data_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Import Data"
+      }
+    },
+    "/api/graph/{topic}": {
+      "get": {
+        "description": "Build question relationship graph for a topic.",
+        "operationId": "get_topic_graph_api_graph__topic__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Topic Graph"
+      }
+    },
+    "/api/interview/chat": {
+      "post": {
+        "description": "Send user answer, get next interviewer response (resume mode only).",
+        "operationId": "chat_api_interview_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Chat"
+      }
+    },
+    "/api/interview/chat/stream": {
+      "post": {
+        "description": "SSE streaming version of /interview/chat with real token streaming.",
+        "operationId": "chat_stream_api_interview_chat_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Chat Stream"
+      }
+    },
+    "/api/interview/draft/{session_id}": {
+      "post": {
+        "description": "Persist in-progress batch-mode answers so a session survives refresh/navigation.\n\nBest-effort autosave for topic_drill / jd_prep: writes the current answers into\nthe transcript (same layout as /interview/end) while the session is still ongoing,\nso reopening from history replays them. No-op once the session has left ongoing —\na late autosave must never clobber the already-submitted answer set.",
+        "operationId": "save_interview_draft_api_interview_draft__session_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndDrillRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Save Interview Draft"
+      }
+    },
+    "/api/interview/end/{session_id}": {
+      "post": {
+        "description": "End interview → transition status and kick off review generation.\n\nIdempotent: safe to call again on a session whose review is already done,\npending, or previously failed. For batch modes, fresh answers in the body\noverride anything already persisted (preserves the old \"resubmit\" flow).",
+        "operationId": "end_interview_api_interview_end__session_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EndDrillRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "End Interview"
+      }
+    },
+    "/api/interview/history": {
+      "get": {
+        "description": "List past interview sessions with filtering and pagination.",
+        "operationId": "get_history_api_interview_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "title": "Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "topic",
+            "required": false,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get History"
+      }
+    },
+    "/api/interview/reference-answer": {
+      "post": {
+        "description": "Get a reference answer for a question in a session. Cached per (session_id, question_id).",
+        "operationId": "generate_reference_answer_api_interview_reference_answer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Reference Answer"
+      }
+    },
+    "/api/interview/review/{session_id}": {
+      "get": {
+        "description": "Get review for a completed session.",
+        "operationId": "get_review_api_interview_review__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Review"
+      }
+    },
+    "/api/interview/review/{session_id}/generate": {
+      "post": {
+        "description": "Re-run review generation for a session. Idempotent; works after restart.\n\nAccepts sessions in ended / review_failed states. Refuses ongoing sessions\n(user should call /interview/end first) and no-ops on already reviewed ones —\nunless that session's profile extraction failed, which is allowed to re-run.",
+        "operationId": "generate_session_review_api_interview_review__session_id__generate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Session Review"
+      }
+    },
+    "/api/interview/session/{session_id}": {
+      "delete": {
+        "description": "Delete a session record.",
+        "operationId": "delete_session_endpoint_api_interview_session__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Session Endpoint"
+      }
+    },
+    "/api/interview/session/{session_id}/resume": {
+      "get": {
+        "description": "Return everything needed to reopen a session in the UI.\n\nFor resume-mode chats, also checks whether the saved interview state can\nstill drive another turn (can_continue=True ⇒ user can keep answering).",
+        "operationId": "get_session_for_resume_api_interview_session__session_id__resume_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Session For Resume"
+      }
+    },
+    "/api/interview/start": {
+      "post": {
+        "description": "Start a new interview session.",
+        "operationId": "start_interview_api_interview_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartInterviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Start Interview"
+      }
+    },
+    "/api/interview/topics": {
+      "get": {
+        "description": "List distinct topics from completed sessions (for filter dropdown).",
+        "operationId": "get_interview_topics_api_interview_topics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Interview Topics"
+      }
+    },
+    "/api/job-prep/preview": {
+      "post": {
+        "description": "Analyze a JD and candidate fit before starting targeted practice.",
+        "operationId": "job_prep_preview_api_job_prep_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobPrepPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Job Prep Preview"
+      }
+    },
+    "/api/job-prep/start": {
+      "post": {
+        "description": "Start a JD-targeted mock interview session.",
+        "operationId": "job_prep_start_api_job_prep_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobPrepStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Job Prep Start"
+      }
+    },
+    "/api/knowledge/{topic}/core": {
+      "get": {
+        "description": "List core knowledge files for a topic.",
+        "operationId": "get_core_knowledge_api_knowledge__topic__core_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Core Knowledge"
+      },
+      "post": {
+        "description": "Create a new core knowledge file.",
+        "operationId": "create_core_knowledge_api_knowledge__topic__core_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Core Knowledge"
+      }
+    },
+    "/api/knowledge/{topic}/core/{filename}": {
+      "delete": {
+        "description": "Delete a core knowledge file.",
+        "operationId": "delete_core_knowledge_api_knowledge__topic__core__filename__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "filename",
+            "required": true,
+            "schema": {
+              "title": "Filename",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Core Knowledge"
+      },
+      "put": {
+        "description": "Update a core knowledge file.",
+        "operationId": "update_core_knowledge_api_knowledge__topic__core__filename__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "filename",
+            "required": true,
+            "schema": {
+              "title": "Filename",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Core Knowledge"
+      }
+    },
+    "/api/knowledge/{topic}/generate": {
+      "post": {
+        "description": "Use LLM to generate foundational knowledge content for a topic.",
+        "operationId": "generate_core_knowledge_api_knowledge__topic__generate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Core Knowledge"
+      }
+    },
+    "/api/knowledge/{topic}/high_freq": {
+      "get": {
+        "description": "Get high-frequency question bank for a topic.",
+        "operationId": "get_high_freq_api_knowledge__topic__high_freq_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get High Freq"
+      },
+      "put": {
+        "description": "Update high-frequency question bank for a topic.",
+        "operationId": "update_high_freq_api_knowledge__topic__high_freq_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update High Freq"
+      }
+    },
+    "/api/knowledge/{topic}/upload": {
+      "post": {
+        "description": "Import an uploaded document (md/txt/pdf/docx) as a core knowledge file.",
+        "operationId": "upload_core_knowledge_api_knowledge__topic__upload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_core_knowledge_api_knowledge__topic__upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Core Knowledge"
+      }
+    },
+    "/api/personal-agent/chat": {
+      "post": {
+        "operationId": "personal_agent_chat_api_personal_agent_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonalAgentChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Personal Agent Chat"
+      }
+    },
+    "/api/personal-agent/conversations": {
+      "get": {
+        "operationId": "get_conversations_api_personal_agent_conversations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Conversations"
+      }
+    },
+    "/api/personal-agent/conversations/{conversation_id}": {
+      "delete": {
+        "operationId": "remove_conversation_api_personal_agent_conversations__conversation_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Conversation"
+      },
+      "get": {
+        "operationId": "get_conversation_detail_api_personal_agent_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Conversation Detail"
+      }
+    },
+    "/api/personal-agent/documents": {
+      "get": {
+        "operationId": "get_documents_api_personal_agent_documents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Documents"
+      },
+      "post": {
+        "operationId": "upload_document_api_personal_agent_documents_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_api_personal_agent_documents_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Document"
+      }
+    },
+    "/api/personal-agent/documents/{document_id}": {
+      "delete": {
+        "operationId": "remove_document_api_personal_agent_documents__document_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Document"
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "description": "Get the user's accumulated interview profile.\n\n附带 due_reviews: SM-2 调度里今天到期该复习的知识点(计算值,不落盘),\n让画像页能给出\"今天练什么\"而不只是\"哪里弱\"。",
+        "operationId": "get_user_profile_api_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get User Profile"
+      }
+    },
+    "/api/profile/due-reviews": {
+      "get": {
+        "description": "Get weak points due for spaced repetition review.",
+        "operationId": "get_due_reviews_endpoint_api_profile_due_reviews_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "topic",
+            "required": false,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Due Reviews Endpoint"
+      }
+    },
+    "/api/profile/infer-target-role": {
+      "post": {
+        "description": "LLM-infer a target role from the candidate's resume. Does not persist.",
+        "operationId": "infer_target_role_api_profile_infer_target_role_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Infer Target Role"
+      }
+    },
+    "/api/profile/pattern/feedback": {
+      "post": {
+        "description": "User feedback on a consolidated pattern: accurate / inaccurate / acknowledged.",
+        "operationId": "pattern_feedback_api_profile_pattern_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Pattern Feedback"
+      }
+    },
+    "/api/profile/topic/{topic}/history": {
+      "get": {
+        "description": "Get session history for a specific topic.",
+        "operationId": "get_topic_history_api_profile_topic__topic__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Topic History"
+      }
+    },
+    "/api/profile/topic/{topic}/retrospective": {
+      "post": {
+        "description": "Generate a comprehensive retrospective — async background processing.",
+        "operationId": "generate_retrospective_api_profile_topic__topic__retrospective_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic",
+            "required": true,
+            "schema": {
+              "title": "Topic",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Retrospective"
+      }
+    },
+    "/api/profile/viewed": {
+      "post": {
+        "description": "Reset the visit baseline used by the profile page's since-last-visit delta.",
+        "operationId": "profile_viewed_api_profile_viewed_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Profile Viewed"
+      }
+    },
+    "/api/recording/analyze": {
+      "post": {
+        "description": "Analyze a recording transcript — async background processing.",
+        "operationId": "recording_analyze_api_recording_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordingAnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Recording Analyze"
+      }
+    },
+    "/api/recording/transcribe": {
+      "post": {
+        "description": "Transcribe recording audio via DashScope ASR.",
+        "operationId": "recording_transcribe_api_recording_transcribe_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_recording_transcribe_api_recording_transcribe_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Recording Transcribe"
+      }
+    },
+    "/api/resume": {
+      "delete": {
+        "description": "Delete the uploaded resume PDF and its vectors.",
+        "operationId": "delete_resume_api_resume_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Resume"
+      }
+    },
+    "/api/resume/file": {
+      "get": {
+        "description": "Serve the uploaded resume PDF (for in-app preview / download).",
+        "operationId": "resume_file_api_resume_file_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resume File"
+      }
+    },
+    "/api/resume/parse": {
+      "post": {
+        "description": "用用户自配的 LLM 把已上传的简历 PDF 解析成结构化 JSON(简历管理「解析为模板简历」)。",
+        "operationId": "parse_resume_api_resume_parse_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Parse Resume"
+      }
+    },
+    "/api/resume/status": {
+      "get": {
+        "description": "Check if a resume file exists.",
+        "operationId": "resume_status_api_resume_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resume Status"
+      }
+    },
+    "/api/resume/upload": {
+      "post": {
+        "description": "Upload a resume PDF. Replaces any existing resume.",
+        "operationId": "upload_resume_api_resume_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_resume_api_resume_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Resume"
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "description": "Return this user's own LLM/Embedding overrides (empty fields inherit the\nglobal .env default), plus global system flags and per-user training prefs.",
+        "operationId": "get_user_settings_api_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get User Settings"
+      },
+      "put": {
+        "description": "Persist this user's LLM/Embedding overrides and training prefs.\n\nOn embedding-model change, the user's now-incompatible vectors are invalidated\n(fast — prevents dimension-mismatch). Re-embedding is the explicit follow-up:\nPOST /settings/rebuild-index. Returns embedding_changed so the UI can warn.",
+        "operationId": "put_user_settings_api_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsResponse"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put User Settings"
+      }
+    },
+    "/api/settings/rebuild-index": {
+      "post": {
+        "description": "Re-embed the user's personal documents / knowledge bases / weak-point memory with their\ncurrent embedding model. Streams SSE progress so the UI can show a determinate bar.\n\nIdempotent: clears stale vectors first. Best-effort per source — a missing/empty\ncorpus is skipped (status='error' for that step), not a fatal failure. Runs as a\nsync generator so blocking embed calls execute in Starlette's threadpool.\n\nEvents: {completed, total, label, status: running|done|error[, error]} per step,\na final {done, rebuilt, last_rebuild_at}, or {fatal, error} on setup failure.",
+        "operationId": "rebuild_index_api_settings_rebuild_index_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rebuild Index"
+      }
+    },
+    "/api/settings/test-embedding": {
+      "post": {
+        "description": "Probe the provided embedding config by embedding a tiny string.",
+        "operationId": "test_embedding_connection_api_settings_test_embedding_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmbeddingSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Test Embedding Connection"
+      }
+    },
+    "/api/settings/test-llm": {
+      "post": {
+        "description": "Probe the provided LLM config with a 1-token request. Returns {ok[, error]}\nso the UI can show inline status and the onboarding gate can block on failure.\nTests the form values, not the saved config — works before first save.",
+        "operationId": "test_llm_connection_api_settings_test_llm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LLMSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Test Llm Connection"
+      }
+    },
+    "/api/tasks/{task_id}": {
+      "get": {
+        "description": "Poll async task status.\n\nThe in-memory task dict is lost on restart and never flips when a review\nhangs, so when there's no live \"done\"/\"error\" to report we reconcile against\nthe persisted session — the source of truth — expiring stale reviews first.",
+        "operationId": "get_task_status_api_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Task Status"
+      }
+    },
+    "/api/topics": {
+      "get": {
+        "description": "List available drill topics (with name and icon).",
+        "operationId": "get_topics_api_topics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Topics"
+      },
+      "post": {
+        "description": "Add a new topic.",
+        "operationId": "create_topic_api_topics_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Topic"
+      }
+    },
+    "/api/topics/{key}": {
+      "delete": {
+        "description": "Remove a topic.",
+        "operationId": "delete_topic_api_topics__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Topic"
+      }
+    },
+    "/api/transcribe": {
+      "post": {
+        "description": "Transcribe short audio clip to text via DashScope ASR.",
+        "operationId": "transcribe_api_transcribe_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_transcribe_api_transcribe_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Transcribe"
+      }
+    },
+    "/api/usage/quota": {
+      "get": {
+        "description": "当前用户的额度状态。\n\nsource=\"user\" 表示用的是自己的 key,不受平台额度约束,limit 为 None——\n前端据此整块不渲染。source=\"platform\" 且 limit 为 None 表示当前策略对这个\n用户不设上限(部署方没配上限,或下游策略判定其无需受限)。\n\n上限取自生效中的配额策略而非直接读配置:两者一旦分头取值,替换过策略的\n部署就会出现\"放行了却显示额度已满\"。",
+        "operationId": "get_quota_api_usage_quota_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Quota"
+      }
+    },
+    "/api/voiceprint/credentials": {
+      "put": {
+        "description": "保存腾讯云凭据。保存前先 ping 一下验证有效性。",
+        "operationId": "voiceprint_put_credentials_api_voiceprint_credentials_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceprintCredentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Voiceprint Put Credentials"
+      }
+    },
+    "/api/voiceprint/enroll": {
+      "delete": {
+        "description": "删除已注册声纹（本地 + 腾讯云端）。保留凭据。",
+        "operationId": "voiceprint_unenroll_api_voiceprint_enroll_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Voiceprint Unenroll"
+      },
+      "post": {
+        "description": "上传 WAV 文件注册候选人声纹。前端应录制 ≥6 秒 16kHz mono WAV。",
+        "operationId": "voiceprint_enroll_api_voiceprint_enroll_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_voiceprint_enroll_api_voiceprint_enroll_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Voiceprint Enroll"
+      }
+    },
+    "/api/voiceprint/status": {
+      "get": {
+        "description": "返回用户声纹配置状态（未配置/已配置未注册/已注册）。",
+        "operationId": "voiceprint_status_api_voiceprint_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Voiceprint Status"
+      }
+    }
+  }
+}

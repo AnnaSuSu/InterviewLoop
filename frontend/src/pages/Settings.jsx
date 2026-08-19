@@ -761,7 +761,7 @@ export default function Settings() {
                 {[
                   { value: "", hint: "填了 API 字段走 API，否则走本地（兼容老配置）" },
                   { value: "api", hint: "通过 OpenAI 兼容接口请求 embedding" },
-                  { value: "local", hint: "用 HuggingFace 加载本地模型，需 `pip install -r requirements.local-embedding.txt`" },
+                  { value: "local", hint: "用 Transformers.js 在本机运行 ONNX 模型，首次使用会自动下载并缓存" },
                 ].find((o) => o.value === embBackend)?.hint}
               </div>
             </div>
@@ -836,7 +836,7 @@ export default function Settings() {
                     <Label className={labelClass}>Model Name</Label>
                     <Input
                       className={inputClass}
-                      placeholder="例：BAAI/bge-m3"
+                      placeholder="例：Xenova/bge-m3"
                       value={embLocalModel}
                       onChange={(e) => setEmbLocalModel(e.target.value)}
                     />

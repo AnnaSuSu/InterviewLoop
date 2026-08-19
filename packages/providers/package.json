@@ -1,0 +1,14 @@
+{
+  "name": "@techspar/providers",
+  "version": "0.3.0",
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "@techspar/core": "workspace:*",
+    "openai": "^6.32.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "private": true,
+  "type": "module"
+}

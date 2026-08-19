@@ -1,3 +1,0 @@
-# Optional local embedding dependencies.
-# Install a torch build that matches your environment before using local embeddings.
-sentence-transformers>=3.0.0

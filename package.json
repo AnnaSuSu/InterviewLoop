@@ -1,0 +1,43 @@
+{
+  "name": "techspar",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "bun run dev:api",
+    "dev:api": "bun --hot apps/api/src/entry.bun.ts",
+    "dev:web": "bun run --cwd frontend dev",
+    "typecheck": "tsc --noEmit",
+    "typecheck:node": "tsc -p tsconfig.node-compat.json --noEmit",
+    "check:boundaries": "bun scripts/check-boundaries.ts",
+    "test": "bun test apps packages tests-ts",
+    "test:contracts": "bun test tests-ts/contracts",
+    "build:api": "bun build apps/api/src/entry.bun.ts --target=bun --outdir=dist/api",
+    "build:web": "bun run --cwd frontend build",
+    "gen:openapi": "bun scripts/generate-openapi.ts",
+    "gen:api": "bun run gen:openapi && bun run --cwd frontend gen:api",
+    "build": "bun run build:api && bun run build:web",
+    "test:web": "bun run --cwd frontend test",
+    "check": "bun run typecheck && bun run typecheck:node && bun run check:boundaries && bun run test && bun run test:web && bun run build"
+  },
+  "dependencies": {
+    "@techspar/contracts": "workspace:*",
+    "@techspar/core": "workspace:*",
+    "@techspar/db": "workspace:*",
+    "@techspar/platform": "workspace:*",
+    "@techspar/providers": "workspace:*",
+    "@techspar/testing": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/node": "^26.2.0",
+    "fflate": "^0.8.2",
+    "typescript": "^6.0.3"
+  }
+}

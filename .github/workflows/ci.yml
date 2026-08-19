@@ -1,5 +1,3 @@
-# 后端检查:每次 push / PR 时,在干净环境安装依赖、构建 app 并运行回归测试。
-# 目的是拦下"本地能跑、干净环境装不起来"和已修问题回归,让它到不了用户手里。
 name: CI
 
 on:
@@ -11,41 +9,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: oven-sh/setup-bun@v2
         with:
-          python-version: "3.11" # 与 backend/Dockerfile 的基础镜像一致
-          cache: pip
-
-      - name: 安装依赖
-        run: pip install -r requirements.txt
-
-      - name: 构建后端 app(导入整棵依赖树 + 装配路由)
-        run: |
-          python -c "from backend.app import create_app; create_app(); print('OK app builds')"
-
-      - name: 运行后端回归测试
-        run: python -m unittest discover -s tests
+          bun-version: "1.3.14"
+      - name: 安装锁定依赖
+        run: bun install --frozen-lockfile
+      - name: 类型与架构边界
+        run: bun run typecheck && bun run typecheck:node && bun run check:boundaries
+      - name: 后端、契约与迁移回归测试
+        run: bun run test
+      - name: 构建 Bun API
+        run: bun run build:api
 
   frontend-build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "22" # 与 frontend/Dockerfile 的基础镜像一致
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: 安装依赖(npm ci:严格按 lockfile,顺带查 lock 是否同步)
-        run: npm ci
-
+          bun-version: "1.3.14"
+      - name: 安装锁定依赖
+        run: bun install --frozen-lockfile
+      - name: 校验 OpenAPI 生成文件
+        run: bun run gen:api && git diff --exit-code -- packages/contracts/openapi.json frontend/src/api/schema.d.ts
       - name: 运行前端回归测试
-        run: npm test
-
-      - name: 构建前端(vite build,拦语法错误/坏 import/漏装依赖)
-        run: npm run build
+        run: bun run test:web
+      - name: 前端类型与构建
+        run: bun run --cwd frontend typecheck && bun run build:web

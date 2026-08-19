@@ -9,8 +9,8 @@ VoiceWings-master/
 # Node(任意层级)
 node_modules/
 package-lock.json
-!frontend/package-lock.json
 frontend/dist/
+dist/
 demo_imges/
 # 生成素材原图/草稿目录，最终优化版已放进 frontend/src/assets/
 images/images2/
@@ -48,3 +48,6 @@ design/
 
 # Claude Code local state (worktrees, settings)
 .claude/
+
+# Local agent instructions
+AGENTS.md

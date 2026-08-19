@@ -1,0 +1,16 @@
+{
+  "name": "@techspar/platform",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@techspar/core": "workspace:*",
+    "bcryptjs": "^3.0.3",
+    "fflate": "^0.8.2",
+    "jose": "^6.2.2",
+    "pdfjs-dist": "^5.5.207"
+  }
+}

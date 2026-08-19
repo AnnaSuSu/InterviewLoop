@@ -214,7 +214,7 @@ export default function Onboarding() {
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Embedding Model</Label>
-                  <Input className={inputClass} autoComplete="off" placeholder="例：BAAI/bge-m3" value={embApiModel} onChange={(e) => setEmbApiModel(e.target.value)} />
+                  <Input className={inputClass} autoComplete="off" placeholder="例：BAAI/bge-large-zh-v1.5" value={embApiModel} onChange={(e) => setEmbApiModel(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>API Key</Label>
