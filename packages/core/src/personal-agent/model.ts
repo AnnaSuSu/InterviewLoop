@@ -26,6 +26,12 @@ export type AgentMessage = {
   sources?: Array<{ document_id: string; filename: string }>
 }
 
+export type PersonalAgentChatResult = {
+  conversation_id: string
+  title: string
+  message: AgentMessage
+}
+
 export type PersonalConversation = {
   conversation_id: string
   user_id?: string

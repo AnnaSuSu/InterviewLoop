@@ -1,6 +1,6 @@
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { OkSchema, PersonalAgentChatSchema, PersonalAgentObjectSchema, PersonalDocumentUploadSchema } from '@techspar/contracts'
+import { OkSchema, PersonalAgentChatResponseSchema, PersonalAgentChatSchema, PersonalAgentObjectSchema, PersonalDocumentUploadSchema } from '@techspar/contracts'
 import type { PersonalAgentUseCases, TokenService } from '@techspar/core'
 import { authenticatedContext } from '../http/context.ts'
 
@@ -26,6 +26,6 @@ export function registerPersonalAgentRoutes(app: OpenAPIHono, deps: { personalAg
   app.openapi(createRoute({ method: 'delete', path: '/api/personal-agent/conversations/{conversation_id}', request: { params: ConversationPath }, responses: { 200: { content: { 'application/json': { schema: OkSchema } }, description: 'Delete conversation' } } }),
     async (c) => c.json(await deps.personalAgent.deleteConversation(await authenticatedContext(c, deps.tokens), c.req.valid('param').conversation_id)))
 
-  app.openapi(createRoute({ method: 'post', path: '/api/personal-agent/chat', request: { body: { content: { 'application/json': { schema: PersonalAgentChatSchema } } } }, responses: { 200: { content: { 'application/json': { schema: PersonalAgentObjectSchema } }, description: 'Personal agent chat' } } }),
-    async (c) => { const body = c.req.valid('json'); return c.json(await deps.personalAgent.chat(await authenticatedContext(c, deps.tokens), body.message, body.conversation_id)) })
+  app.openapi(createRoute({ method: 'post', path: '/api/personal-agent/chat', request: { body: { content: { 'application/json': { schema: PersonalAgentChatSchema } } } }, responses: { 200: { content: { 'application/json': { schema: PersonalAgentChatResponseSchema } }, description: 'Personal agent chat' } } }),
+    async (c) => { const body = c.req.valid('json'); return c.json(await deps.personalAgent.chat(await authenticatedContext(c, deps.tokens), body.message, body.conversation_id ?? undefined)) })
 }

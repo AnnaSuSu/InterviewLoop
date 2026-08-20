@@ -142,13 +142,13 @@ export const InterviewAnswerSchema = z.object({
 }).passthrough()
 export const StartInterviewSchema = z.object({
   mode: InterviewModeSchema,
-  topic: z.string().optional(),
+  topic: z.string().nullable().optional(),
   num_questions: z.number().int().positive().optional(),
   divergence: z.number().int().min(1).max(5).optional(),
   target_role: z.string().optional(),
   job_description: z.string().max(12000).optional(),
 })
-export const JobPrepPreviewSchema = z.object({ jd_text: z.string(), company: z.string().optional(), position: z.string().optional(), use_resume: z.boolean().default(true) })
+export const JobPrepPreviewSchema = z.object({ jd_text: z.string(), company: z.string().nullable().optional(), position: z.string().nullable().optional(), use_resume: z.boolean().default(true) })
 export const JobPrepStartSchema = JobPrepPreviewSchema.extend({ preview_data: z.record(z.string(), z.unknown()).optional() })
 export const InterviewChatSchema = z.object({ session_id: z.string(), message: z.string() })
 export const EndInterviewSchema = z.object({ answers: z.array(InterviewAnswerSchema).default([]) })
@@ -162,7 +162,14 @@ export const TargetRoleSchema = z.object({ target_role: z.string() })
 export const ProfileFeedbackSchema = z.object({ point: z.string(), verdict: z.enum(['accurate', 'inaccurate', 'acknowledged']) })
 export const RetrospectiveTaskSchema = z.object({ task_id: z.string(), status: z.literal('pending') })
 export const PersonalDocumentUploadSchema = z.object({ file: UploadedFileSchema })
-export const PersonalAgentChatSchema = z.object({ conversation_id: z.string().optional(), message: z.string().min(1).max(12000) })
+export const PersonalAgentChatSchema = z.object({ conversation_id: z.string().nullable().optional(), message: z.string().min(1).max(12000) })
+export const PersonalAgentMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  created_at: z.string(),
+  sources: z.array(z.object({ document_id: z.string(), filename: z.string() })).optional(),
+})
+export const PersonalAgentChatResponseSchema = z.object({ conversation_id: z.string(), title: z.string(), message: PersonalAgentMessageSchema })
 export const PersonalAgentObjectSchema = z.record(z.string(), z.unknown())
 export const DataImportSchema = z.object({
   file: UploadedFileSchema,

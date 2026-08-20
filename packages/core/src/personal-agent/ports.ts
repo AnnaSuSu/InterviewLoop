@@ -2,7 +2,7 @@ import type { IdGenerator } from '../account/ports.ts'
 import type { RequestContext } from '../kernel/context.ts'
 import type { EmbeddingUseCases, TextGenerationUseCases } from '../provider/ports.ts'
 import type { ProfileUseCases } from '../profile/ports.ts'
-import type { AgentMessage, PersonalConversation, PersonalDocument, PersonalDocumentHit } from './model.ts'
+import type { AgentMessage, PersonalAgentChatResult, PersonalConversation, PersonalDocument, PersonalDocumentHit } from './model.ts'
 
 export interface PersonalAgentRepository {
   initialize(): void
@@ -40,7 +40,7 @@ export interface PersonalAgentUseCases {
   conversations(context: RequestContext): Promise<{ items: unknown[] }>
   conversation(context: RequestContext, conversationId: string): Promise<PersonalConversation>
   deleteConversation(context: RequestContext, conversationId: string): Promise<{ ok: true }>
-  chat(context: RequestContext, message: string, conversationId?: string): Promise<Record<string, unknown>>
+  chat(context: RequestContext, message: string, conversationId?: string): Promise<PersonalAgentChatResult>
   reindexAll(context: RequestContext): Promise<number>
   hasDocuments(context: RequestContext): Promise<boolean>
 }

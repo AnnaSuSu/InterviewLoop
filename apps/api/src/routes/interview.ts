@@ -23,13 +23,13 @@ const TaskPath = z.object({ task_id: z.string() })
 
 export function registerInterviewRoutes(app: OpenAPIHono, deps: { interview: InterviewUseCases; tokens: TokenService }): void {
   app.openapi(createRoute({ method: 'post', path: '/api/job-prep/preview', request: { body: { content: { 'application/json': { schema: JobPrepPreviewSchema } } } }, responses: { 200: { content: { 'application/json': { schema: InterviewObjectSchema } }, description: 'JD preview' } } }),
-    async (c) => c.json(await deps.interview.previewJob(await authenticatedContext(c, deps.tokens), c.req.valid('json'))))
+    async (c) => { const body = c.req.valid('json'); return c.json(await deps.interview.previewJob(await authenticatedContext(c, deps.tokens), { ...body, company: body.company ?? undefined, position: body.position ?? undefined })) })
 
   app.openapi(createRoute({ method: 'post', path: '/api/job-prep/start', request: { body: { content: { 'application/json': { schema: JobPrepStartSchema } } } }, responses: { 200: { content: { 'application/json': { schema: InterviewObjectSchema } }, description: 'Start JD interview' } } }),
-    async (c) => c.json(await deps.interview.startJob(await authenticatedContext(c, deps.tokens), c.req.valid('json'))))
+    async (c) => { const body = c.req.valid('json'); return c.json(await deps.interview.startJob(await authenticatedContext(c, deps.tokens), { ...body, company: body.company ?? undefined, position: body.position ?? undefined })) })
 
   app.openapi(createRoute({ method: 'post', path: '/api/interview/start', request: { body: { content: { 'application/json': { schema: StartInterviewSchema } } } }, responses: { 200: { content: { 'application/json': { schema: InterviewObjectSchema } }, description: 'Start interview' } } }),
-    async (c) => c.json(await deps.interview.start(await authenticatedContext(c, deps.tokens), c.req.valid('json'))))
+    async (c) => { const body = c.req.valid('json'); return c.json(await deps.interview.start(await authenticatedContext(c, deps.tokens), { ...body, topic: body.topic ?? undefined })) })
 
   app.openapi(createRoute({ method: 'post', path: '/api/interview/chat', request: { body: { content: { 'application/json': { schema: InterviewChatSchema } } } }, responses: { 200: { content: { 'application/json': { schema: InterviewObjectSchema } }, description: 'Interview turn' } } }),
     async (c) => { const body = c.req.valid('json'); return c.json(await deps.interview.chat(await authenticatedContext(c, deps.tokens), body.session_id, body.message)) })

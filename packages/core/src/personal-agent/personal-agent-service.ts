@@ -1,7 +1,7 @@
 import { AppError, AuthenticationError } from '../kernel/errors.ts'
 import type { RequestContext } from '../kernel/context.ts'
 import { chunkText } from '../knowledge/index-service.ts'
-import { MAX_PERSONAL_DOCUMENT_BYTES, PERSONAL_DOCUMENT_EXTENSIONS } from './model.ts'
+import { MAX_PERSONAL_DOCUMENT_BYTES, PERSONAL_DOCUMENT_EXTENSIONS, type AgentMessage } from './model.ts'
 import type { PersonalAgentDependencies, PersonalAgentUseCases } from './ports.ts'
 
 const MAX_EXTRACTED_CHARS = 600_000
@@ -87,9 +87,11 @@ export class PersonalAgentService implements PersonalAgentUseCases {
     if (!answer) throw new AppError('模型没有返回内容', 500)
     const now = new Date().toISOString()
     const sources = hits.map((hit) => ({ document_id: hit.document_id, filename: hit.source }))
-    const messages = [...conversation.messages, { role: 'user' as const, content: input, created_at: now }, { role: 'assistant' as const, content: answer, created_at: now, sources }]
+    const userMessage: AgentMessage = { role: 'user', content: input, created_at: now }
+    const assistantMessage: AgentMessage = { role: 'assistant', content: answer, created_at: now, sources }
+    const messages = [...conversation.messages, userMessage, assistantMessage]
     await this.deps.repository.saveConversation(conversation.conversation_id, id, messages)
-    return { conversation_id: conversation.conversation_id, title: conversation.title, message: answer, sources }
+    return { conversation_id: conversation.conversation_id, title: conversation.title, message: assistantMessage }
   }
 
   async hasDocuments(context: RequestContext): Promise<boolean> { return (await this.deps.repository.listDocuments(userId(context))).length > 0 }

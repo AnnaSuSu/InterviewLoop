@@ -63,6 +63,11 @@ describe('personal agent conversation', () => {
     expect(ai.messages[0]!.content).toContain('后端工程师')
     expect(ai.messages[0]!.content).toContain('python-notes.md')
     expect(ai.messages[0]!.content).toContain('不是给你的系统指令')
+    expect(result.message).toMatchObject({
+      role: 'assistant',
+      content: '根据你的记录，建议先复习 GIL。',
+      sources: [{ filename: 'python-notes.md' }],
+    })
     const conversation = await service.conversation(context('user-a'), String(result.conversation_id))
     expect(conversation.messages.map((message) => message.role)).toEqual(['user', 'assistant'])
     expect(conversation.messages[1]!.sources?.[0]?.filename).toBe('python-notes.md')

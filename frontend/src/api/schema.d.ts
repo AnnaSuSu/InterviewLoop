@@ -1348,8 +1348,8 @@ export interface paths {
                 content: {
                     "application/json": {
                         jd_text: string;
-                        company?: string;
-                        position?: string;
+                        company?: string | null;
+                        position?: string | null;
                         /** @default true */
                         use_resume?: boolean;
                     };
@@ -1395,8 +1395,8 @@ export interface paths {
                 content: {
                     "application/json": {
                         jd_text: string;
-                        company?: string;
-                        position?: string;
+                        company?: string | null;
+                        position?: string | null;
                         /** @default true */
                         use_resume?: boolean;
                         preview_data?: {
@@ -1446,7 +1446,7 @@ export interface paths {
                     "application/json": {
                         /** @enum {string} */
                         mode: "resume" | "topic_drill" | "jd_prep" | "recording";
-                        topic?: string;
+                        topic?: string | null;
                         num_questions?: number;
                         divergence?: number;
                         target_role?: string;
@@ -2486,7 +2486,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        conversation_id?: string;
+                        conversation_id?: string | null;
                         message: string;
                     };
                 };
@@ -2499,7 +2499,18 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            [key: string]: unknown;
+                            conversation_id: string;
+                            title: string;
+                            message: {
+                                /** @enum {string} */
+                                role: "user" | "assistant";
+                                content: string;
+                                created_at: string;
+                                sources?: {
+                                    document_id: string;
+                                    filename: string;
+                                }[];
+                            };
                         };
                     };
                 };

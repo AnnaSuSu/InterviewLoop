@@ -1586,10 +1586,12 @@
                     "type": "string"
                   },
                   "company": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true
                   },
                   "position": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true
                   },
                   "use_resume": {
                     "type": "boolean",
@@ -1632,10 +1634,12 @@
                     "type": "string"
                   },
                   "company": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true
                   },
                   "position": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true
                   },
                   "use_resume": {
                     "type": "boolean",
@@ -1690,7 +1694,8 @@
                     ]
                   },
                   "topic": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true
                   },
                   "num_questions": {
                     "type": "integer",
@@ -2660,7 +2665,8 @@
                 "type": "object",
                 "properties": {
                   "conversation_id": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true
                   },
                   "message": {
                     "type": "string",
@@ -2682,9 +2688,60 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": {
-                    "nullable": true
-                  }
+                  "properties": {
+                    "conversation_id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "user",
+                            "assistant"
+                          ]
+                        },
+                        "content": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "sources": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "document_id": {
+                                "type": "string"
+                              },
+                              "filename": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "document_id",
+                              "filename"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "content",
+                        "created_at"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "conversation_id",
+                    "title",
+                    "message"
+                  ]
                 }
               }
             }
