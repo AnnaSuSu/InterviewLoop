@@ -8,7 +8,7 @@ import { defaultProfile, type CandidateProfile, type WeakPoint } from './model.t
 import type { ProfileDependencies, ProfileUseCases } from './ports.ts'
 
 const INFER_ROLE_PROMPT = `根据以下简历内容，推断候选人最可能应聘的岗位名称。给出一个具体岗位，12 个汉字以内；学生可带实习生或校招后缀。只返回岗位名称，不要解释。\n\n{resume}`
-const EXTRACT_PROMPT = `你是面试教练分析引擎。根据本次面试记录提取结构化洞察。不要把表达习惯混入知识弱点，不得编造记录中没有的事实。\n\n模式：{mode}\n领域：{topic}\n对话：\n{transcript}\n\n复盘：\n{review}\n\n只返回 JSON：{"session_summary":"摘要","weak_points":[{"point":"具体知识薄弱点","topic":"领域"}],"strong_points":[{"point":"具体知识强项","topic":"领域"}],"behavior_signals":[{"action":"ADD","id":"reasoning.example","namespace":"reasoning","polarity":"negative","description":"行为描述","snippet":"原话"}],"topic_mastery":{"notes":"掌握情况"},"avg_score":7}`
+const EXTRACT_PROMPT = `你是面试教练分析引擎。根据本次面试记录提取结构化洞察。不要把表达习惯混入知识弱点，不得编造记录中没有的事实。\n\n模式：{mode}\n领域：{topic}\n对话：\n{transcript}\n\n复盘：\n{review}\n\n只返回 JSON：{"session_summary":"摘要","weak_points":[{"point":"具体知识薄弱点","topic":"领域"}],"strong_points":[{"point":"具体知识强项","topic":"领域"}],"behavior_signals":[{"action":"ADD","id":"reasoning.example","namespace":"reasoning","polarity":"negative","description":"行为描述","snippet":"原话"}],"topic_mastery":{"notes":"掌握情况"},"avg_score":7,"dimension_scores":{"technical_depth":7,"project_articulation":7,"communication":7,"problem_solving":7}}。仅 resume 模式返回四维 dimension_scores，其他模式省略。avg_score 为有效维度的平均分，保留一位小数。`
 const RETROSPECTIVE_PROMPT = `你是面试教练，请基于「{topic_name}」的多次训练历史生成 Markdown 回顾。总结进步趋势、稳定强项、反复薄弱点，并给出下一轮训练计划。每个判断必须能在历史中找到依据。\n\n当前掌握度：{mastery}\n\n训练历史：\n{history}`
 
 function id(context: RequestContext): string { if (!context.userId) throw new AuthenticationError(); return context.userId }
@@ -185,8 +185,16 @@ export class ProfileService implements ProfileUseCases, CandidateProfilePort {
       if (input.session.mode === 'topic_drill') stats.drill_sessions += 1
       if (input.session.mode === 'jd_prep') stats.job_prep_sessions += 1
       if (input.session.mode === 'recording') stats.recording_sessions = Number(stats.recording_sessions || 0) + 1
-      const avg = number(object(input.session.overall).avg_score) ?? number(extraction!.avg_score)
-      if (avg !== undefined) { stats.score_history.push({ date: now.slice(0, 10), mode: input.session.mode, topic: input.session.topic, avg_score: avg }); const values = stats.score_history.map((item) => number(item.avg_score)).filter((value): value is number => value !== undefined); stats.avg_score = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10 }
+      const sessionOverall = object(input.session.overall)
+      const avg = number(sessionOverall.avg_score) ?? number(extraction!.avg_score)
+      if (avg !== undefined) {
+        const storedDimensions = object(sessionOverall.dimension_scores)
+        const rawDimensions = Object.keys(storedDimensions).length ? storedDimensions : object(extraction!.dimension_scores)
+        const dimensionScores = Object.fromEntries(Object.entries(rawDimensions).filter(([, score]) => number(score) !== undefined))
+        stats.score_history.push({ date: now.slice(0, 10), mode: input.session.mode, topic: input.session.topic, avg_score: avg, ...(Object.keys(dimensionScores).length ? { dimension_scores: dimensionScores } : {}) })
+        const values = stats.score_history.map((item) => number(item.avg_score)).filter((value): value is number => value !== undefined)
+        stats.avg_score = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10
+      }
     })
     return extraction
   }

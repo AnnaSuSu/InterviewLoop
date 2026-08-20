@@ -44,15 +44,44 @@ function answerMap(answers: InterviewAnswer[]): Map<string, string> {
   return new Map(answers.map((answer) => [String(answer.question_id), String(answer.answer || '')]))
 }
 
+function answerOverride(value: unknown): InterviewAnswer[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const output: InterviewAnswer[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return undefined
+    const source = item as Record<string, unknown>
+    if ((typeof source.question_id !== 'string' && typeof source.question_id !== 'number') || typeof source.answer !== 'string') return undefined
+    output.push({ ...source, question_id: source.question_id, answer: source.answer } as InterviewAnswer)
+  }
+  return output
+}
+
 function answersFromTranscript(session: InterviewSession): InterviewAnswer[] {
   const output: InterviewAnswer[] = []
-  let questionIndex = 0
-  for (const message of session.transcript) {
-    if (message.role === 'assistant') continue
-    const question = session.questions[questionIndex]
-    if (question) output.push({ question_id: question.id, answer: message.content })
-    questionIndex += 1
+  const remaining = new Map<string, InterviewQuestion[]>()
+  for (const question of session.questions) {
+    const matches = remaining.get(question.question) || []
+    matches.push(question)
+    remaining.set(question.question, matches)
   }
+  let activeQuestion: InterviewQuestion | undefined
+  for (const message of session.transcript) {
+    if (message.role === 'assistant') {
+      activeQuestion = remaining.get(message.content)?.shift()
+      continue
+    }
+    if (activeQuestion) output.push({ question_id: activeQuestion.id, answer: message.content })
+    activeQuestion = undefined
+  }
+  return output
+}
+
+function resumeOverall(value: unknown): Record<string, unknown> {
+  const source = objectOrEmpty(value)
+  const output: Record<string, unknown> = {}
+  if (typeof source.avg_score === 'number' && Number.isFinite(source.avg_score)) output.avg_score = source.avg_score
+  const dimensions = Object.fromEntries(Object.entries(objectOrEmpty(source.dimension_scores)).filter(([, score]) => typeof score === 'number' && Number.isFinite(score)))
+  if (Object.keys(dimensions).length) output.dimension_scores = dimensions
   return output
 }
 
@@ -209,9 +238,9 @@ export class InterviewService implements InterviewUseCases {
     return ({ resume: 'resume_review', topic_drill: 'drill_review', jd_prep: 'jd_review', recording: 'recording_review' } as const)[mode]
   }
 
-  private async dispatch(session: InterviewSession): Promise<Record<string, unknown>> {
+  private async dispatch(session: InterviewSession, answersOverride?: InterviewAnswer[]): Promise<Record<string, unknown>> {
     await this.deps.sessions.updateStatus(session.session_id, session.user_id, 'reviewing', { clearError: true })
-    await this.deps.tasks.enqueue({ taskId: session.session_id, userId: session.user_id, type: this.taskType(session.mode), payload: { session_id: session.session_id } })
+    await this.deps.tasks.enqueue({ taskId: session.session_id, userId: session.user_id, type: this.taskType(session.mode), payload: { session_id: session.session_id, ...(answersOverride !== undefined ? { answers_override: answersOverride } : {}) } })
     return { session_id: session.session_id, mode: session.mode, status: 'pending' }
   }
 
@@ -221,9 +250,10 @@ export class InterviewService implements InterviewUseCases {
     if (!session) throw new AppError('Session not found.', 404)
     if (session.status === 'reviewed') return { session_id: sessionId, mode: session.mode, status: 'done' }
     if (session.status === 'reviewing') return { session_id: sessionId, mode: session.mode, status: 'pending' }
-    if (session.mode === 'topic_drill' || session.mode === 'jd_prep') await this.deps.sessions.saveAnswers(sessionId, id, answers)
+    const batchMode = session.mode === 'topic_drill' || session.mode === 'jd_prep'
+    if (batchMode) await this.deps.sessions.saveAnswers(sessionId, id, answers)
     if (session.status === 'ongoing') { await this.deps.sessions.updateStatus(sessionId, id, 'ended'); session.status = 'ended' }
-    return this.dispatch(session)
+    return this.dispatch(session, batchMode ? answers : undefined)
   }
 
   async draft(context: RequestContext, sessionId: string, answers: InterviewAnswer[]) {
@@ -260,7 +290,7 @@ export class InterviewService implements InterviewUseCases {
         const review = await this.deps.ai.complete(context, [{ role: 'system', content: fill(REVIEW_PROMPT, { mode: session.mode, topic: session.topic || '', transcript, evaluations, resume_context: state.resume_context }) }, { role: 'user', content: '请生成复盘报告。' }])
         await this.deps.sessions.saveReview({ sessionId: session.session_id, userId: session.user_id, review })
       } else if (session.mode === 'topic_drill' || session.mode === 'jd_prep') {
-        const answers = answersFromTranscript(session)
+        const answers = answerOverride(task.payload.answers_override) ?? answersFromTranscript(session)
         let parsed: Record<string, unknown>
         if (session.mode === 'topic_drill') {
           const topics = await this.deps.knowledgeStore.loadTopics(session.user_id)
@@ -280,7 +310,12 @@ export class InterviewService implements InterviewUseCases {
       }
       const reviewed = await this.deps.sessions.get(session.session_id, session.user_id)
       if (reviewed && this.deps.profile.afterReview) {
-        try { await this.deps.profile.afterReview({ userId: session.user_id, session: reviewed }); await this.deps.sessions.updateMeta(session.session_id, session.user_id, { profile_extract_failed: false }) }
+        try {
+          const extraction = await this.deps.profile.afterReview({ userId: session.user_id, session: reviewed })
+          const metrics = session.mode === 'resume' ? resumeOverall(extraction) : {}
+          if (Object.keys(metrics).length) await this.deps.sessions.saveReview({ sessionId: reviewed.session_id, userId: reviewed.user_id, review: reviewed.review || '', scores: reviewed.scores, weakPoints: reviewed.weak_points, overall: { ...reviewed.overall, ...metrics } })
+          await this.deps.sessions.updateMeta(session.session_id, session.user_id, { profile_extract_failed: false })
+        }
         catch { await this.deps.sessions.updateMeta(session.session_id, session.user_id, { profile_extract_failed: true }) }
       }
       return { session_id: session.session_id, status: 'done' }
