@@ -53,6 +53,12 @@ describe('resume compatibility', () => {
     expect(await service.parse(context)).toEqual({ ok: true, parsed: { basic: { name: '张三' } } })
   })
 
+  test('rejects scalar JSON responses and retries for an object', async () => {
+    await service.upload(context, 'resume.pdf', pdf)
+    responses.push('"not-an-object"', '{"basic":{"name":"李四"}}')
+    expect(await service.parse(context)).toEqual({ ok: true, parsed: { basic: { name: '李四' } } })
+  })
+
   test('deletes the PDF and returns 404 when repeated', async () => {
     await service.upload(context, 'resume.pdf', pdf)
     expect(await service.delete(context)).toEqual({ ok: true })

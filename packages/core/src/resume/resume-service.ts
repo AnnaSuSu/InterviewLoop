@@ -88,7 +88,7 @@ export class ResumeService implements ResumeUseCases {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const parsed = parseJsonResponse(await this.deps.ai.complete(context, messages))
-        if (!Array.isArray(parsed)) return { ok: true as const, parsed }
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return { ok: true as const, parsed }
       } catch (error) {
         if (attempt === 1) throw new AppError('简历解析失败，请重试', 500)
       }

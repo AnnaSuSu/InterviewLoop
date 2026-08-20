@@ -76,7 +76,11 @@ export class BunPersonalAgentRepository implements PersonalAgentRepository {
   async deleteDocumentChunks(documentId: string, userId: string): Promise<void> { this.sqlite.query("DELETE FROM memory_vectors WHERE chunk_type = 'personal_document_chunk' AND session_id = $id AND user_id = $userId").run({ $id: documentId, $userId: userId }) }
   async searchDocuments(userId: string, embedding: Float32Array, topK: number): Promise<PersonalDocumentHit[]> {
     const rows = this.sqlite.query<{ document_id: string; source: string; content: string; embedding: Uint8Array }, { $userId: string }>(`SELECT mv.session_id AS document_id, COALESCE(pd.filename, json_extract(mv.metadata, '$.source'), '') AS source, mv.content, mv.embedding FROM memory_vectors mv LEFT JOIN personal_documents pd ON pd.document_id = mv.session_id AND pd.user_id = mv.user_id WHERE mv.chunk_type = 'personal_document_chunk' AND mv.user_id = $userId`).all({ $userId: userId })
-    return rows.map((row) => ({ document_id: row.document_id, source: row.source, content: row.content, score: cosine(embedding, fromBlob(row.embedding)) })).sort((a, b) => b.score - a.score).slice(0, topK)
+    return rows
+      .map((row) => ({ document_id: row.document_id, source: row.source, content: row.content, score: Math.round(cosine(embedding, fromBlob(row.embedding)) * 10_000) / 10_000 }))
+      .filter((row) => row.score >= 0.18)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK)
   }
 
   async listConversations(userId: string) {
@@ -107,12 +111,16 @@ export class BunPersonalAgentRepository implements PersonalAgentRepository {
   async recentMistakes(userId: string, limit: number): Promise<Array<Record<string, unknown>>> {
     const hasSessions = this.sqlite.query<{ present: number }, []>("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'sessions'").get()
     if (!hasSessions) return []
-    const rows = this.sqlite.query<{ questions: string; scores: string; created_at: string }, { $userId: string }>("SELECT questions, scores, created_at FROM sessions WHERE user_id = $userId AND status = 'reviewed' ORDER BY created_at DESC, rowid DESC LIMIT 20").all({ $userId: userId })
+    const rows = this.sqlite.query<{ topic: string | null; questions: string; scores: string; created_at: string }, { $userId: string }>("SELECT topic, questions, scores, created_at FROM sessions WHERE user_id = $userId AND scores != '[]' ORDER BY created_at DESC, rowid DESC LIMIT 30").all({ $userId: userId })
     const output: Array<Record<string, unknown>> = []
     for (const row of rows) {
       const questions = parse<Array<Record<string, unknown>>>(row.questions, []); const byId = new Map(questions.map((question) => [String(question.id), question]))
       for (const score of parse<Array<Record<string, unknown>>>(row.scores, [])) {
-        if (typeof score.score === 'number' && score.score < 6) { const question = byId.get(String(score.question_id)); output.push({ question: question?.question || score.question || '', score: score.score, assessment: score.assessment || '', date: row.created_at.slice(0, 10) }); if (output.length >= limit) return output }
+        if (typeof score.score === 'number' && score.score <= 6) {
+          const question = byId.get(String(score.question_id))
+          output.push({ topic: row.topic, question: question?.question || score.question || '', score: score.score, assessment: score.assessment || '', improvement: score.improvement || '', key_missing: Array.isArray(score.key_missing) ? score.key_missing : [], date: row.created_at.slice(0, 10) })
+          if (output.length >= limit) return output
+        }
       }
     }
     return output

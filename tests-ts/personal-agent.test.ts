@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { zipSync, strToU8 } from 'fflate'
 import { PersonalAgentService, defaultProfile, type ChatMessage, type ProfileUseCases, type RequestContext, type TextGenerationUseCases } from '@techspar/core'
-import { BunPersonalAgentRepository } from '@techspar/db'
+import { BunInterviewSessionRepository, BunPersonalAgentRepository } from '@techspar/db'
 import { FilePersonalDocumentStore, PortablePersonalDocumentExtractor } from '@techspar/platform'
 
 const roots: string[] = []
@@ -47,6 +47,24 @@ describe('personal document library', () => {
   test('extracts docx XML without an office runtime', async () => {
     const bytes = zipSync({ 'word/document.xml': strToU8('<?xml version="1.0"?><w:document xmlns:w="x"><w:body><w:p><w:r><w:t>系统设计笔记</w:t></w:r></w:p></w:body></w:document>') })
     expect(await new PortablePersonalDocumentExtractor().extract('example.docx', bytes)).toContain('系统设计笔记')
+  })
+
+  test('keeps only relevant document chunks and preserves legacy low-score context', async () => {
+    const base = await root(); const database = join(base, 'interviews.db')
+    const repository = new BunPersonalAgentRepository(database); repository.initialize()
+    await repository.createDocument({ documentId: 'relevant', userId: 'user-a', filename: 'relevant.md', storedName: 'relevant.md', extension: '.md', sizeBytes: 1 })
+    await repository.createDocument({ documentId: 'unrelated', userId: 'user-a', filename: 'unrelated.md', storedName: 'unrelated.md', extension: '.md', sizeBytes: 1 })
+    await repository.replaceDocumentChunks({ documentId: 'relevant', userId: 'user-a', filename: 'relevant.md', chunks: [{ content: '相关内容', embedding: new Float32Array([1, 0]) }] })
+    await repository.replaceDocumentChunks({ documentId: 'unrelated', userId: 'user-a', filename: 'unrelated.md', chunks: [{ content: '无关内容', embedding: new Float32Array([0, 1]) }] })
+    expect((await repository.searchDocuments('user-a', new Float32Array([1, 0]), 6)).map((item) => item.document_id)).toEqual(['relevant'])
+
+    const sessions = new BunInterviewSessionRepository(database); sessions.initialize()
+    await sessions.create({ sessionId: 'low-six', userId: 'user-a', mode: 'topic_drill', topic: 'typescript', questions: [{ id: 1, question: '解释事件循环' }] })
+    await sessions.saveReview({ sessionId: 'low-six', userId: 'user-a', review: '需改进', scores: [{ question_id: 1, score: 6, assessment: '基本理解', improvement: '补充微任务顺序', key_missing: ['微任务'] }] })
+    expect(await repository.recentMistakes('user-a', 10)).toEqual([{
+      topic: 'typescript', question: '解释事件循环', score: 6, assessment: '基本理解', improvement: '补充微任务顺序', key_missing: ['微任务'], date: expect.any(String),
+    }])
+    sessions.close(); repository.close()
   })
 })
 
