@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package.json bun.lock tsconfig.json tsconfig.node-compat.json ./
 COPY apps/api/package.json apps/api/package.json
+COPY apps/desktop/package.json apps/desktop/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/db/package.json packages/db/package.json

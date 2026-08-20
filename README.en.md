@@ -8,6 +8,7 @@
 
 [![Bun](https://img.shields.io/badge/Bun-1.3+-000000.svg)](https://bun.sh/)
 [![Hono](https://img.shields.io/badge/Hono-4-E36002.svg)](https://hono.dev/)
+[![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](LICENSE)
@@ -46,6 +47,34 @@ bun install --frozen-lockfile
 cp .env.example .env
 ```
 
+### Electron desktop client
+
+Download published macOS and Windows installers from [GitHub Releases](https://github.com/AnnaSuSu/TechSpar/releases).
+
+Run Vite, Hono, and Electron together in development:
+
+```bash
+bun run dev:desktop
+```
+
+Build an unpacked application or distributable artifacts for the current platform:
+
+```bash
+bun run pack:desktop
+bun run dist:desktop
+```
+
+Build the release targets explicitly:
+
+```bash
+bun run dist:desktop:mac-arm64 # macOS Apple Silicon: DMG + ZIP
+bun run dist:desktop:win-x64   # Windows x64: NSIS installer
+```
+
+Artifacts are written to `dist/desktop/`. Built applications include Electron and a compiled Bun sidecar, so end users do not need Bun. The repository configures macOS DMG/ZIP, Windows NSIS, and Linux AppImage/DEB targets. v0.3.0 includes macOS arm64 and Windows x64 packages; the packaged macOS app passed a launch smoke test, while the Windows package passed structural and architecture checks. The public packages are not commercially code-signed and may trigger operating-system security warnings.
+
+### Web development
+
 Start the API and Web app in separate terminals:
 
 ```bash
@@ -77,6 +106,7 @@ LLM, embedding, DashScope, Tavily, OSS, and Tencent VPR credentials are user-sco
 | Layer | Technology |
 | --- | --- |
 | API host | Bun 1.3, Hono 4, `@hono/zod-openapi` |
+| Desktop | Electron 43, sandboxed renderer, constrained preload, compiled Bun sidecar |
 | Core | Pure TypeScript use cases, state machines, and owned ports |
 | Storage | SQLite and atomic JSON/file storage |
 | Providers | OpenAI-compatible APIs, Transformers.js, DashScope, OSS, Tavily, Tencent VPR |
@@ -88,6 +118,7 @@ TechSpar is a modular monolith with hexagonal boundaries. Hono maps HTTP, SSE, a
 
 ```text
 apps/api/             Bun + Hono composition root and routes
+apps/desktop/         Electron main/preload, sidecar supervision, packaging
 packages/contracts/   OpenAPI and transport protocols
 packages/core/        Use cases, state machines, and ports
 packages/db/          SQLite repositories
@@ -106,9 +137,13 @@ bun run gen:api
 
 The first command runs Bun and Node type checks, architecture checks, backend and frontend tests, and production builds. The second regenerates OpenAPI and frontend types.
 
+Desktop-specific validation is available through `bun run smoke:desktop`, `bun run smoke:local-embedding`, and `bun run pack:desktop`.
+
 ## Data and backups
 
 Data defaults to `data/`: SQLite stores sessions and tasks, while user files live under `data/users/{user_id}/`. The Settings page exports portable personal backups and administrator system backups. Imports validate paths, links, tar checksums, and expanded size, then safely rebind personal data to the current account. Vector indexes are rebuilt after import.
+
+Electron uses the operating system's standard application-data directory for databases, user files, model caches, and per-install random runtime secrets. Its Hono sidecar listens only on a dynamic `127.0.0.1` port.
 
 ## Contributing
 

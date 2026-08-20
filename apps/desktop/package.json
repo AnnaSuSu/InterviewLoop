@@ -12,7 +12,9 @@
     "build:preload": "bun build src/preload.ts --target=node --format=cjs --external electron --outfile=dist/preload/preload.cjs",
     "start": "electron .",
     "pack": "electron-builder --dir --config electron-builder.yml",
-    "dist": "electron-builder --config electron-builder.yml"
+    "dist": "electron-builder --config electron-builder.yml",
+    "dist:mac-arm64": "electron-builder --config electron-builder.yml --mac --arm64",
+    "dist:win-x64": "electron-builder --config electron-builder.yml --win --x64"
   },
   "devDependencies": {
     "electron": "43.4.1",

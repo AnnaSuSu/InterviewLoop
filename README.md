@@ -8,6 +8,7 @@
 
 [![Bun](https://img.shields.io/badge/Bun-1.3+-000000.svg)](https://bun.sh/)
 [![Hono](https://img.shields.io/badge/Hono-4-E36002.svg)](https://hono.dev/)
+[![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](LICENSE)
@@ -52,7 +53,9 @@ git switch main
 - Bun `1.3.14` 或兼容的 `1.3.x`
 - macOS、Linux 或 Windows
 
-### 本地开发
+已经构建好的桌面客户端自带 Electron 和编译后的 Bun 后端，最终用户不需要另外安装 Bun。
+
+源码开发或本机构建先执行：
 
 ```bash
 git clone https://github.com/AnnaSuSu/TechSpar.git
@@ -60,6 +63,39 @@ cd TechSpar
 bun install --frozen-lockfile
 cp .env.example .env
 ```
+
+### Electron 桌面客户端
+
+已发布版本可从 [GitHub Releases](https://github.com/AnnaSuSu/TechSpar/releases) 下载 macOS 与 Windows 安装包。
+
+开发模式会同时启动 Vite、Hono 和 Electron：
+
+```bash
+bun run dev:desktop
+```
+
+构建当前平台的可运行应用目录：
+
+```bash
+bun run pack:desktop
+```
+
+构建当前平台的安装包/归档文件：
+
+```bash
+bun run dist:desktop
+```
+
+构建正式发布目标：
+
+```bash
+bun run dist:desktop:mac-arm64 # macOS Apple Silicon：DMG + ZIP
+bun run dist:desktop:win-x64   # Windows x64：NSIS 安装包
+```
+
+产物位于 `dist/desktop/`。当前仓库配置了 macOS DMG/ZIP、Windows NSIS、Linux AppImage/DEB；v0.3.0 已生成 macOS arm64 与 Windows x64 包，其中 macOS 完成了打包态启动验证，Windows 包完成了结构与架构检查。当前公开包未配置商业代码签名，安装时可能触发系统安全提示。
+
+### Web 本地开发
 
 终端一启动 API：
 
@@ -107,6 +143,7 @@ LLM、Embedding、DashScope、Tavily、OSS 与腾讯云 VPR 密钥默认按用�
 | 层 | 技术 |
 | --- | --- |
 | API Host | Bun 1.3、Hono 4、`@hono/zod-openapi` |
+| Desktop | Electron 43、沙箱 Renderer、受限 Preload、编译后的 Bun sidecar |
 | Core | 纯 TypeScript 用例、状态机和端口 |
 | Storage | SQLite、原子 JSON/文件存储 |
 | Providers | OpenAI-compatible、Transformers.js、DashScope、OSS、Tavily、腾讯云 VPR |
@@ -118,6 +155,7 @@ LLM、Embedding、DashScope、Tavily、OSS 与腾讯云 VPR 密钥默认按用�
 
 ```text
 apps/api/             Bun + Hono 组合入口与路由
+apps/desktop/         Electron 主进程、Preload、sidecar 监督与打包配置
 packages/contracts/   OpenAPI 与传输协议
 packages/core/        业务用例、状态机、端口
 packages/db/          SQLite repositories
@@ -139,6 +177,14 @@ bun run check
 bun run gen:api
 ```
 
+桌面端还有三条独立验收命令：
+
+```bash
+bun run smoke:desktop          # Electron + Hono 启动链路
+bun run smoke:local-embedding  # 编译后端执行真实 ONNX 本地向量
+bun run pack:desktop           # 当前平台完整应用目录
+```
+
 ## 数据与备份
 
 默认数据位于 `data/`：SQLite 保存会话和任务状态，用户文件位于 `data/users/{user_id}/`。在“设置 → 数据迁移”中可以：
@@ -148,6 +194,8 @@ bun run gen:api
 - 管理员导出完整系统备份。
 
 归档会验证路径、链接、tar 校验和与解压上限；向量索引作为派生数据在导入后重建。
+
+Electron 使用系统标准的应用数据目录，数据库、用户文件、模型缓存和每次安装随机生成的运行密钥都放在那里；本地 Hono sidecar 只监听 `127.0.0.1` 的动态端口。
 
 ## 参与贡献
 

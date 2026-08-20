@@ -17,3 +17,6 @@
 * [训练结果怎么看](training-results.md)
 * [常见问题](faq.md)
 * [开发者说明](developer.md)
+* [Hono / TypeScript / Electron 迁移实施记录](hono-typescript-migration.md)
+* [TypeScript 后端架构](typescript-backend-architecture.md)
+* [v0.3.0 发布说明](releases/v0.3.0.md)

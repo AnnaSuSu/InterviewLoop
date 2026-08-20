@@ -36,3 +36,19 @@ jobs:
         run: bun run test:web
       - name: 前端类型与构建
         run: bun run --cwd frontend typecheck && bun run build:web
+
+  desktop-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - name: 安装锁定依赖
+        run: bun install --frozen-lockfile
+      - name: 构建 Electron 主进程与 Preload
+        run: bun run build:desktop:main
+      - name: 编译当前平台 Hono sidecar 与 ONNX Runtime
+        run: bun run build:desktop:backend
+      - name: 检查桌面运行资源
+        run: test -x apps/desktop/resources/backend/techspar-api && test -f apps/desktop/resources/backend/onnxruntime/onnxruntime_binding.node

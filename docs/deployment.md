@@ -1,200 +1,122 @@
 # 部署说明
 
-这页只写当前仓库真实可用的启动方式。
+`main` 是 TypeScript + Bun + Hono + Electron 版本，不需要 Python。旧版只保存在 `legacy/python-backend`，不得与新版同时写同一份 SQLite 或用户目录。
+
+## 方式一：Electron 桌面客户端
+
+正式版本发布在 [GitHub Releases](https://github.com/AnnaSuSu/TechSpar/releases)，当前提供 macOS Apple Silicon 和 Windows x64 安装包。
+
+### 开发运行
+
+```bash
+bun install --frozen-lockfile
+bun run dev:desktop
+```
+
+### 构建当前平台
+
+```bash
+bun run pack:desktop   # 可直接运行的应用目录
+bun run dist:desktop   # 安装包/归档
+bun run dist:desktop:mac-arm64 # macOS Apple Silicon
+bun run dist:desktop:win-x64   # Windows x64
+```
+
+产物写入 `dist/desktop/`。配置的目标为：
+
+- macOS：DMG、ZIP
+- Windows：NSIS
+- Linux：AppImage、DEB
+
+桌面应用内含 Electron、编译后的 Bun/Hono sidecar 和 Web 静态资源，最终用户无需安装 Bun。sidecar 只监听 `127.0.0.1` 的动态端口；Renderer 保持沙箱和最小 Preload 接口。
+
+Electron 使用操作系统标准应用数据目录保存 SQLite、用户文件、模型缓存及每次安装随机生成的 JWT/声纹加密密钥。不要手工把服务端 `data/` 与桌面目录双向同步；迁移数据请使用产品内的导出/导入。
+
+v0.3.0 已生成 macOS arm64 和 Windows x64 发行包。macOS 打包应用通过了真实 sidecar 启动冒烟；Windows NSIS 安装包及其 x64 Bun/ONNX 资源通过了结构和架构检查，但仍应在真实 Windows 环境补做安装验收。当前公开包没有商业签名，macOS 还没有 notarization，安装时可能出现 Gatekeeper 或 SmartScreen 提示。
+
+## 方式二：Bun Web 服务
 
 ### 环境要求
 
-* Python `3.11+`
-* Node.js `18+`
-* 一个可用的 **OpenAI 兼容 LLM 接口**
-* 一个可用的 **Embedding 接口**，或者本地 Embedding 模型
+- Bun `1.3.14` 或兼容 `1.3.x`
+- 可选的 OpenAI-compatible LLM/Embedding 服务；也可以使用本地 ONNX Embedding
 
-录音上传转写不是必需功能；如果你要用它，再额外配置语音相关环境变量。
+### 开发模式
 
-### 1. 复制环境变量
+```bash
+bun install --frozen-lockfile
+cp .env.example .env
+bun run dev:api
+```
+
+另一个终端运行：
+
+```bash
+bun run dev:web
+```
+
+浏览器访问 <http://localhost:5173>。
+
+### 单进程静态站点模式
+
+Hono 可以在生产环境同时提供 API 和构建后的 SPA：
+
+```bash
+bun install --frozen-lockfile
+bun run build:web
+TECHSPAR_WEB_DIR=frontend/dist HOST=127.0.0.1 PORT=8000 bun apps/api/src/entry.bun.ts
+```
+
+对公网部署时建议仍由反向代理处理 TLS、请求体限制和访问日志。
+
+## 方式三：Docker Compose
 
 ```bash
 cp .env.example .env
-```
-
-### 2. 最小可运行配置
-
-如果你想先把项目跑起来，推荐先用 **API Embedding** 模式。如果你使用远程 Embedding API，最小可运行配置如下：
-
-```env
-API_BASE=https://your-llm-api-base/v1
-API_KEY=sk-your-api-key
-MODEL=your-model-name
-EMBEDDING_BACKEND=api
-EMBEDDING_API_BASE=https://your-embedding-api-base/v1
-EMBEDDING_API_KEY=sk-your-embedding-key
-EMBEDDING_API_MODEL=your-embedding-model
-```
-
-这些变量分别是：
-
-* `API_BASE`：主 LLM 的 OpenAI 兼容接口地址。面试、复盘、JD 分析都会走它。
-* `API_KEY`：上面这个 LLM 接口的密钥。
-* `MODEL`：主 LLM 模型名。
-* `EMBEDDING_BACKEND`：Embedding 走哪条路，只能是 `api` 或 `local`。
-* `EMBEDDING_API_BASE`：Embedding 的 Base URL，通常填到 `/v1`。如果粘贴了完整的 `.../v1/embeddings` 地址，系统会自动转换；如果你用官方 OpenAI Embedding，这个值可以留空。
-* `EMBEDDING_API_KEY`：Embedding 接口密钥。
-* `EMBEDDING_API_MODEL`：Embedding 模型名。这里不要照抄示例，应该改成你的服务实际支持的模型。
-
-如果你只是想先把项目跑起来，不一定要先购买模型服务。一个简单的免费示例是：
-
-* 主 LLM：ModelScope 的 `ZhipuAI/GLM-5`
-* Embedding：SiliconFlow 的 `BAAI/bge-large-zh-v1.5`
-
-注册入口：
-
-* ModelScope: <https://modelscope.cn/home>
-* SiliconFlow: <https://cloud.siliconflow.cn/>
-
-配置示例：
-
-```env
-API_BASE=https://api-inference.modelscope.cn/v1
-API_KEY=your-modelscope-sdk-token
-MODEL=ZhipuAI/GLM-5
-
-EMBEDDING_BACKEND=api
-EMBEDDING_API_BASE=https://api.siliconflow.cn/v1
-EMBEDDING_API_KEY=sk-your-siliconflow-key
-EMBEDDING_API_MODEL=BAAI/bge-large-zh-v1.5
-```
-
-`API_KEY` 填 ModelScope 的 SDK Token，`EMBEDDING_API_KEY` 填 SiliconFlow 的 API Key。主 LLM 和 Embedding 可以分开用不同服务商，不需要来自同一家。
-
-默认认证配置如下；如果不改，启动后可以直接登录：
-
-```env
-DEFAULT_EMAIL=admin@techspar.local
-DEFAULT_PASSWORD=admin123
-ALLOW_REGISTRATION=false
-```
-
-### 3. 如果你想用本地 Embedding
-
-如果你不想走远程 Embedding API，可以改成：
-
-```env
-EMBEDDING_BACKEND=local
-LOCAL_EMBEDDING_MODEL=BAAI/bge-m3
-LOCAL_EMBEDDING_PATH=
-```
-
-说明：
-
-* `LOCAL_EMBEDDING_MODEL`：本地 Embedding 模型名。
-* `LOCAL_EMBEDDING_PATH`：如果你已经把模型下载到本地，可以直接写本地路径。
-* `LOCAL_EMBEDDING_MODEL` 和 `LOCAL_EMBEDDING_PATH` 二选一即可。
-* 本地模式需要额外安装依赖：`pip install -r requirements.local-embedding.txt`
-
-### 4. 本地手动启动
-
-后端：
-
-```bash
-pip install -r requirements.txt
-uvicorn backend.main:app --reload --port 8000
-```
-
-前端：
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-启动后访问：
-
-```text
-http://localhost:5173
-```
-
-### 5. Docker 启动
-
-```bash
 docker compose up --build
 ```
 
-启动后访问：
+启动后访问 <http://localhost>。`./data` 会挂载到 API 容器；升级或切换镜像前先备份该目录。
 
-```text
-http://localhost
-```
+## 启动配置
 
-### 6. 面试 Copilot 的额外配置
-
-如果你要启用 Copilot 的独立模型、实时语音识别或联网公司搜索，还需要补齐这些可选项：
+必须检查的项目：
 
 ```env
-COPILOT_API_BASE=
-COPILOT_API_KEY=
-COPILOT_MODEL=
-DASHSCOPE_API_KEY=
-TAVILY_API_KEY=
+JWT_SECRET=replace-with-a-long-random-value
+VOICEPRINT_ENCRYPTION_KEY=replace-with-another-long-random-value
+DEFAULT_EMAIL=admin@techspar.local
+DEFAULT_PASSWORD=replace-this-password
+DEFAULT_NAME=Admin
+ALLOW_REGISTRATION=false
+HOST=0.0.0.0
+PORT=8000
 ```
 
-这些变量的作用分别是：
-
-* `COPILOT_API_BASE` / `COPILOT_API_KEY` / `COPILOT_MODEL`：给 Copilot 单独指定一套 OpenAI 兼容模型配置。不填时会回退到主 LLM。
-* `DASHSCOPE_API_KEY`：给 Copilot 的**实时语音识别**使用（模型 `qwen3-asr-flash-realtime`，走 OpenAI Realtime 兼容 WebSocket 协议，自带服务端 VAD）。同一个 key 也承担"录音上传批量转写"用途。不配时，Copilot 仍可用，但只能手动输入 HR 的问题。
-* `TAVILY_API_KEY`：给 Copilot Prep 阶段的**公司联网搜索**使用。不配时不会整段报废，但公司情报会退化成"跳过联网搜索"。
-
-如果你还想让 Copilot **自动区分 HR 与候选人**（无需手动按钮切换），再补上腾讯云 VPR 声纹识别（可选）：
+可选的数据路径：
 
 ```env
-TENCENT_SECRET_ID=
-TENCENT_SECRET_KEY=
-TENCENT_VPR_APP_ID=
+TECHSPAR_BASE_DIR=.
+TECHSPAR_DATA_DIR=data
+DB_PATH=data/interviews.db
+TECHSPAR_MODEL_CACHE_DIR=
 ```
 
-配好后进入 Copilot 设置页的"声纹识别（可选）"卡片录制 6-15 秒候选人语音完成注册，实时面试就会自动打角色标签。不配置时一切功能照旧，只是角色需要手动切换。
+LLM、Embedding、DashScope、Tavily、OSS 和腾讯 VPR 凭据默认由每个用户登录后在“设置”中填写，不写入 `.env`。部署方若要提供共享兜底，只能使用 `.env.example` 中的 `PLATFORM_LLM_*`、`PLATFORM_EMBEDDING_*` 和调用额度配置。
 
-额外注意：
+首次启动会在用户表中创建 `DEFAULT_EMAIL`；以后修改 `DEFAULT_PASSWORD` 不会重置已经存在的账号密码。生产环境应在首次启动前改好默认值。
 
-* 如果你只是想先用 Copilot，看 JD 分析、匹配分析和策略树，`DASHSCOPE_API_KEY`、`TAVILY_API_KEY`、`TENCENT_*` 都不是强制项。
-* 这些值怎么申请、控制台里去哪里找，统一看 [外部服务配置](external-services.md)。
+## 本地 Embedding
 
-### 7. 录音转写的额外配置
+选择“设置 → Embedding → 本地”后，服务通过 Transformers.js + ONNX 自动下载并缓存模型，默认是 `Xenova/bge-m3`。不需要 Python、PyTorch 或 pip。
 
-语音转写现在拆成两条链路，需要配什么取决于你要开哪一条：
+服务器可以用 `TECHSPAR_MODEL_CACHE_DIR` 指定缓存目录；该目录应持久化并确保进程可写。首次下载需要访问模型源，离线部署应提前准备对应缓存。
 
-**短音频（答题时语音输入、几秒~几分钟）**
+## 备份、升级与回滚
 
-只需要 `DASHSCOPE_API_KEY`，不需要任何对象存储。走 DashScope 同步 `chat/completions`，base64 直传。
+- 普通用户通过“设置 → 数据迁移”导出个人归档；敏感凭据默认不包含。
+- 管理员可以导出全站归档；文件会校验路径、链接、tar checksum 和解压上限。
+- 升级前同时备份 SQLite 和整个用户目录；不要只复制数据库。
+- 回滚旧版时必须先停止新版，再使用迁移前的数据副本启动 `legacy/python-backend`。禁止新旧服务并行写入。
 
-```env
-DASHSCOPE_API_KEY=
-```
-
-> 留空时若 `COPILOT_API_KEY` 指向 `https://dashscope.aliyuncs.com/compatible-mode/v1`，会自动复用那个 key，避免一套 DashScope 账号配两次。
-
-**长音频（录音复盘上传整段面试录音，可能几十分钟）**
-
-除了上面那个 key，还要补齐阿里云 OSS。走 `qwen3-asr-flash-filetrans` 异步接口，它只接受公网 URL，所以必须先把音频传上 OSS 拿到签名 URL：
-
-```env
-ALIYUN_OSS_ACCESS_KEY_ID=
-ALIYUN_OSS_ACCESS_KEY_SECRET=
-ALIYUN_OSS_BUCKET=
-ALIYUN_OSS_ENDPOINT=oss-cn-shanghai.aliyuncs.com
-```
-
-* `ALIYUN_OSS_ACCESS_KEY_ID` / `SECRET`：阿里云 RAM 子账号（或主账号）AK/SK。
-* `ALIYUN_OSS_BUCKET`：目标 OSS 存储桶名。桶**可以保持私有**，代码里用 1 小时过期的签名 URL 让 DashScope 拉文件，无需公开读。
-* `ALIYUN_OSS_ENDPOINT`：桶所在区域的 endpoint，如 `oss-cn-shanghai.aliyuncs.com` / `oss-cn-beijing.aliyuncs.com`。
-
-如果这些都没配，也不影响主要训练流程 —— 录音复盘可以直接粘贴逐字稿文本。
-
-这些值怎么申请、控制台里去哪里找，统一看 [外部服务配置](external-services.md)。
-
-### 8. 线上部署注意事项
-
-* 手动开发模式下，前端默认是 `5173`，后端是 `8000`。
-* Docker 模式下，前端默认对外暴露 `80` 端口。
-* 如果你在线上要使用麦克风或录音相关能力，建议启用 HTTPS；浏览器对非 `localhost` 的音频权限更严格。
-* 线上环境不要保留默认的 `JWT_SECRET`、`DEFAULT_PASSWORD`。
+更多供应商配置见 [外部服务配置](external-services.md)，开发与验证命令见 [开发者说明](developer.md)。

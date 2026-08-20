@@ -24,7 +24,12 @@ export class BackendSupervisor {
 
   async start(timeoutMs = 45_000): Promise<BackendReady> {
     if (this.child) throw new Error('Backend process already started')
-    const child = spawn(this.launch.command, this.launch.args, { cwd: this.launch.cwd, env: this.launch.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(this.launch.command, this.launch.args, {
+      cwd: this.launch.cwd,
+      env: this.launch.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
     this.child = child
     let stderr = ''
     child.stderr?.setEncoding('utf8')

@@ -13,6 +13,7 @@ const singleInstance = app.requestSingleInstanceLock()
 if (!singleInstance) app.quit()
 
 const sourceDir = fileURLToPath(new URL('.', import.meta.url))
+const smokeMode = process.argv.includes('--smoke-test')
 let mainWindow: BrowserWindow | undefined
 let backend: BackendSupervisor | undefined
 let backendReady: BackendReady | undefined
@@ -144,13 +145,13 @@ async function boot(): Promise<void> {
   })
   backendReady = await backend.start()
   rendererOrigin = process.env.TECHSPAR_RENDERER_URL || backendReady.origin
-  if (process.argv.includes('--smoke-test')) { await smokeTest(); quitting = true; await backend.stop(); app.exit(0); return }
+  if (smokeMode) { await smokeTest(); quitting = true; await backend.stop(); app.exit(0); return }
   registerIpc()
   await createWindow()
 }
 
 app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus() } })
-app.on('activate', () => { if (backendReady) void createWindow() })
+app.on('activate', () => { if (backendReady && !smokeMode && !quitting) void createWindow() })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 app.on('before-quit', (event) => {
   if (quitting || !backend) return

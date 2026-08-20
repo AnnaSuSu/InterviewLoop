@@ -4,15 +4,16 @@
 
 ### 访问地址
 
+* **Electron**：直接打开 TechSpar 桌面应用
 * **Docker 启动**：`http://localhost`
 * **前端开发模式**：`http://localhost:5173`
 
-如果你没有改过 `.env` 里的默认认证配置，可以直接使用：
+如果你没有改过启动配置，可以直接使用：
 
 * **默认账号**：`admin@techspar.local`
 * **默认密码**：`admin123`
 
-如果你已经改过 `DEFAULT_EMAIL` / `DEFAULT_PASSWORD`，那就用你自己的配置值登录。
+服务端如果已经改过 `DEFAULT_EMAIL` / `DEFAULT_PASSWORD`，就使用实际部署值。Electron 首次启动也会创建同名本地管理员账号。
 
 ### 最快体验路径
 

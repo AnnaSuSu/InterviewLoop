@@ -28,6 +28,8 @@
     "smoke:local-embedding": "bun run build:desktop:backend && bun scripts/smoke-local-embedding.ts",
     "pack:desktop": "bun run build:desktop && bun run --cwd apps/desktop pack",
     "dist:desktop": "bun run build:desktop && bun run --cwd apps/desktop dist",
+    "dist:desktop:mac-arm64": "bun run build:web && bun run build:desktop:main && bun scripts/build-desktop-backend.ts --platform=darwin --arch=arm64 && bun run --cwd apps/desktop dist:mac-arm64",
+    "dist:desktop:win-x64": "bun run build:web && bun run build:desktop:main && bun scripts/build-desktop-backend.ts --platform=win32 --arch=x64 && bun run --cwd apps/desktop dist:win-x64",
     "gen:openapi": "bun scripts/generate-openapi.ts",
     "gen:api": "bun run gen:openapi && bun run --cwd frontend gen:api",
     "build": "bun run build:api && bun run build:web && bun run build:desktop:main",
