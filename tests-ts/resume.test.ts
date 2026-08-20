@@ -36,6 +36,15 @@ describe('resume compatibility', () => {
     expect((await service.file(context)).bytes).toEqual(pdf)
   })
 
+  test('reads stored PDF bytes as a plain Uint8Array', async () => {
+    await service.upload(context, 'resume.pdf', pdf)
+    const stored = await service.file(context)
+
+    expect(stored.bytes).toEqual(pdf)
+    expect(stored.bytes).toBeInstanceOf(Uint8Array)
+    expect(Buffer.isBuffer(stored.bytes)).toBe(false)
+  })
+
   test('rejects traversal, non-PDF content, and oversized metadata before writing', async () => {
     await expect(service.upload(context, '../resume.pdf', pdf)).rejects.toThrow('Invalid resume filename')
     await expect(service.upload(context, 'resume.txt', pdf)).rejects.toThrow('Only PDF')
