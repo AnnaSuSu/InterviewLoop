@@ -44,13 +44,16 @@ export interface ResumeInterviewStateRepository {
   delete(sessionId: string, userId: string): Promise<void>
 }
 
+export type TaskLease = Readonly<{ owner: string; durationMs: number }>
+
 export interface TaskRepository {
   initialize(): void
   upsert(input: { taskId: string; userId: string; type: string; payload: Record<string, unknown> }): Promise<TaskRecord>
   get(taskId: string, userId: string): Promise<TaskRecord | undefined>
-  claim(taskId: string, userId: string): Promise<TaskRecord | undefined>
-  complete(taskId: string, userId: string, result?: Record<string, unknown>): Promise<void>
-  fail(taskId: string, userId: string, error: string): Promise<void>
+  claim(taskId: string, userId: string, lease: TaskLease): Promise<TaskRecord | undefined>
+  renew(taskId: string, userId: string, lease: TaskLease): Promise<boolean>
+  complete(taskId: string, userId: string, owner: string, result?: Record<string, unknown>): Promise<boolean>
+  fail(taskId: string, userId: string, owner: string, error: string): Promise<boolean>
   recoverable(): Promise<TaskRecord[]>
 }
 

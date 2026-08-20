@@ -101,6 +101,8 @@ export type TaskRecord = {
   result?: Record<string, unknown> | null
   error?: string | null
   attempts: number
+  lease_owner?: string | null
+  lease_expires_at?: string | null
   created_at: string
   updated_at: string
 }

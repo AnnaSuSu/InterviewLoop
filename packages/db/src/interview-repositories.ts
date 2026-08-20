@@ -11,6 +11,7 @@ import type {
   SessionSummary,
   TaskRecord,
   TaskRepository,
+  TaskLease,
   TaskStatus,
 } from '@techspar/core'
 
@@ -264,29 +265,53 @@ export class BunResumeInterviewStateRepository implements ResumeInterviewStateRe
   close(): void { this.sqlite.close() }
 }
 
-type TaskRow = { task_id: string; user_id: string; type: string; status: TaskStatus; payload: string; result: string | null; error: string | null; attempts: number; created_at: string; updated_at: string }
+type TaskRow = { task_id: string; user_id: string; type: string; status: TaskStatus; payload: string; result: string | null; error: string | null; attempts: number; lease_owner: string | null; lease_expires_at: string | null; created_at: string; updated_at: string }
 function asTask(row: TaskRow): TaskRecord { return { ...row, payload: json(row.payload, {}), result: json<Record<string, unknown> | null>(row.result, null) } }
 
 export class BunTaskRepository implements TaskRepository {
   private readonly sqlite: Database
-  constructor(path: string) { this.sqlite = new Database(path, { create: true }); this.sqlite.exec('PRAGMA journal_mode = WAL'); this.sqlite.exec('PRAGMA busy_timeout = 5000') }
+  constructor(path: string, private readonly clock: () => Date = () => new Date()) { this.sqlite = new Database(path, { create: true }); this.sqlite.exec('PRAGMA journal_mode = WAL'); this.sqlite.exec('PRAGMA busy_timeout = 5000') }
   initialize(): void {
-    this.sqlite.exec(`CREATE TABLE IF NOT EXISTS tasks (task_id TEXT NOT NULL, user_id TEXT NOT NULL, type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', payload TEXT NOT NULL DEFAULT '{}', result TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (task_id, user_id)); CREATE INDEX IF NOT EXISTS idx_tasks_recoverable ON tasks(status, updated_at);`)
+    this.sqlite.exec(`CREATE TABLE IF NOT EXISTS tasks (task_id TEXT NOT NULL, user_id TEXT NOT NULL, type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', payload TEXT NOT NULL DEFAULT '{}', result TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, lease_owner TEXT, lease_expires_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (task_id, user_id)); CREATE INDEX IF NOT EXISTS idx_tasks_recoverable ON tasks(status, updated_at);`)
+    const columns = new Set(this.sqlite.query<{ name: string }, []>('PRAGMA table_info(tasks)').all().map((row) => row.name))
+    const additions: Array<[string, string]> = [['lease_owner', 'TEXT'], ['lease_expires_at', 'TEXT']]
+    for (const [name, definition] of additions) {
+      if (columns.has(name)) continue
+      try { this.sqlite.exec(`ALTER TABLE tasks ADD COLUMN ${name} ${definition}`) } catch (error) {
+        const addedByAnotherInstance = this.sqlite.query<{ name: string }, []>('PRAGMA table_info(tasks)').all().some((row) => row.name === name)
+        if (!addedByAnotherInstance) throw error
+      }
+    }
+    this.sqlite.exec('CREATE INDEX IF NOT EXISTS idx_tasks_lease ON tasks(status, lease_expires_at)')
   }
   async upsert(input: { taskId: string; userId: string; type: string; payload: Record<string, unknown> }): Promise<TaskRecord> {
-    this.sqlite.query(`INSERT INTO tasks (task_id, user_id, type, status, payload, result, error, attempts, updated_at) VALUES ($id, $userId, $type, 'pending', $payload, NULL, NULL, 0, CURRENT_TIMESTAMP) ON CONFLICT(task_id, user_id) DO UPDATE SET type = excluded.type, status = 'pending', payload = excluded.payload, result = NULL, error = NULL, updated_at = CURRENT_TIMESTAMP`).run({ $id: input.taskId, $userId: input.userId, $type: input.type, $payload: JSON.stringify(input.payload) })
+    const now = this.clock().toISOString()
+    this.sqlite.query(`INSERT INTO tasks (task_id, user_id, type, status, payload, result, error, attempts, lease_owner, lease_expires_at, updated_at) VALUES ($id, $userId, $type, 'pending', $payload, NULL, NULL, 0, NULL, NULL, CURRENT_TIMESTAMP) ON CONFLICT(task_id, user_id) DO UPDATE SET type = excluded.type, status = 'pending', payload = excluded.payload, result = NULL, error = NULL, lease_owner = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE tasks.status != 'running' OR tasks.lease_expires_at IS NULL OR tasks.lease_expires_at <= $now`).run({ $id: input.taskId, $userId: input.userId, $type: input.type, $payload: JSON.stringify(input.payload), $now: now })
     return (await this.get(input.taskId, input.userId))!
   }
   async get(taskId: string, userId: string): Promise<TaskRecord | undefined> {
     const row = this.sqlite.query<TaskRow, { $id: string; $userId: string }>('SELECT * FROM tasks WHERE task_id = $id AND user_id = $userId').get({ $id: taskId, $userId: userId })
     return row ? asTask(row) : undefined
   }
-  async claim(taskId: string, userId: string): Promise<TaskRecord | undefined> {
-    const result = this.sqlite.query("UPDATE tasks SET status = 'running', attempts = attempts + 1, error = NULL, updated_at = CURRENT_TIMESTAMP WHERE task_id = $id AND user_id = $userId AND status IN ('pending', 'running')").run({ $id: taskId, $userId: userId })
-    return result.changes ? this.get(taskId, userId) : undefined
+  async claim(taskId: string, userId: string, lease: TaskLease): Promise<TaskRecord | undefined> {
+    if (!lease.owner.trim() || !Number.isFinite(lease.durationMs) || lease.durationMs <= 0) throw new Error('Invalid task lease')
+    const now = this.clock()
+    const row = this.sqlite.query<TaskRow, { $id: string; $userId: string; $owner: string; $now: string; $expiresAt: string }>(`UPDATE tasks SET status = 'running', attempts = attempts + 1, error = NULL, lease_owner = $owner, lease_expires_at = $expiresAt, updated_at = CURRENT_TIMESTAMP WHERE task_id = $id AND user_id = $userId AND (status = 'pending' OR (status = 'running' AND (lease_expires_at IS NULL OR lease_expires_at <= $now))) RETURNING *`).get({ $id: taskId, $userId: userId, $owner: lease.owner, $now: now.toISOString(), $expiresAt: new Date(now.getTime() + lease.durationMs).toISOString() })
+    return row ? asTask(row) : undefined
   }
-  async complete(taskId: string, userId: string, result: Record<string, unknown> = {}): Promise<void> { this.sqlite.query("UPDATE tasks SET status = 'done', result = $result, error = NULL, updated_at = CURRENT_TIMESTAMP WHERE task_id = $id AND user_id = $userId").run({ $result: JSON.stringify(result), $id: taskId, $userId: userId }) }
-  async fail(taskId: string, userId: string, error: string): Promise<void> { this.sqlite.query("UPDATE tasks SET status = 'error', error = $error, updated_at = CURRENT_TIMESTAMP WHERE task_id = $id AND user_id = $userId").run({ $error: error, $id: taskId, $userId: userId }) }
-  async recoverable(): Promise<TaskRecord[]> { return this.sqlite.query<TaskRow, []>("SELECT * FROM tasks WHERE status IN ('pending', 'running') ORDER BY created_at ASC").all().map(asTask) }
+  async renew(taskId: string, userId: string, lease: TaskLease): Promise<boolean> {
+    if (!lease.owner.trim() || !Number.isFinite(lease.durationMs) || lease.durationMs <= 0) throw new Error('Invalid task lease')
+    const now = this.clock(); const expiresAt = new Date(now.getTime() + lease.durationMs).toISOString()
+    return this.sqlite.query("UPDATE tasks SET lease_expires_at = $expiresAt, updated_at = CURRENT_TIMESTAMP WHERE task_id = $id AND user_id = $userId AND status = 'running' AND lease_owner = $owner AND lease_expires_at > $now").run({ $expiresAt: expiresAt, $now: now.toISOString(), $id: taskId, $userId: userId, $owner: lease.owner }).changes > 0
+  }
+  async complete(taskId: string, userId: string, owner: string, result: Record<string, unknown> = {}): Promise<boolean> {
+    return this.sqlite.query("UPDATE tasks SET status = 'done', result = $result, error = NULL, lease_owner = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE task_id = $id AND user_id = $userId AND status = 'running' AND lease_owner = $owner AND lease_expires_at > $now").run({ $result: JSON.stringify(result), $now: this.clock().toISOString(), $id: taskId, $userId: userId, $owner: owner }).changes > 0
+  }
+  async fail(taskId: string, userId: string, owner: string, error: string): Promise<boolean> {
+    return this.sqlite.query("UPDATE tasks SET status = 'error', error = $error, lease_owner = NULL, lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE task_id = $id AND user_id = $userId AND status = 'running' AND lease_owner = $owner AND lease_expires_at > $now").run({ $error: error, $now: this.clock().toISOString(), $id: taskId, $userId: userId, $owner: owner }).changes > 0
+  }
+  async recoverable(): Promise<TaskRecord[]> {
+    return this.sqlite.query<TaskRow, { $now: string }>("SELECT * FROM tasks WHERE status = 'pending' OR (status = 'running' AND (lease_expires_at IS NULL OR lease_expires_at <= $now)) ORDER BY created_at ASC").all({ $now: this.clock().toISOString() }).map(asTask)
+  }
   close(): void { this.sqlite.close() }
 }
