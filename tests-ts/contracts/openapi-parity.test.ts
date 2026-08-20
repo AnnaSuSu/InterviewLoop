@@ -40,8 +40,10 @@ async function loadSpecs(): Promise<{ baseline: Spec; current: Spec }> {
 describe('FastAPI to Hono OpenAPI parity', () => {
   test('keeps every legacy HTTP method and path', async () => {
     const { baseline, current } = await loadSpecs()
-    expect(operations(current)).toEqual(operations(baseline))
-    expect(operations(current)).toHaveLength(71)
+    const legacy = operations(baseline)
+    expect(legacy).toHaveLength(71)
+    expect(operations(current)).toEqual(expect.arrayContaining(legacy))
+    expect(operations(current)).toContain('POST /api/auth/password')
   })
 
   test('keeps bearer security, required bodies, and validation responses', async () => {
@@ -62,7 +64,7 @@ describe('FastAPI to Hono OpenAPI parity', () => {
       }
     }
 
-    const migrated = operationEntries(current).map(([, operation]) => operation)
+    const migrated = operationEntries(baseline).map(([key]) => currentOperations.get(key)!)
     expect(migrated.filter((operation) => operation.security?.length).length).toBe(67)
     expect(migrated.filter((operation) => operation.requestBody?.required).length).toBe(28)
     expect(migrated.filter((operation) => operation.responses?.['422']).length).toBe(51)

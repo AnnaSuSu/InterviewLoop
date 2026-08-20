@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { isDesktopApp } from "@/lib/desktop";
 
 // 录音参数
 const VP_SAMPLE_RATE = 16000;
@@ -149,6 +150,12 @@ export default function Settings() {
   // 账户/系统配置（全局，仅 admin 可见）
   const [allowRegistration, setAllowRegistration] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   // 重建向量索引（手动按钮；换 embedding 后弹警告提醒）
   const [needsReindex, setNeedsReindex] = useState(false);
@@ -307,6 +314,31 @@ export default function Settings() {
     // Suppress scrollspy briefly while the smooth scroll plays out
     scrollSpyLock.current = Date.now() + 700;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handlePasswordChange = async () => {
+    setPasswordMessage("");
+    setPasswordError("");
+    if (newPassword.length < 8) { setPasswordError("新密码至少 8 个字符"); return; }
+    if (newPassword !== confirmPassword) { setPasswordError("两次输入的新密码不一致"); return; }
+    setPasswordBusy(true);
+    try {
+      const response = await fetch("/api/auth/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || "修改密码失败");
+      }
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+      setPasswordMessage("密码已更新");
+    } catch (err) {
+      setPasswordError(err.message || "修改密码失败");
+    } finally {
+      setPasswordBusy(false);
+    }
   };
 
   const handleSaveVpCredentials = async () => {
@@ -608,7 +640,7 @@ export default function Settings() {
     { id: "services", label: "可选服务", icon: KeyRound },
     { id: "voiceprint", label: "声纹识别", icon: Mic },
     { id: "training", label: "训练参数", icon: Sliders },
-    ...(isAdmin ? [{ id: "account", label: "账户", icon: UserCog }] : []),
+    { id: "account", label: "账户", icon: UserCog },
     { id: "migration", label: "数据迁移", icon: Database },
   ];
 
@@ -1203,17 +1235,43 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Account / System (admin only) */}
-        {isAdmin && (
+        {/* Account / System */}
         <Card ref={accountRef} data-tab-id="account" className="overflow-hidden border-border/40 bg-card/40 scroll-mt-4">
           <CardContent className="p-5 md:p-7">
             <div className="flex items-center gap-2 mb-1">
               <UserCog size={16} className="text-primary" />
               <span className="text-base font-semibold">账户</span>
             </div>
-            <div className="text-[13px] text-dim mb-5">控制谁能进入系统。保存后立即生效。仅管理员可见。</div>
+            <div className="text-[13px] text-dim mb-5">管理当前账户凭证{isAdmin ? "和注册策略" : ""}。</div>
 
-            <label className="flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-background/40 px-4 py-4 cursor-pointer select-none">
+            {isDesktopApp() ? (
+              <div className="rounded-xl border border-border/60 bg-background/40 px-4 py-4 text-[13px] text-dim leading-6">
+                桌面版使用仅保存在本机的随机凭证并自动进入，不暴露固定默认密码。
+              </div>
+            ) : (
+              <div className="rounded-xl border border-border/60 bg-background/40 px-4 py-4 space-y-4">
+                <div>
+                  <div className="text-sm font-medium">修改密码</div>
+                  <div className="text-[12px] text-dim/70 mt-1">首次使用默认账户后请立即修改，至少 8 个字符。</div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Input type="password" autoComplete="current-password" placeholder="当前密码" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+                  <Input type="password" autoComplete="new-password" placeholder="新密码" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+                  <Input type="password" autoComplete="new-password" placeholder="再次输入新密码" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" disabled={passwordBusy || !currentPassword || !newPassword || !confirmPassword} onClick={handlePasswordChange}>
+                    {passwordBusy && <Loader2 size={14} className="mr-1.5 animate-spin" />}
+                    {passwordBusy ? "更新中…" : "更新密码"}
+                  </Button>
+                  {passwordMessage && <span className="text-[12px] text-emerald-500">{passwordMessage}</span>}
+                  {passwordError && <span className="text-[12px] text-red-500">{passwordError}</span>}
+                </div>
+              </div>
+            )}
+
+            {isAdmin && (
+            <label className="mt-4 flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-background/40 px-4 py-4 cursor-pointer select-none">
               <div className="min-w-0">
                 <div className="text-sm font-medium">允许新用户注册</div>
                 <div className="text-[12px] text-dim/70 mt-1 leading-5">
@@ -1238,9 +1296,9 @@ export default function Settings() {
                 />
               </button>
             </label>
+            )}
           </CardContent>
         </Card>
-        )}
 
         {/* Data Migration */}
         <Card ref={migrationRef} data-tab-id="migration" className="overflow-hidden border-border/40 bg-card/40 scroll-mt-4">

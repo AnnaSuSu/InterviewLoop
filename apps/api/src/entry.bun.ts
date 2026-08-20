@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import {
   AuthService,
+  ensureDefaultAccount,
   AiService,
   EmbeddingService,
   KnowledgeIndexService,
@@ -50,9 +51,12 @@ const users = new BunUserRepository(config.dbPath, config.defaultEmail)
 users.initialize()
 const passwordHasher = new BcryptPasswordHasher()
 const ids = new ShortUuidGenerator()
-if (!await users.findByEmail(config.defaultEmail)) {
-  await users.create({ id: ids.next(), email: config.defaultEmail, password: await passwordHasher.hash(config.defaultPassword), name: config.defaultName })
-}
+await ensureDefaultAccount(users, passwordHasher, ids, {
+  email: config.defaultEmail,
+  password: config.defaultPassword,
+  name: config.defaultName,
+  ...(process.env.TECHSPAR_DESKTOP_MODE === '1' ? { rotateLegacyPassword: 'admin123' } : {}),
+})
 const usageRepository = new BunUsageRepository(config.dbPath)
 usageRepository.initialize()
 const settingsRepository = new FileProviderSettingsRepository(config.dataDir)

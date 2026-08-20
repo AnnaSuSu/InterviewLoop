@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   AuthService,
+  ensureDefaultAccount,
   QuotaService,
   SettingsService,
   type AuthUser,
@@ -23,6 +24,10 @@ class MemoryUsers implements UserRepository {
     const user = { id: input.id, email: input.email.toLowerCase().trim(), name: input.name, is_admin: false }
     this.rows.set(user.id, { ...user, password: input.password })
     return user
+  }
+  async updatePassword(id: string, password: string) {
+    const row = this.rows.get(id)
+    if (row) this.rows.set(id, { ...row, password })
   }
 }
 
@@ -59,7 +64,14 @@ describe('auth compatibility', () => {
   test('reports registration flag and service version', async () => {
     const { app } = testApp()
     expect(await (await app.request('/api/auth/config')).json()).toEqual({ allow_registration: false })
-    expect(await (await app.request('/api/')).json()).toEqual({ service: 'TechSpar', version: '0.2.0' })
+    expect(await (await app.request('/api/')).json()).toEqual({ service: 'TechSpar', version: '0.3.0' })
+  })
+
+  test('does not grant arbitrary websites cross-origin access to the local API', async () => {
+    const { app } = testApp()
+    const response = await app.request('/api/auth/config', { headers: { origin: 'https://attacker.example' } })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('access-control-allow-origin')).toBeNull()
   })
 
   test('accepts an existing bcrypt password', async () => {
@@ -77,10 +89,61 @@ describe('auth compatibility', () => {
     expect(await response.json()).toEqual({ detail: 'Invalid email or password' })
   })
 
+  test('changes an authenticated account password and rejects the old credential', async () => {
+    const { app, users, passwords } = testApp()
+    users.rows.set('user01', { id: 'user01', email: 'user@example.com', name: 'User', is_admin: false, password: await passwords.hash('old-password') })
+    const login = await app.request('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'user@example.com', password: 'old-password' }) })
+    const token = (await login.json() as { token: string }).token
+    const changed = await app.request('/api/auth/password', {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ current_password: 'old-password', new_password: 'new-password-2026' }),
+    })
+    expect(changed.status).toBe(200)
+    expect(await changed.json()).toEqual({ status: 'ok' })
+    expect((await app.request('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'user@example.com', password: 'old-password' }) })).status).toBe(401)
+    expect((await app.request('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'user@example.com', password: 'new-password-2026' }) })).status).toBe(200)
+  })
+
+  test('requires authentication and a sufficiently strong new password', async () => {
+    const { app } = testApp()
+    const unauthorized = await app.request('/api/auth/password', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ current_password: 'old-password', new_password: 'new-password' }) })
+    expect(unauthorized.status).toBe(401)
+    const invalid = await app.request('/api/auth/password', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer invalid' }, body: JSON.stringify({ current_password: 'old-password', new_password: 'short' }) })
+    expect(invalid.status).toBe(422)
+  })
+
   test('registration remains disabled by default', async () => {
     const { app } = testApp()
     const response = await app.request('/api/auth/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'new@example.com', password: 'secret', name: '' }) })
     expect(response.status).toBe(403)
     expect(await response.json()).toEqual({ detail: 'Registration is disabled' })
+  })
+})
+
+describe('default account bootstrap', () => {
+  test('creates a random-password desktop owner and rotates the former fixed password', async () => {
+    const users = new MemoryUsers()
+    const passwords = new BcryptPasswordHasher()
+    const ids = { next: () => 'owner001' }
+    const input = { email: 'admin@techspar.local', password: 'random-desktop-secret', name: 'Admin', rotateLegacyPassword: 'admin123' }
+
+    expect(await ensureDefaultAccount(users, passwords, ids, input)).toBe('created')
+    expect(await passwords.verify(input.password, users.rows.get('owner001')!.password)).toBe(true)
+
+    users.rows.set('owner001', { ...users.rows.get('owner001')!, password: await passwords.hash('admin123') })
+    expect(await ensureDefaultAccount(users, passwords, ids, input)).toBe('rotated')
+    expect(await passwords.verify(input.password, users.rows.get('owner001')!.password)).toBe(true)
+    expect(await ensureDefaultAccount(users, passwords, ids, input)).toBe('unchanged')
+  })
+
+  test('does not overwrite a custom existing password', async () => {
+    const users = new MemoryUsers()
+    const passwords = new BcryptPasswordHasher()
+    users.rows.set('owner001', { id: 'owner001', email: 'admin@techspar.local', name: 'Admin', is_admin: true, password: await passwords.hash('my-custom-password') })
+    const result = await ensureDefaultAccount(users, passwords, { next: () => 'unused' }, {
+      email: 'admin@techspar.local', password: 'random-desktop-secret', name: 'Admin', rotateLegacyPassword: 'admin123',
+    })
+    expect(result).toBe('unchanged')
+    expect(await passwords.verify('my-custom-password', users.rows.get('owner001')!.password)).toBe(true)
   })
 })

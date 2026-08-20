@@ -1,5 +1,4 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
 import { requestId } from 'hono/request-id'
@@ -68,7 +67,6 @@ export function createApp(deps: AppDependencies): OpenAPIHono {
 
   app.use('*', requestId())
   app.use('/api/*', logger())
-  app.use('*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], allowHeaders: ['*'] }))
 
   app.onError((error, c) => {
     if (error instanceof HTTPException) {

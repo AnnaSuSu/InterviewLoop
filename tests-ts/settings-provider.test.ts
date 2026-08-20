@@ -90,6 +90,7 @@ describe('settings persistence', () => {
       async findByEmail() { return undefined },
       async findById() { return { id: 'admin', email: 'admin@example.com', name: 'Admin', is_admin: true } },
       async create() { throw new Error('not used') },
+      async updatePassword() {},
     }
     const registration = { allowRegistration: false }
     const service = new SettingsService(repository, users, { async invalidateUser() {}, resetEmbeddingClient() {} }, emptyPlatform, registration)

@@ -1,4 +1,5 @@
 import type { OpenAPIHono } from '@hono/zod-openapi'
+import { SERVICE_VERSION } from '../version.ts'
 
 type OpenApiOperation = {
   parameters?: unknown[]
@@ -75,6 +76,6 @@ export function completeOpenApiDocument(document: OpenApiDocument): OpenApiDocum
 }
 
 export function createOpenApiDocument(app: OpenAPIHono): OpenApiDocument {
-  const document = app.getOpenAPIDocument({ openapi: '3.1.0', info: { title: 'TechSpar', version: '0.2.0' } })
+  const document = app.getOpenAPIDocument({ openapi: '3.1.0', info: { title: 'TechSpar', version: SERVICE_VERSION } })
   return completeOpenApiDocument(document as unknown as OpenApiDocument)
 }

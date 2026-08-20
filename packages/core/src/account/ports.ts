@@ -4,6 +4,7 @@ export interface UserRepository {
   findByEmail(email: string): Promise<(AuthUser & { password: string }) | undefined>
   findById(id: string): Promise<AuthUser | undefined>
   create(input: { id: string; email: string; password: string; name: string }): Promise<AuthUser>
+  updatePassword(id: string, password: string): Promise<void>
 }
 
 export interface PasswordHasher {
@@ -23,6 +24,7 @@ export interface IdGenerator {
 export interface AuthUseCases {
   login(email: string, password: string): Promise<{ token: string; user: AuthUser }>
   register(email: string, password: string, name: string): Promise<{ token: string; user: AuthUser }>
+  changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ status: 'ok' }>
 }
 
 export type AuthPolicy = {

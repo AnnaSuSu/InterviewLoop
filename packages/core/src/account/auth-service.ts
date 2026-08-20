@@ -32,4 +32,13 @@ export class AuthService implements AuthUseCases {
     })
     return { token: await this.tokens.create(user.id), user }
   }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ status: 'ok' }> {
+    const user = await this.users.findById(userId)
+    const row = user ? await this.users.findByEmail(user.email) : undefined
+    if (!row || !(await this.passwords.verify(currentPassword, row.password))) throw new AppError('Current password is incorrect', 400)
+    if (await this.passwords.verify(newPassword, row.password)) throw new AppError('New password must be different', 400)
+    await this.users.updatePassword(userId, await this.passwords.hash(newPassword))
+    return { status: 'ok' }
+  }
 }

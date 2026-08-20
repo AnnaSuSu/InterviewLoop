@@ -4,7 +4,7 @@ import { createServer } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
 import { BackendSupervisor, type BackendLaunch, type BackendReady } from './backend-supervisor.ts'
-import { DESKTOP_RUNTIME_CHANNEL, type DesktopRuntimeInfo } from './contracts.ts'
+import { DESKTOP_BOOTSTRAP_CHANNEL, DESKTOP_RUNTIME_CHANNEL, type DesktopBootstrapSession, type DesktopRuntimeInfo } from './contracts.ts'
 import { loadOrCreateRuntimeSecrets } from './runtime-secrets.ts'
 
 app.enableSandbox()
@@ -19,6 +19,7 @@ let backend: BackendSupervisor | undefined
 let backendReady: BackendReady | undefined
 let rendererOrigin = ''
 let quitting = false
+let bootstrapCredentials: { email: string; password: string } | undefined
 
 function sameOrigin(candidate: string, expected: string): boolean {
   try { return new URL(candidate).origin === new URL(expected).origin } catch { return false }
@@ -43,6 +44,9 @@ async function backendLaunch(): Promise<BackendLaunch> {
   const userData = app.getPath('userData')
   const dataDir = join(userData, 'data')
   const secrets = await loadOrCreateRuntimeSecrets(join(userData, 'runtime-secrets.json'))
+  const defaultEmail = process.env.DEFAULT_EMAIL || 'admin@techspar.local'
+  const defaultPassword = process.env.DEFAULT_PASSWORD || secrets.bootstrapPassword
+  bootstrapCredentials = { email: defaultEmail, password: defaultPassword }
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     HOST: '127.0.0.1',
@@ -53,6 +57,9 @@ async function backendLaunch(): Promise<BackendLaunch> {
     TECHSPAR_MODEL_CACHE_DIR: join(userData, 'models'),
     JWT_SECRET: process.env.JWT_SECRET || secrets.jwtSecret,
     VOICEPRINT_ENCRYPTION_KEY: process.env.VOICEPRINT_ENCRYPTION_KEY || secrets.voiceprintKey,
+    DEFAULT_EMAIL: defaultEmail,
+    DEFAULT_PASSWORD: defaultPassword,
+    TECHSPAR_DESKTOP_MODE: '1',
   }
   if (app.isPackaged) {
     const executable = join(process.resourcesPath, 'backend', process.platform === 'win32' ? 'techspar-api.exe' : 'techspar-api')
@@ -81,9 +88,24 @@ function runtimeInfo(): DesktopRuntimeInfo {
 }
 
 function registerIpc(): void {
-  ipcMain.handle(DESKTOP_RUNTIME_CHANNEL, (event) => {
+  const assertTrusted = (event: Electron.IpcMainInvokeEvent) => {
     if (!event.senderFrame?.url || !sameOrigin(event.senderFrame.url, rendererOrigin)) throw new Error('Untrusted IPC sender')
+  }
+  ipcMain.handle(DESKTOP_RUNTIME_CHANNEL, (event) => {
+    assertTrusted(event)
     return runtimeInfo()
+  })
+  ipcMain.handle(DESKTOP_BOOTSTRAP_CHANNEL, async (event): Promise<DesktopBootstrapSession> => {
+    assertTrusted(event)
+    if (!backendReady || !bootstrapCredentials) throw new Error('Desktop backend is not ready')
+    const response = await fetch(`${backendReady.origin}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(bootstrapCredentials),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!response.ok) throw new Error(`Desktop session bootstrap failed with HTTP ${response.status}`)
+    return response.json() as Promise<DesktopBootstrapSession>
   })
 }
 

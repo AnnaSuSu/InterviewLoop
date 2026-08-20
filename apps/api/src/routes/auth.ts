@@ -2,15 +2,19 @@ import { createRoute, type OpenAPIHono } from '@hono/zod-openapi'
 import {
   AuthConfigSchema,
   AuthResponseSchema,
+  ChangePasswordRequestSchema,
+  ChangePasswordResponseSchema,
   LoginRequestSchema,
   RegisterRequestSchema,
   ServiceInfoSchema,
 } from '@techspar/contracts'
-import type { AuthPolicy, AuthUseCases } from '@techspar/core'
+import type { AuthPolicy, AuthUseCases, TokenService } from '@techspar/core'
+import { authenticatedContext } from '../http/context.ts'
+import { SERVICE_VERSION } from '../version.ts'
 
 export function registerAuthRoutes(
   app: OpenAPIHono,
-  deps: { auth: AuthUseCases; registration: AuthPolicy },
+  deps: { auth: AuthUseCases; registration: AuthPolicy; tokens: TokenService },
 ): void {
   app.openapi(
     createRoute({
@@ -18,7 +22,21 @@ export function registerAuthRoutes(
       path: '/api/',
       responses: { 200: { content: { 'application/json': { schema: ServiceInfoSchema } }, description: 'Service info' } },
     }),
-    (c) => c.json({ service: 'TechSpar' as const, version: '0.2.0' }),
+    (c) => c.json({ service: 'TechSpar' as const, version: SERVICE_VERSION }),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/api/auth/password',
+      request: { body: { content: { 'application/json': { schema: ChangePasswordRequestSchema } } } },
+      responses: { 200: { content: { 'application/json': { schema: ChangePasswordResponseSchema } }, description: 'Password changed' } },
+    }),
+    async (c) => {
+      const context = await authenticatedContext(c, deps.tokens)
+      const body = c.req.valid('json')
+      return c.json(await deps.auth.changePassword(context.userId!, body.current_password, body.new_password))
+    },
   )
 
   app.openapi(

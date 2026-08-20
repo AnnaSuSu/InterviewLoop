@@ -7,8 +7,14 @@ type TechSparDesktopRuntimeInfo = {
   nodeVersion: string
 }
 
+type TechSparDesktopBootstrapSession = {
+  token: string
+  user: { id: string; email: string; name: string; is_admin: boolean }
+}
+
 interface Window {
   techsparDesktop?: {
     getRuntimeInfo(): Promise<TechSparDesktopRuntimeInfo>
+    bootstrapSession(): Promise<TechSparDesktopBootstrapSession>
   }
 }

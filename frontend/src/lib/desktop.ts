@@ -5,3 +5,7 @@ export function isDesktopApp(): boolean {
 export async function getDesktopRuntimeInfo(): Promise<TechSparDesktopRuntimeInfo | undefined> {
   return window.techsparDesktop?.getRuntimeInfo()
 }
+
+export async function bootstrapDesktopSession(): Promise<TechSparDesktopBootstrapSession | undefined> {
+  return window.techsparDesktop?.bootstrapSession()
+}

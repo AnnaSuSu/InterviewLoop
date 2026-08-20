@@ -16,7 +16,7 @@ async function root(): Promise<string> { const value = await mkdtemp(join(tmpdir
 afterEach(async () => { while (roots.length) await rm(roots.pop()!, { recursive: true, force: true }) })
 const context = (userId: string): RequestContext => ({ requestId: 'test', userId, signal: new AbortController().signal })
 const users: UserRepository = {
-  async findByEmail() { return undefined }, async findById(id) { return { id, email: 'user@example.com', name: '', is_admin: id === 'admin' } }, async create() { throw new Error() },
+  async findByEmail() { return undefined }, async findById(id) { return { id, email: 'user@example.com', name: '', is_admin: id === 'admin' } }, async create() { throw new Error() }, async updatePassword() {},
 }
 function service(base: string) {
   const data = join(base, 'data'); mkdirSync(data, { recursive: true }); const db = join(data, 'interviews.db'); const profiles = new FileCandidateProfileRepository(data)

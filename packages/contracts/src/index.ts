@@ -24,6 +24,13 @@ export const RegisterRequestSchema = LoginRequestSchema.extend({
   name: z.string().default(''),
 })
 
+export const ChangePasswordRequestSchema = z.object({
+  current_password: z.string(),
+  new_password: z.string().min(8).max(128),
+})
+
+export const ChangePasswordResponseSchema = z.object({ status: z.literal('ok') })
+
 export const AuthResponseSchema = z.object({
   token: z.string(),
   user: AuthUserSchema,
@@ -211,5 +218,6 @@ export const CopilotServerEventTypeSchema = z.enum([
 
 export type LoginRequest = z.infer<typeof LoginRequestSchema>
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>
+export type ChangePasswordRequest = z.infer<typeof ChangePasswordRequestSchema>
 export type CopilotClientMessage = z.infer<typeof CopilotClientMessageSchema>
 export type SettingsViewContract = z.infer<typeof SettingsViewSchema>

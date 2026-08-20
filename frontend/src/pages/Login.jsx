@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import { ArrowLeft } from "lucide-react";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Logo from "../components/Logo";
 import { loadRegistrationConfig } from "../lib/registrationConfig";
+import { bootstrapDesktopSession, isDesktopApp } from "../lib/desktop";
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -17,6 +18,8 @@ export default function Login() {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [desktopBootstrapping, setDesktopBootstrapping] = useState(isDesktopApp);
+  const desktopBootstrapAttempted = useRef(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -33,6 +36,21 @@ export default function Login() {
   useEffect(() => {
     refreshRegistrationStatus();
   }, [refreshRegistrationStatus]);
+
+  useEffect(() => {
+    if (!isDesktopApp() || desktopBootstrapAttempted.current) return;
+    desktopBootstrapAttempted.current = true;
+    let cancelled = false;
+    void bootstrapDesktopSession()
+      .then((data) => {
+        if (cancelled || !data) return;
+        login(data.token, data.user);
+        navigate("/", { replace: true });
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!cancelled) setDesktopBootstrapping(false); });
+    return () => { cancelled = true; };
+  }, [login, navigate]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -90,7 +108,7 @@ export default function Login() {
               <div>
                 <CardTitle>{isRegister ? "创建账号" : "欢迎回来"}</CardTitle>
                 <CardDescription className="mt-1">
-                  {isRegister ? "注册后开始你的面试训练" : "登录继续你的面试训练"}
+                  {desktopBootstrapping ? "正在打开本地工作区…" : isRegister ? "注册后开始你的面试训练" : "登录继续你的面试训练"}
                 </CardDescription>
               </div>
             </div>
@@ -120,8 +138,8 @@ export default function Login() {
                 </div>
               )}
 
-              <Button type="submit" variant="gradient" className="w-full mt-2" disabled={loading}>
-                {loading ? "处理中..." : isRegister ? "注册" : "登录"}
+              <Button type="submit" variant="gradient" className="w-full mt-2" disabled={loading || desktopBootstrapping}>
+                {desktopBootstrapping ? "正在进入…" : loading ? "处理中..." : isRegister ? "注册" : "登录"}
               </Button>
             </form>
 

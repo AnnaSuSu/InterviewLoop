@@ -51,6 +51,10 @@ export class BunUserRepository implements UserRepository {
     return { id: input.id, email: normalized, name: input.name, is_admin: normalized === this.defaultEmail.toLowerCase().trim() }
   }
 
+  async updatePassword(id: string, password: string): Promise<void> {
+    await this.db.update(users).set({ password }).where(eq(users.id, id))
+  }
+
   close(): void {
     this.sqlite.close()
   }
