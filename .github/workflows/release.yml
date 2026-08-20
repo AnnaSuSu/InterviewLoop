@@ -19,7 +19,7 @@ jobs:
     env:
       MAC_CSC_LINK_SECRET: ${{ secrets.MAC_CSC_LINK }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"
@@ -46,7 +46,7 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bun run --cwd apps/desktop dist:mac-arm64
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: techspar-macos-arm64
           if-no-files-found: error
@@ -63,7 +63,7 @@ jobs:
     env:
       WIN_CSC_LINK_SECRET: ${{ secrets.WIN_CSC_LINK }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"
@@ -87,7 +87,7 @@ jobs:
           CSC_LINK: ${{ env.WIN_CSC_LINK_SECRET }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: bun run --cwd apps/desktop dist:win-x64
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: techspar-windows-x64
           if-no-files-found: error
@@ -104,7 +104,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: techspar-*
           path: release-assets
