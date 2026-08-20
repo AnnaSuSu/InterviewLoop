@@ -16,7 +16,7 @@ import {
   type TaskRecord,
   type TextGenerationUseCases,
 } from '@techspar/core'
-import { BunInterviewSessionRepository, BunResumeInterviewStateRepository, BunTaskRepository } from '@techspar/db'
+import { BunInterviewSessionRepository, BunKnowledgeVectorRepository, BunResumeInterviewStateRepository, BunTaskRepository } from '@techspar/db'
 import { FileCandidateProfileRepository } from '@techspar/platform'
 
 const directories: string[] = []
@@ -197,6 +197,25 @@ describe('interview application service', () => {
     sessions.close(); states.close()
   })
 
+  test('injects due reviews and semantic history into topic drill generation', async () => {
+    const path = await databasePath()
+    const sessions = new BunInterviewSessionRepository(path); sessions.initialize()
+    const states = new BunResumeInterviewStateRepository(path); states.initialize()
+    const ai = new FakeAi([JSON.stringify([{ id: 1, question: '解释事件循环', difficulty: 3 }])])
+    const drillProfile: CandidateProfilePort = {
+      async summary() { return '本轮到期复习：微任务队列\n历史语义洞察：上次忽略了饿饿问题' },
+      async targetRole() { return '' }, async updateTargetRole() {},
+    }
+    const service = new InterviewService(interviewDependencies({
+      sessions, states, ai, candidateProfile: drillProfile,
+      knowledgeStore: emptyKnowledgeStore({ typescript: { name: 'TypeScript', icon: '', dir: 'typescript' } }),
+    }))
+    await service.start(context, { mode: 'topic_drill', topic: 'typescript', num_questions: 1 })
+    expect(ai.calls[0]![1]!.content).toContain('本轮到期复习：微任务队列')
+    expect(ai.calls[0]![1]!.content).toContain('历史语义洞察：上次忽略了饿饿问题')
+    sessions.close(); states.close()
+  })
+
   test('keeps sparse batch answers attached to their question for current and recovered review tasks', async () => {
     const path = await databasePath()
     const sessions = new BunInterviewSessionRepository(path); sessions.initialize()
@@ -245,7 +264,9 @@ describe('interview application service', () => {
     const knowledgeStore = emptyKnowledgeStore()
     const resume = interviewDependencies({ sessions, states, ai }).resume
     const repository = new FileCandidateProfileRepository(root)
-    const candidateProfile = new ProfileService({ repository, sessions, tasks, ai, resume, knowledgeStore })
+    const vectors = new BunKnowledgeVectorRepository(path); vectors.initialize()
+    const embeddings = { async embed(_context: RequestContext, texts: readonly string[]) { return texts.map(() => Float32Array.from([1])) }, async signature() { return 'test' }, reset() {} }
+    const candidateProfile = new ProfileService({ repository, sessions, tasks, ai, embeddings, vectors, resume, knowledgeStore })
     const service = new InterviewService(interviewDependencies({ sessions, states, ai, tasks, knowledgeStore, candidateProfile }))
 
     await sessions.create({ sessionId: 'resume-metrics', userId: 'user-a', mode: 'resume', meta: { target_role: '后端工程师' } })
@@ -258,7 +279,9 @@ describe('interview application service', () => {
 
     expect(ai.calls[1]![1]!.content).toContain('dimension_scores')
     expect(await sessions.get('resume-metrics', 'user-a')).toMatchObject({ overall: { avg_score: 7.3, dimension_scores: dimensions } })
-    expect((await repository.load('user-a')).stats.score_history.at(-1)).toMatchObject({ mode: 'resume', avg_score: 7.3, dimension_scores: dimensions })
-    sessions.close(); states.close()
+    const savedProfile = await repository.load('user-a')
+    expect(savedProfile.stats.score_history.at(-1)).toMatchObject({ mode: 'resume', avg_score: 7.3, dimension_scores: dimensions })
+    expect(savedProfile.stats.dimension_scores).toEqual(dimensions)
+    sessions.close(); states.close(); vectors.close()
   })
 })

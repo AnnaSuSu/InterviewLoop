@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite'
-import type { DrillSessionProjection, KnowledgeVectorRepository, ProviderSource, VectorChunk } from '@techspar/core'
+import type { DrillSessionProjection, KnowledgeVectorRepository, ProfileMemoryEntry, ProfileVectorMemoryPort, VectorChunk } from '@techspar/core'
 
 function toBlob(vector: Float32Array): Uint8Array {
   const bytes = new Uint8Array(vector.length * 4)
@@ -15,7 +15,11 @@ function fromBlob(bytes: Uint8Array): Float32Array {
   return values
 }
 
-export class BunKnowledgeVectorRepository implements KnowledgeVectorRepository {
+function metadata(value: string | null): Record<string, unknown> {
+  try { const parsed = JSON.parse(value || '{}'); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {} } catch { return {} }
+}
+
+export class BunKnowledgeVectorRepository implements KnowledgeVectorRepository, ProfileVectorMemoryPort {
   private readonly sqlite: Database
 
   constructor(path: string) {
@@ -96,6 +100,46 @@ export class BunKnowledgeVectorRepository implements KnowledgeVectorRepository {
       ? this.sqlite.query<{ content: string; embedding: Uint8Array }, { $userId: string; $chunkType: string }>('SELECT content, embedding FROM memory_vectors WHERE user_id = $userId AND chunk_type = $chunkType').all({ $userId: userId, $chunkType: chunkType })
       : this.sqlite.query<{ content: string; embedding: Uint8Array }, { $userId: string; $chunkType: string; $topic: string }>('SELECT content, embedding FROM memory_vectors WHERE user_id = $userId AND chunk_type = $chunkType AND topic = $topic').all({ $userId: userId, $chunkType: chunkType, $topic: topic })
     return rows.map((row) => ({ content: row.content, embedding: fromBlob(row.embedding) }))
+  }
+
+  async appendProfileMemories(input: { userId: string; entries: readonly ProfileMemoryEntry[] }): Promise<void> {
+    const statement = this.sqlite.query(`
+      INSERT INTO memory_vectors (chunk_type, content, topic, session_id, metadata, embedding, user_id, created_at)
+      VALUES ($chunkType, $content, $topic, $sessionId, $metadata, $embedding, $userId, $createdAt)
+    `)
+    const transaction = this.sqlite.transaction(() => {
+      for (const entry of input.entries) statement.run({
+        $chunkType: entry.chunkType,
+        $content: entry.content,
+        $topic: entry.topic ?? null,
+        $sessionId: entry.sessionId ?? null,
+        $metadata: JSON.stringify(entry.metadata || {}),
+        $embedding: toBlob(entry.embedding),
+        $userId: input.userId,
+        $createdAt: entry.createdAt,
+      })
+    })
+    transaction()
+  }
+
+  async listProfileMemories(input: { userId: string; chunkTypes?: readonly ProfileMemoryEntry['chunkType'][]; topic?: string }): Promise<ProfileMemoryEntry[]> {
+    type Row = { chunk_type: ProfileMemoryEntry['chunkType']; content: string; topic: string | null; session_id: string | null; metadata: string | null; embedding: Uint8Array; created_at: string | null }
+    const rows = input.topic === undefined
+      ? this.sqlite.query<Row, { $userId: string }>("SELECT chunk_type, content, topic, session_id, metadata, embedding, created_at FROM memory_vectors WHERE user_id = $userId AND chunk_type IN ('session_summary', 'insight', 'weak_point')").all({ $userId: input.userId })
+      : this.sqlite.query<Row, { $userId: string; $topic: string }>("SELECT chunk_type, content, topic, session_id, metadata, embedding, created_at FROM memory_vectors WHERE user_id = $userId AND topic = $topic AND chunk_type IN ('session_summary', 'insight', 'weak_point')").all({ $userId: input.userId, $topic: input.topic })
+    const allowed = input.chunkTypes?.length ? new Set(input.chunkTypes) : undefined
+    return rows.flatMap((row) => {
+      if (allowed && !allowed.has(row.chunk_type)) return []
+      return [{
+        chunkType: row.chunk_type,
+        content: row.content,
+        ...(row.topic ? { topic: row.topic } : {}),
+        ...(row.session_id ? { sessionId: row.session_id } : {}),
+        metadata: metadata(row.metadata),
+        embedding: fromBlob(row.embedding),
+        createdAt: row.created_at || new Date(0).toISOString(),
+      }]
+    })
   }
 
   async deleteChunks(userId: string, chunkType?: string, topic?: string): Promise<void> {
