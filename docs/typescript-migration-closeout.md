@@ -2,7 +2,7 @@
 
 > 状态：完整完成（代码、数据兼容、本地构建与发布工程验收）
 >
-> 审计基线：`legacy/python-backend@73d1a7c` → `main@2bd072e`
+> 审计基线：`legacy/python-backend@73d1a7c` → `main@2285aa9`
 >
 > 完成日期：2026-08-20
 
@@ -40,6 +40,8 @@
 | 12 | `2151c94` | Electron 安全 | 随机本机凭据、旧默认密码轮换、可信 IPC 登录、同源 CORS 与改密入口 |
 | 13 | `523493e` | 画像导入 | 按证据时间合并画像并重建聚合统计 |
 | 14 | `2bd072e` | CI 与发布 | 完整检查入口、桌面打包 CI、版本保护及 macOS/Windows Release 自动化 |
+| 15 | `8468d13` | 前端 CI | 按锁文件版本修复 React Hooks Lint 错误，保持规则与门槛不降级 |
+| 16 | `2285aa9` | Actions 运行时 | 升级到 Node 24 的 checkout/upload/download actions，移除弃用告警 |
 
 每组提交只暂存该组文件，并在提交前执行对应测试、类型或构建检查；没有把无关工作区内容混入提交。
 
@@ -77,15 +79,18 @@
 - Bun/Node TypeScript 类型检查：通过。
 - 架构边界检查：通过。
 - 后端、契约、数据库、归档、任务与迁移测试：**108 passed，0 failed，688 assertions**。
-- 前端回归：**3 passed，0 failed**；TypeScript 与 ESLint 退出码为 0（仅保留既有 warning）。
+- 前端回归：**3 passed，0 failed**；TypeScript 与锁定版 ESLint 退出码为 0（0 error、41 个既有 warning）。
 - OpenAPI 生成物与前端 schema：重新生成后无差异。
 - API bundle、Vite production build、Electron main/preload、darwin-arm64 Bun/Hono sidecar：通过。
 - Electron 应用目录真实打包：`mac-arm64` 组装成功，包含 Web、sidecar 与 ONNX Runtime。
 - 当前源码交叉编译的 Windows sidecar 与 ONNX binding 均确认为 PE32+ x86-64。
 - CI/release YAML 语法与 `v0.3.0` 版本校验脚本：通过。
+- GitHub Actions 最终 run [32328763427](https://github.com/AnnaSuSu/TechSpar/actions/runs/32328763427)：backend、frontend、desktop 三个 job 全部通过。
 - `AGENTS.md` 继续由 `.gitignore` 排除，没有进入任何提交。
 
 首次完整检查在 electron-builder 下载 Electron 时因隔离网络返回 `ENOTFOUND github.com`；恢复网络后原命令重跑成功。该失败没有通过跳过打包来规避。
+
+首次把 Lint 纳入 CI 时，fresh install 使用的 ESLint/React Hooks 版本比本机旧 `node_modules` 更新，暴露了 13 个真实错误。本轮按 `bun.lock` 的 ESLint `9.39.5`、React Hooks `7.1.1`、TypeScript ESLint `8.67.0` 修复源码，没有关闭规则或降低 CI 门槛；随后远端 fresh install 复验通过。
 
 ## 5. 外部验收边界
 

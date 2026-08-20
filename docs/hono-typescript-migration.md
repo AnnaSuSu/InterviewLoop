@@ -123,6 +123,8 @@ Electron 不在 Renderer 中运行 Node，也不复制业务逻辑：
 3. `7938576 chore(release): finalize desktop migration`
 4. `f0b8be3` 至 `523493e`：契约、归档、复盘、画像、任务、恢复和桌面安全的逐项等价修复
 5. `2bd072e chore(release): automate desktop publication`
+6. `8468d13 fix(frontend): satisfy locked React lint rules`
+7. `2285aa9 chore(ci): update Node 24 actions`
 
 在第一个提交前，远端 `legacy/python-backend` 已指向迁移前快照 `73d1a7c`。这样 Python 版本可追溯，但不会继续占据主分支。
 
@@ -142,6 +144,7 @@ Electron 不在 Renderer 中运行 Node，也不复制业务逻辑：
 - Windows x64 NSIS 包及内置 Bun/ONNX PE 资源结构检查
 - 编译后端真实 Transformers.js/ONNX 本地 Embedding 冒烟
 - tag/版本一致性保护，以及 macOS arm64、Windows x64 构建与 GitHub Release 自动发布工作流
+- 锁定依赖 fresh install 下的前端 Lint 0 error，以及 backend/frontend/desktop 远端 CI 全绿
 
 测试按新架构的行为与风险重新分层，不宣称与旧版 66 个 Python 测试逐文件一一对应。关键覆盖包括认证、provider fallback/额度、知识与个人资料、简历/JD 状态机、任务恢复、Copilot、录音、声纹、归档安全和全站 SQLite 一致性快照。
 
