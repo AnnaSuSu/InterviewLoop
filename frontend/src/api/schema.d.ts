@@ -96,7 +96,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         email: string;
@@ -120,6 +120,15 @@ export interface paths {
                                 is_admin: boolean;
                             };
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -146,7 +155,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         email: string;
@@ -172,6 +181,15 @@ export interface paths {
                                 is_admin: boolean;
                             };
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -310,7 +328,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         llm: {
@@ -423,6 +441,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         post?: never;
@@ -488,7 +515,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         /** @default  */
@@ -515,6 +542,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -539,7 +575,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         /**
@@ -573,6 +609,15 @@ export interface paths {
                             ok: boolean;
                             error?: string;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -659,7 +704,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         name: string;
@@ -680,6 +725,15 @@ export interface paths {
                             ok: true;
                             key: string;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -723,6 +777,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         options?: never;
@@ -760,6 +823,15 @@ export interface paths {
                         }[];
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -772,7 +844,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         filename: string;
@@ -793,6 +865,15 @@ export interface paths {
                             ok: true;
                             filename: string;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -821,7 +902,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         /** @default  */
@@ -840,6 +921,15 @@ export interface paths {
                             /** @enum {boolean} */
                             ok: true;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -869,6 +959,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         options?: never;
@@ -894,7 +993,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "multipart/form-data": {
                         /** Format: binary */
@@ -914,6 +1013,15 @@ export interface paths {
                             ok: true;
                             filename: string;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -957,6 +1065,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -995,6 +1112,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         put: {
@@ -1006,7 +1132,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         /** @default  */
@@ -1025,6 +1151,15 @@ export interface paths {
                             /** @enum {boolean} */
                             ok: true;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1068,6 +1203,15 @@ export interface paths {
                                 [key: string]: unknown;
                             }[];
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1253,7 +1397,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "multipart/form-data": {
                         /** Format: binary */
@@ -1274,6 +1418,15 @@ export interface paths {
                             filename: string;
                             size: number;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1300,7 +1453,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "multipart/form-data": {
                         /** Format: binary */
@@ -1318,6 +1471,15 @@ export interface paths {
                         "application/json": {
                             text: string;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1344,7 +1506,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         jd_text: string;
@@ -1365,6 +1527,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1391,7 +1562,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         jd_text: string;
@@ -1415,6 +1586,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1441,7 +1621,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         /** @enum {string} */
@@ -1464,6 +1644,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1490,7 +1679,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         session_id: string;
@@ -1508,6 +1697,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1534,7 +1732,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         session_id: string;
@@ -1550,6 +1748,15 @@ export interface paths {
                     };
                     content: {
                         "text/event-stream": string;
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1604,6 +1811,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -1630,7 +1846,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         /** @default [] */
@@ -1654,6 +1870,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1695,6 +1920,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -1732,6 +1966,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -1758,7 +2001,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         session_id: string;
@@ -1777,6 +2020,15 @@ export interface paths {
                             reference_answer: string;
                             cached: boolean;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1814,6 +2066,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1860,6 +2121,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -1900,6 +2170,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -1943,6 +2222,15 @@ export interface paths {
                             /** @enum {boolean} */
                             ok: true;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2114,7 +2402,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         point: string;
@@ -2133,6 +2421,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2172,6 +2469,15 @@ export interface paths {
                         }[];
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -2209,6 +2515,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         }[];
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2252,6 +2567,15 @@ export interface paths {
                             /** @enum {string} */
                             status: "pending";
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2299,7 +2623,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "multipart/form-data": {
                         /** Format: binary */
@@ -2317,6 +2641,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2358,6 +2691,15 @@ export interface paths {
                             /** @enum {boolean} */
                             ok: true;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2433,6 +2775,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -2460,6 +2811,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         options?: never;
@@ -2483,7 +2843,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         conversation_id?: string | null;
@@ -2512,6 +2872,15 @@ export interface paths {
                                 }[];
                             };
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2584,6 +2953,15 @@ export interface paths {
                         "application/gzip": unknown;
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -2610,7 +2988,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "multipart/form-data": {
                         /** Format: binary */
@@ -2637,6 +3015,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -2661,7 +3048,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "multipart/form-data": {
                         /** Format: binary */
@@ -2685,6 +3072,15 @@ export interface paths {
                             transcript: string;
                             segments: unknown[];
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2711,7 +3107,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         transcript: string;
@@ -2739,6 +3135,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -2763,8 +3168,15 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
+                    "application/x-www-form-urlencoded": {
+                        jd_text: string;
+                        /** @default  */
+                        company?: string;
+                        /** @default  */
+                        position?: string;
+                    };
                     "multipart/form-data": {
                         jd_text: string;
                         /** @default  */
@@ -2784,6 +3196,15 @@ export interface paths {
                         "application/json": {
                             prep_id: string;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2860,6 +3281,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -2885,6 +3315,15 @@ export interface paths {
                             /** @enum {boolean} */
                             ok: true;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2921,6 +3360,15 @@ export interface paths {
                         "application/json": {
                             [key: string]: unknown;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -2988,7 +3436,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
                         secret_id: string;
@@ -3009,6 +3457,15 @@ export interface paths {
                             /** @enum {boolean} */
                             ok: true;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -3036,7 +3493,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "multipart/form-data": {
                         /** Format: binary */
@@ -3056,6 +3513,15 @@ export interface paths {
                             ok: true;
                             enrolled_at: string;
                         };
+                    };
+                };
+                /** @description Validation Error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPValidationError"];
                     };
                 };
             };
@@ -3091,7 +3557,26 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;

@@ -1,5 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
+import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
 import { requestId } from 'hono/request-id'
 import type { UpgradeWebSocket } from 'hono/ws'
@@ -34,6 +35,8 @@ import { registerRecordingRoutes } from './routes/recording.ts'
 import { registerCopilotRoutes, registerCopilotWebSocket } from './routes/copilot.ts'
 import { registerVoiceprintRoutes } from './routes/voiceprint.ts'
 import { registerStaticFrontend } from './http/static-frontend.ts'
+import { createOpenApiDocument } from './http/openapi.ts'
+import { fastApiValidationBody } from './http/validation.ts'
 
 export type AppDependencies = {
   auth: AuthUseCases
@@ -57,13 +60,22 @@ export type AppDependencies = {
 }
 
 export function createApp(deps: AppDependencies): OpenAPIHono {
-  const app = new OpenAPIHono()
+  const app = new OpenAPIHono({
+    defaultHook: (result, c) => {
+      if (!result.success) return c.json(fastApiValidationBody(result.target, result.error.issues, (result as { data?: unknown }).data), 422)
+    },
+  })
 
   app.use('*', requestId())
   app.use('/api/*', logger())
   app.use('*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], allowHeaders: ['*'] }))
 
   app.onError((error, c) => {
+    if (error instanceof HTTPException) {
+      const response = error.getResponse()
+      if (response.headers.get('content-type')?.includes('application/json')) return response
+      return c.json({ detail: error.message }, error.status as 400)
+    }
     if (error instanceof AppError) {
       return c.json({ detail: error.message, ...(error.code ? { code: error.code } : {}), ...(error.details || {}) }, error.status as 400)
     }
@@ -83,7 +95,7 @@ export function createApp(deps: AppDependencies): OpenAPIHono {
   if (deps.copilotPrep) registerCopilotRoutes(app, { prep: deps.copilotPrep, tokens: deps.tokens })
   if (deps.copilotRealtime && deps.websocketUpgrade) registerCopilotWebSocket(app, { realtime: deps.copilotRealtime, tokens: deps.tokens, upgrade: deps.websocketUpgrade })
   if (deps.voiceprint) registerVoiceprintRoutes(app, { voiceprint: deps.voiceprint, tokens: deps.tokens })
-  app.doc('/openapi.json', { openapi: '3.1.0', info: { title: 'TechSpar', version: '0.2.0' } })
+  app.get('/openapi.json', (c) => c.json(createOpenApiDocument(app)))
   if (deps.webDir) registerStaticFrontend(app, deps.webDir)
   return app
 }

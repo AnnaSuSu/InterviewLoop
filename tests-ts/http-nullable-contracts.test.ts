@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { InterviewUseCases, JobPrepInput, PersonalAgentUseCases, StartInterviewInput } from '@techspar/core'
+import type { CopilotPrepUseCases, InterviewUseCases, JobPrepInput, PersonalAgentUseCases, StartInterviewInput } from '@techspar/core'
 import { createApp, type AppDependencies } from '../apps/api/src/app.ts'
 
 const unavailable = new Proxy({}, { get() { return () => Promise.reject(new Error('unexpected dependency call')) } })
@@ -73,5 +73,67 @@ describe('legacy nullable HTTP request contracts', () => {
     expect(response.status).toBe(200)
     expect(conversationId).toBeUndefined()
     expect(await response.json()).toEqual({ conversation_id: 'conversation-1', title: '复习建议', message })
+  })
+})
+
+describe('FastAPI-compatible HTTP validation', () => {
+  test('keeps malformed JSON as a JSON 400 response', async () => {
+    const response = await boundaryApp({}).request('/api/auth/login', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{',
+    })
+
+    expect(response.status).toBe(400)
+    expect(response.headers.get('content-type')).toContain('application/json')
+    expect(await response.json()).toEqual({ detail: 'Malformed JSON in request body' })
+  })
+
+  test('returns FastAPI-style 422 details for schema validation failures', async () => {
+    const response = await boundaryApp({}).request('/api/auth/login', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+    })
+
+    expect(response.status).toBe(422)
+    expect(response.headers.get('content-type')).toContain('application/json')
+    expect(await response.json()).toEqual({
+      detail: [
+        { type: 'missing', loc: ['body', 'email'], msg: 'Field required', input: {} },
+        { type: 'missing', loc: ['body', 'password'], msg: 'Field required', input: {} },
+      ],
+    })
+  })
+})
+
+describe('Copilot preparation form compatibility', () => {
+  test('accepts both legacy urlencoded and multipart form requests', async () => {
+    const received: Array<{ jd_text: string; company?: string; position?: string }> = []
+    const prep = {
+      async start(_context: unknown, input: { jd_text: string; company?: string; position?: string }) {
+        received.push(input)
+        return { prep_id: `prep-${received.length}` }
+      },
+    } as unknown as CopilotPrepUseCases
+    const app = boundaryApp({ copilotPrep: prep })
+
+    const legacy = await app.request('/api/copilot/prep', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test-token', 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ jd_text: '负责支付系统稳定性', company: '示例科技', position: '后端工程师' }),
+    })
+    const multipartBody = new FormData()
+    multipartBody.set('jd_text', '负责实时语音模型接入')
+    multipartBody.set('company', '样例智能')
+    multipartBody.set('position', 'AI 工程师')
+    const multipart = await app.request('/api/copilot/prep', {
+      method: 'POST', headers: { authorization: 'Bearer test-token' }, body: multipartBody,
+    })
+
+    expect(legacy.status).toBe(200)
+    expect(await legacy.json()).toEqual({ prep_id: 'prep-1' })
+    expect(multipart.status).toBe(200)
+    expect(await multipart.json()).toEqual({ prep_id: 'prep-2' })
+    expect(received).toEqual([
+      { jd_text: '负责支付系统稳定性', company: '示例科技', position: '后端工程师' },
+      { jd_text: '负责实时语音模型接入', company: '样例智能', position: 'AI 工程师' },
+    ])
   })
 })

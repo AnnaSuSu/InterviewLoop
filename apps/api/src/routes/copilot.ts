@@ -8,7 +8,7 @@ import { authenticatedContext } from '../http/context.ts'
 const PrepPath = z.object({ prep_id: z.string() })
 
 export function registerCopilotRoutes(app: OpenAPIHono, deps: { prep: CopilotPrepUseCases; tokens: TokenService }): void {
-  app.openapi(createRoute({ method: 'post', path: '/api/copilot/prep', request: { body: { content: { 'multipart/form-data': { schema: CopilotPrepCreateSchema } } } }, responses: { 200: { content: { 'application/json': { schema: CopilotPrepCreatedSchema } }, description: 'Queued Copilot preparation' } } }),
+  app.openapi(createRoute({ method: 'post', path: '/api/copilot/prep', request: { body: { content: { 'application/x-www-form-urlencoded': { schema: CopilotPrepCreateSchema }, 'multipart/form-data': { schema: CopilotPrepCreateSchema } } } }, responses: { 200: { content: { 'application/json': { schema: CopilotPrepCreatedSchema } }, description: 'Queued Copilot preparation' } } }),
     async (c) => c.json(await deps.prep.start(await authenticatedContext(c, deps.tokens), c.req.valid('form'))))
   app.openapi(createRoute({ method: 'get', path: '/api/copilot/preps', responses: { 200: { content: { 'application/json': { schema: CopilotPrepListSchema } }, description: 'Copilot preparations' } } }),
     async (c) => c.json(await deps.prep.list(await authenticatedContext(c, deps.tokens))))
