@@ -1,10 +1,8 @@
 import { mkdir, open, readFile, rename, rm } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
-import { unzipSync } from 'fflate'
 import type { PersonalDocumentExtractor, PersonalDocumentStore } from '@techspar/core'
 import { PortableDocumentTextExtractor } from './knowledge-store.ts'
-
-const MAX_OFFICE_XML_BYTES = 40 * 1024 * 1024
+import { extractOfficeXmlEntries } from './office-archive.ts'
 
 function segment(value: string): string {
   if (!value || value === '.' || value === '..' || value.includes('/') || value.includes('\\')) throw new Error('Invalid path segment')
@@ -45,9 +43,7 @@ export class PortablePersonalDocumentExtractor implements PersonalDocumentExtrac
     const suffix = filename.slice(filename.lastIndexOf('.')).toLowerCase()
     if (['.pdf', '.docx', '.md', '.markdown', '.txt'].includes(suffix)) return this.base.extract(filename, bytes)
     if (suffix === '.pptx' || suffix === '.xlsx') {
-      const files = unzipSync(bytes)
-      const size = Object.values(files).reduce((total, content) => total + content.length, 0)
-      if (size > MAX_OFFICE_XML_BYTES) throw new Error('Office 文档解压后内容过大')
+      const files = extractOfficeXmlEntries(bytes, suffix === '.pptx' ? 'pptx' : 'xlsx')
       const names = Object.keys(files).filter((name) => suffix === '.pptx' ? /^ppt\/slides\/slide\d+\.xml$/.test(name) : name === 'xl/sharedStrings.xml' || /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
       return names.map((name) => xmlText(decode(files[name]!))).filter(Boolean).join('\n\n')
     }

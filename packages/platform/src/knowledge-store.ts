@@ -1,8 +1,8 @@
 import { access, mkdir, open, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve, sep } from 'node:path'
-import { unzipSync } from 'fflate'
 import type { DocumentTextExtractor, KnowledgeFile, KnowledgeStore, Topic, TopicMap } from '@techspar/core'
 import presetTopicsJson from '../assets/preset-topics.json' with { type: 'json' }
+import { extractOfficeXmlEntries } from './office-archive.ts'
 import { atomicWriteJson } from './provider-settings-repository.ts'
 
 type PresetTopic = Topic & { key: string; readme: string }
@@ -181,7 +181,7 @@ export class PortableDocumentTextExtractor implements DocumentTextExtractor {
     const suffix = filename.slice(filename.lastIndexOf('.')).toLowerCase()
     if (suffix === '.md' || suffix === '.markdown' || suffix === '.txt') return new TextDecoder().decode(bytes)
     if (suffix === '.docx') {
-      const files = unzipSync(bytes)
+      const files = extractOfficeXmlEntries(bytes, 'docx')
       const xml = files['word/document.xml']
       if (!xml) return ''
       const content = new TextDecoder().decode(xml)
