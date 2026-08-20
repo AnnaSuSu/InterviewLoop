@@ -69,7 +69,7 @@ git diff -- packages/contracts/openapi.json frontend/src/api/schema.d.ts
 bun run check
 ```
 
-它包含 Bun/Node 类型检查、架构边界、后端与前端测试、API/Web/Electron 主进程构建。桌面端再按改动范围运行：
+它包含 Bun/Node 类型检查、架构边界、后端与前端测试、前端 TypeScript/ESLint、API/Web/Electron/sidecar 构建，以及当前平台的 Electron 应用目录打包。桌面端还可按改动范围运行：
 
 ```bash
 bun run smoke:desktop

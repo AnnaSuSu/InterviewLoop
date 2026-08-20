@@ -35,7 +35,9 @@
     "restore:system": "bun scripts/restore-system.ts",
     "build": "bun run build:api && bun run build:web && bun run build:desktop:main",
     "test:web": "bun run --cwd frontend test",
-    "check": "bun run typecheck && bun run typecheck:node && bun run check:boundaries && bun run test && bun run test:web && bun run build"
+    "check:frontend": "bun run --cwd frontend typecheck && bun run --cwd frontend lint && bun run test:web && bun run build:web",
+    "check:desktop": "bun run build:desktop && bun run --cwd apps/desktop pack",
+    "check": "bun run typecheck && bun run typecheck:node && bun run check:boundaries && bun run test && bun run check:frontend && bun run build:api && bun run check:desktop"
   },
   "dependencies": {
     "@techspar/contracts": "workspace:*",

@@ -34,6 +34,8 @@ Electron 使用操作系统标准应用数据目录保存 SQLite、用户文件�
 
 v0.3.0 已生成 macOS arm64 和 Windows x64 发行包。macOS 打包应用通过了真实 sidecar 启动冒烟；Windows NSIS 安装包及其 x64 Bun/ONNX 资源通过了结构和架构检查，但仍应在真实 Windows 环境补做安装验收。当前公开包没有商业签名，macOS 还没有 notarization，安装时可能出现 Gatekeeper 或 SmartScreen 提示。
 
+后续版本由 tag 驱动：根 `package.json` 与桌面包版本一致后推送同名 `vX.Y.Z` tag，GitHub Actions 会校验版本、分别构建 macOS arm64 和 Windows x64 包、生成 `SHA256SUMS.txt` 并发布到 Releases。未配置证书时仍会生成未签名包；配置仓库 secrets 后可启用 Apple/Windows 签名及 macOS 公证。
+
 ## 方式二：Bun Web 服务
 
 ### 环境要求

@@ -23,17 +23,15 @@ TechSpar 不只是生成一组面试题。专项训练、简历面试、JD 备�
 - **`main`**：当前版本。后端已完全迁移为 TypeScript + Bun + Hono，使用 Bun workspace 统一管理前后端依赖；新功能和修复都在这里继续。
 - **`legacy/python-backend`**：迁移前最后一个 Python + FastAPI 版本，固定在提交 `73d1a7c`，只作为历史归档和紧急回看，不再接收新功能。
 
-两个分支不会同时写同一份数据。需要查看旧版时使用独立目录和数据副本：
+查看旧版时必须使用独立 checkout 和迁移前的数据副本。推荐从当前 `main` checkout 创建只读 worktree：
 
 ```bash
-git switch legacy/python-backend
+git fetch origin legacy/python-backend
+git worktree add --detach ../TechSpar-python-legacy origin/legacy/python-backend
+cp -R /path/to/pre-migration-data-backup/. ../TechSpar-python-legacy/data/
 ```
 
-切回新版：
-
-```bash
-git switch main
-```
+也可以把 `legacy/python-backend` 单独 clone 到另一个目录。不要在当前工作目录直接切换分支，不要软链接或复用 `data/`，也不要让新旧服务同时连接同一份 SQLite、用户文件或模型缓存。没有迁移前备份时，只用空数据启动旧版做代码回看。
 
 ## 功能闭环
 
@@ -95,6 +93,8 @@ bun run dist:desktop:win-x64   # Windows x64：NSIS 安装包
 
 产物位于 `dist/desktop/`。当前仓库配置了 macOS DMG/ZIP、Windows NSIS、Linux AppImage/DEB；v0.3.0 已生成 macOS arm64 与 Windows x64 包，其中 macOS 完成了打包态启动验证，Windows 包完成了结构与架构检查。当前公开包未配置商业代码签名，安装时可能触发系统安全提示。
 
+发布新版本时先同步根 `package.json` 与桌面包版本，再推送同名 `vX.Y.Z` tag。发布工作流会分别构建 macOS arm64 和 Windows x64 客户端、校验 tag、生成 SHA-256 校验文件并上传到 [GitHub Releases](https://github.com/AnnaSuSu/TechSpar/releases)；签名和 macOS 公证会在仓库配置对应 secrets 后自动启用。
+
 ### Web 本地开发
 
 终端一启动 API：
@@ -109,14 +109,14 @@ bun run dev:api
 bun run dev:web
 ```
 
-访问 <http://localhost:5173>。默认登录信息：
+访问 <http://localhost:5173>。服务端开发环境的默认登录信息：
 
 ```text
 admin@techspar.local
 admin123
 ```
 
-部署时必须在 `.env` 中修改 `JWT_SECRET` 和默认密码。
+服务端首次登录后请立即在设置页修改默认密码，部署时也必须在 `.env` 中修改 `JWT_SECRET`。Electron 桌面版会生成随机的本机凭证并自动进入，不使用上述固定密码。
 
 ### Docker
 
@@ -171,7 +171,7 @@ tests-ts/             TypeScript 测试与旧版 OpenAPI 基线
 bun run check
 ```
 
-该命令依次执行 Bun/Node 类型检查、架构边界检查、后端与前端测试、API 和 Web 构建。OpenAPI 文件和前端类型可通过以下命令重新生成：
+该命令依次执行 Bun/Node 类型检查、架构边界检查、后端与前端测试、前端 TypeScript/ESLint，以及 API、Web、Electron 主进程和编译 sidecar 构建。OpenAPI 文件和前端类型可通过以下命令重新生成：
 
 ```bash
 bun run gen:api
@@ -194,6 +194,20 @@ bun run pack:desktop           # 当前平台完整应用目录
 - 管理员导出完整系统备份。
 
 归档会验证路径、链接、tar 校验和与解压上限；向量索引作为派生数据在导入后重建。
+
+管理员系统归档的恢复是离线运维操作。先把归档放在目标 `data/` 之外并执行只读预检：
+
+```bash
+bun run restore:system -- --archive=/safe/backups/techspar-system.tar.gz --data-dir=/srv/techspar/data
+```
+
+预检通过后停止 TechSpar API、桌面 sidecar 和其他所有可能写入该目录的进程，再显式确认恢复：
+
+```bash
+bun run restore:system -- --archive=/safe/backups/techspar-system.tar.gz --data-dir=/srv/techspar/data --confirm
+```
+
+恢复会先构建并校验暂存数据，再原子切换目录；原 `data/` 会保留为同级、带时间戳的 `data.before-system-restore-*` 备份目录，不会直接删除。
 
 Electron 使用系统标准的应用数据目录，数据库、用户文件、模型缓存和每次安装随机生成的运行密钥都放在那里；本地 Hono sidecar 只监听 `127.0.0.1` 的动态端口。
 
