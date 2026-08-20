@@ -91,7 +91,7 @@ bun run dist:desktop:mac-arm64 # macOS Apple Silicon：DMG + ZIP
 bun run dist:desktop:win-x64   # Windows x64：NSIS 安装包
 ```
 
-产物位于 `dist/desktop/`。当前仓库配置了 macOS DMG/ZIP、Windows NSIS、Linux AppImage/DEB；v0.3.0 已生成 macOS arm64 与 Windows x64 包，其中 macOS 完成了打包态启动验证，Windows 包完成了结构与架构检查。当前公开包未配置商业代码签名，安装时可能触发系统安全提示。
+产物位于 `dist/desktop/`。当前仓库配置了 macOS DMG/ZIP、Windows NSIS、Linux AppImage/DEB；v0.3.1 提供 macOS arm64 与 Windows x64 包。当前公开包未配置商业代码签名，安装时可能触发系统安全提示；真实安装与启动仍应在对应目标平台验收。
 
 发布新版本时先同步根 `package.json` 与桌面包版本，再推送同名 `vX.Y.Z` tag。发布工作流会分别构建 macOS arm64 和 Windows x64 客户端、校验 tag、生成 SHA-256 校验文件并上传到 [GitHub Releases](https://github.com/AnnaSuSu/TechSpar/releases)；签名和 macOS 公证会在仓库配置对应 secrets 后自动启用。
 

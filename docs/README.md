@@ -29,6 +29,7 @@
 - [Hono / TypeScript / Electron 迁移实施记录](hono-typescript-migration.md)
 - [TypeScript 迁移完整性收尾清单](typescript-migration-closeout.md)
 - [TypeScript 后端架构](typescript-backend-architecture.md)
+- [v0.3.1 发布说明](releases/v0.3.1.md)
 - [v0.3.0 发布说明](releases/v0.3.0.md)
 
 TechSpar 的核心不是单一页面或单次刷题，而是把专项训练、简历面试、JD 备面、实时 Copilot 与录音复盘串成同一条持续进化的技术面试闭环。

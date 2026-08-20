@@ -20,4 +20,5 @@
 * [Hono / TypeScript / Electron 迁移实施记录](hono-typescript-migration.md)
 * [TypeScript 迁移完整性收尾清单](typescript-migration-closeout.md)
 * [TypeScript 后端架构](typescript-backend-architecture.md)
+* [v0.3.1 发布说明](releases/v0.3.1.md)
 * [v0.3.0 发布说明](releases/v0.3.0.md)

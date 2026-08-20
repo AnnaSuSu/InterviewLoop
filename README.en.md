@@ -71,7 +71,7 @@ bun run dist:desktop:mac-arm64 # macOS Apple Silicon: DMG + ZIP
 bun run dist:desktop:win-x64   # Windows x64: NSIS installer
 ```
 
-Artifacts are written to `dist/desktop/`. Built applications include Electron and a compiled Bun sidecar, so end users do not need Bun. The repository configures macOS DMG/ZIP, Windows NSIS, and Linux AppImage/DEB targets. v0.3.0 includes macOS arm64 and Windows x64 packages; the packaged macOS app passed a launch smoke test, while the Windows package passed structural and architecture checks. The public packages are not commercially code-signed and may trigger operating-system security warnings.
+Artifacts are written to `dist/desktop/`. Built applications include Electron and a compiled Bun sidecar, so end users do not need Bun. The repository configures macOS DMG/ZIP, Windows NSIS, and Linux AppImage/DEB targets. v0.3.1 includes macOS arm64 and Windows x64 packages. The public packages are not commercially code-signed and may trigger operating-system security warnings; installation and launch should still be validated on each target platform.
 
 ### Web development
 

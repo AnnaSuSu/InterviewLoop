@@ -15,6 +15,7 @@ import {
 } from '@techspar/core'
 import { createApp } from '../apps/api/src/app.ts'
 import { BcryptPasswordHasher, JoseTokenService, loadConfig, ShortUuidGenerator } from '@techspar/platform'
+import rootPackage from '../package.json' with { type: 'json' }
 
 class MemoryUsers implements UserRepository {
   rows = new Map<string, AuthUser & { password: string }>()
@@ -64,7 +65,7 @@ describe('auth compatibility', () => {
   test('reports registration flag and service version', async () => {
     const { app } = testApp()
     expect(await (await app.request('/api/auth/config')).json()).toEqual({ allow_registration: false })
-    expect(await (await app.request('/api/')).json()).toEqual({ service: 'TechSpar', version: '0.3.0' })
+    expect(await (await app.request('/api/')).json()).toEqual({ service: 'TechSpar', version: rootPackage.version })
   })
 
   test('does not grant arbitrary websites cross-origin access to the local API', async () => {
