@@ -118,6 +118,7 @@ LLM、Embedding、DashScope、Tavily、OSS 和腾讯 VPR 凭据默认由每个�
 
 - 普通用户通过“设置 → 数据迁移”导出个人归档；敏感凭据默认不包含。
 - 管理员可以导出全站归档；文件会校验路径、链接、tar checksum 和解压上限。
+- 全站恢复必须在所有 TechSpar 进程停止后执行；先运行 `bun run restore:system -- --archive=... --data-dir=...` 预检，再增加 `--confirm`。成功切换后旧目录保留为时间戳备份。
 - 升级前同时备份 SQLite 和整个用户目录；不要只复制数据库。
 - 回滚旧版时必须先停止新版，再使用迁移前的数据副本启动 `legacy/python-backend`。禁止新旧服务并行写入。
 

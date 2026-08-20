@@ -1,12 +1,12 @@
 # TechSpar Hono / TypeScript / Electron 迁移实施记录
 
-> 状态：已完成代码迁移与本机桌面打包验证
+> 状态：完整完成（代码、兼容、安全、桌面与发布工程）
 >
 > 完成日期：2026-08-20
 >
 > 当前分支：`main`
 
-详细依赖规则见 [TypeScript 后端架构](typescript-backend-architecture.md)，运行方式见 [部署说明](deployment.md)。
+详细依赖规则见 [TypeScript 后端架构](typescript-backend-architecture.md)，运行方式见 [部署说明](deployment.md)，最后一轮逐项核验见 [TypeScript 迁移完整性收尾报告](typescript-migration-closeout.md)。
 
 ## 1. 分支策略
 
@@ -120,7 +120,9 @@ Electron 不在 Renderer 中运行 Node，也不复制业务逻辑：
 
 1. `a42026f feat(api): migrate backend to Bun and Hono`
 2. `6977f6d feat(desktop): add packaged Electron client`
-3. 文档、CI 与部署收尾提交（以 Git 历史为准）
+3. `7938576 chore(release): finalize desktop migration`
+4. `f0b8be3` 至 `523493e`：契约、归档、复盘、画像、任务、恢复和桌面安全的逐项等价修复
+5. `2bd072e chore(release): automate desktop publication`
 
 在第一个提交前，远端 `legacy/python-backend` 已指向迁移前快照 `73d1a7c`。这样 Python 版本可追溯，但不会继续占据主分支。
 
@@ -131,7 +133,7 @@ Electron 不在 Renderer 中运行 Node，也不复制业务逻辑：
 - `bun install --frozen-lockfile`
 - Bun 与 Node TypeScript 类型检查
 - 架构边界检查
-- **62 个 Bun 测试 + 3 个前端回归测试**
+- **108 个 Bun 测试（688 次断言）+ 3 个前端回归测试**
 - 62 路径 / 71 HTTP 操作的旧 OpenAPI 清单对照
 - API bundle、Vite production build、Electron main/preload build
 - Bun API 与 Nginx Web 两个 Docker 镜像完整构建
@@ -139,6 +141,7 @@ Electron 不在 Renderer 中运行 Node，也不复制业务逻辑：
 - macOS arm64 未签名 `TechSpar.app` 打包态启动冒烟
 - Windows x64 NSIS 包及内置 Bun/ONNX PE 资源结构检查
 - 编译后端真实 Transformers.js/ONNX 本地 Embedding 冒烟
+- tag/版本一致性保护，以及 macOS arm64、Windows x64 构建与 GitHub Release 自动发布工作流
 
 测试按新架构的行为与风险重新分层，不宣称与旧版 66 个 Python 测试逐文件一一对应。关键覆盖包括认证、provider fallback/额度、知识与个人资料、简历/JD 状态机、任务恢复、Copilot、录音、声纹、归档安全和全站 SQLite 一致性快照。
 
