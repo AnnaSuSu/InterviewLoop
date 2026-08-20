@@ -22,7 +22,7 @@ function mergeGeneric(local: unknown, archive: unknown): unknown {
   return clone(local)
 }
 function normalized(value: unknown): string { return String(value || '').toLocaleLowerCase().replace(/\s+/g, ' ').trim() }
-function recency(value: Record<string, unknown>): string { return ['last_seen', 'improved_at', 'archived_at', 'last_assessed'].map((key) => typeof value[key] === 'string' ? value[key] as string : '').sort().at(-1) || '' }
+function recency(value: Record<string, unknown>): string { return ['last_seen', 'improved_at', 'archived_at', 'last_assessed', 'retrospective_at', 'updated_at'].map((key) => typeof value[key] === 'string' ? value[key] as string : '').sort().at(-1) || '' }
 function mergeFact(local: Record<string, unknown>, archive: Record<string, unknown>): Record<string, unknown> {
   const output = mergeGeneric(local, archive) as Record<string, unknown>
   output.first_seen = [local.first_seen, archive.first_seen].filter((value): value is string => typeof value === 'string' && Boolean(value)).sort()[0] || local.first_seen || archive.first_seen
@@ -45,14 +45,37 @@ function mergeFacts(local: unknown, archive: unknown, includeSource: boolean): A
   return output
 }
 
+function mergeBehaviorSignals(local: CandidateProfile['behavior_signals'], archive: CandidateProfile['behavior_signals']): CandidateProfile['behavior_signals'] {
+  const output = clone(local || {})
+  for (const [signalId, incoming] of Object.entries(archive || {})) {
+    const current = output[signalId]
+    output[signalId] = current && typeof current === 'object' ? mergeFact(current, incoming) : clone(incoming)
+  }
+  return output
+}
+
+function mergeTopicMastery(local: CandidateProfile['topic_mastery'], archive: CandidateProfile['topic_mastery']): CandidateProfile['topic_mastery'] {
+  const output = clone(local || {})
+  for (const [topic, incoming] of Object.entries(archive || {})) {
+    const current = output[topic]
+    if (!current || typeof current !== 'object') { output[topic] = clone(incoming); continue }
+    const newer = recency(incoming) > recency(current) ? incoming : current
+    const merged = mergeGeneric(current, incoming) as Record<string, unknown>
+    Object.assign(merged, clone(newer))
+    merged.session_count = Math.max(Number(current.session_count || 0), Number(incoming.session_count || 0))
+    output[topic] = merged
+  }
+  return output
+}
+
 export function mergeProfiles(local: CandidateProfile, archive: CandidateProfile): CandidateProfile {
   const output = clone(local) as CandidateProfile
   const special = new Set(['weak_points', 'strong_points', 'behavior_signals', 'topic_mastery', 'stats', 'view_marker', 'updated_at', 'last_consolidation_at'])
   for (const [key, value] of Object.entries(archive)) if (!special.has(key)) output[key] = mergeGeneric(output[key], value)
   output.weak_points = mergeFacts(local.weak_points, archive.weak_points, true) as CandidateProfile['weak_points']
   output.strong_points = mergeFacts(local.strong_points, archive.strong_points, false) as CandidateProfile['strong_points']
-  output.behavior_signals = mergeGeneric(local.behavior_signals || {}, archive.behavior_signals || {}) as CandidateProfile['behavior_signals']
-  output.topic_mastery = mergeGeneric(local.topic_mastery || {}, archive.topic_mastery || {}) as CandidateProfile['topic_mastery']
+  output.behavior_signals = mergeBehaviorSignals(local.behavior_signals, archive.behavior_signals)
+  output.topic_mastery = mergeTopicMastery(local.topic_mastery, archive.topic_mastery)
   output.stats = mergeGeneric(local.stats || {}, archive.stats || {}) as CandidateProfile['stats']
   for (const key of ['total_sessions', 'total_answers', 'resume_sessions', 'drill_sessions', 'job_prep_sessions', 'recording_sessions', 'copilot_sessions']) output.stats[key] = Math.max(Number(local.stats?.[key] || 0), Number(archive.stats?.[key] || 0))
   if (local.view_marker) output.view_marker = clone(local.view_marker); else if (archive.view_marker) output.view_marker = clone(archive.view_marker)

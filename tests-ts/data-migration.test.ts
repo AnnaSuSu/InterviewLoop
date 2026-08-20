@@ -5,7 +5,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { gunzipSync, gzipSync } from 'fflate'
-import { DataMigrationService, defaultProfile, type RequestContext, type UserRepository } from '@techspar/core'
+import { DataMigrationService, defaultProfile, mergeProfiles, type RequestContext, type UserRepository } from '@techspar/core'
 import { BunDataMigrationRepository, BunInterviewSessionRepository, BunPersonalAgentRepository } from '@techspar/db'
 import { FileCandidateProfileRepository, FileMigrationStore, TarGzipArchiveCodec, atomicWriteJson } from '@techspar/platform'
 
@@ -82,6 +82,7 @@ describe('tar.gz archive safety', () => {
 
     const archive = await new TarGzipArchiveCodec().unpack(fixture)
     expect(archive.manifest).toMatchObject({ schema_version: 2, user_id: 'legacy-user', backup_kind: 'personal' })
+    expect(archive.directories).toContain('data/users/legacy-user/empty-folder')
     expect(new TextDecoder().decode(archive.files.get('data/users/legacy-user/library/ascii.txt'))).toBe('legacy ascii\n')
     expect(new TextDecoder().decode(archive.files.get('data/users/legacy-user/library/中文简历.md'))).toBe('旧版中文内容\n')
     const longPath = [...archive.files.keys()].find((path) => path.includes('/long-'))
@@ -137,6 +138,19 @@ describe('tar.gz archive safety', () => {
 })
 
 describe('personal archive migration', () => {
+  test('merges behavior and mastery state by evidence recency', () => {
+    const local = defaultProfile(); const archive = defaultProfile()
+    local.behavior_signals.reasoning = { description: '旧描述', last_seen: '2026-08-01T00:00:00Z', times_seen: 2, improved: false, history: [{ event: 'seen', date: '2026-08-01' }] }
+    archive.behavior_signals.reasoning = { description: '新描述', last_seen: '2026-08-19T00:00:00Z', times_seen: 3, improved: true, improved_at: '2026-08-19T00:00:00Z', history: [{ event: 'improved', date: '2026-08-19' }] }
+    local.topic_mastery.python = { score: 60, notes: '旧状态', session_count: 1, last_assessed: '2026-08-01T00:00:00Z' }
+    archive.topic_mastery.python = { score: 82, notes: '新状态', session_count: 2, last_assessed: '2026-08-19T00:00:00Z' }
+
+    const merged = mergeProfiles(local, archive)
+    expect(merged.behavior_signals.reasoning).toMatchObject({ times_seen: 3, improved: true, improved_at: '2026-08-19T00:00:00Z' })
+    expect(merged.behavior_signals.reasoning.history).toHaveLength(2)
+    expect(merged.topic_mastery.python).toMatchObject({ score: 82, notes: '新状态', session_count: 2 })
+  })
+
   test('exports only owned portable data, rebinds it, and excludes credentials by default', async () => {
     const sourceRoot = await root(); const source = service(sourceRoot)
     const sessions = new BunInterviewSessionRepository(source.db); sessions.initialize()
@@ -163,7 +177,7 @@ describe('personal archive migration', () => {
     expect(database.query<{ user_id: string }, []>("SELECT user_id FROM personal_conversations WHERE conversation_id = 'c1'").get()?.user_id).toBe('target-user')
     database.close()
     expect(new TextDecoder().decode(await readFile(join(targetRoot, 'data/users/target-user/library/d1.md')))).toBe('notes')
-    expect((await target.profiles.load('target-user')).stats.total_sessions).toBe(5)
+    expect((await target.profiles.load('target-user')).stats).toMatchObject({ total_sessions: 5, drill_avg_score: 8, avg_score: 8 })
     sessions.close(); personal.close()
   })
 

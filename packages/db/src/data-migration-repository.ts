@@ -16,6 +16,15 @@ function exists(database: Database, table: string): boolean { return Boolean(dat
 function columns(database: Database, table: string): string[] { return database.query<{ name: string }, []>(`PRAGMA table_info(${table})`).all().map((row) => row.name) }
 function json<T>(value: unknown, fallback: T): T { try { return typeof value === 'string' ? JSON.parse(value) as T : fallback } catch { return fallback } }
 function numeric(value: unknown): number | undefined { return typeof value === 'number' && Number.isFinite(value) ? value : undefined }
+function average(values: number[]): number | undefined { return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10 : undefined }
+
+const MODE_AVERAGES: Record<string, { key: string; window: number }> = {
+  resume: { key: 'resume_avg_score', window: 10 },
+  topic_drill: { key: 'drill_avg_score', window: 20 },
+  jd_prep: { key: 'job_prep_avg_score', window: 10 },
+  recording: { key: 'recording_avg_score', window: 20 },
+  copilot: { key: 'copilot_avg_score', window: 10 },
+}
 
 export class BunDataMigrationRepository implements MigrationDatabase {
   constructor(private readonly path: string) {}
@@ -92,8 +101,24 @@ export class BunDataMigrationRepository implements MigrationDatabase {
         if (average !== undefined) history.push({ date: row.created_at.slice(0, 10), mode: row.mode, topic: row.topic, avg_score: average, session_id: row.session_id, ...(overall.dimension_scores && typeof overall.dimension_scores === 'object' ? { dimension_scores: overall.dimension_scores } : {}) })
       }
       const recent = history.slice(-30).map((item) => item.avg_score as number)
-      const copilotSessions = exists(database, 'copilot_realtime_sessions') ? database.query<{ total: number }, { $userId: string }>('SELECT COUNT(*) AS total FROM copilot_realtime_sessions WHERE user_id = $userId').get({ $userId: userId })?.total || 0 : 0
-      return { stats: { total_sessions: rows.length, total_answers: totalAnswers, resume_sessions: counts.resume || 0, drill_sessions: counts.topic_drill || 0, job_prep_sessions: counts.jd_prep || 0, recording_sessions: counts.recording || 0, copilot_sessions: copilotSessions, score_history: history, ...(recent.length ? { avg_score: Math.round(recent.reduce((sum, value) => sum + value, 0) / recent.length * 10) / 10 } : {}) }, topic_counts: topics }
+      const realtimeCopilot = exists(database, 'copilot_realtime_sessions') ? database.query<{ total: number }, { $userId: string }>('SELECT COUNT(*) AS total FROM copilot_realtime_sessions WHERE user_id = $userId').get({ $userId: userId })?.total || 0 : 0
+      const copilotSessions = Math.max(counts.copilot || 0, realtimeCopilot)
+      const modeAverages = Object.fromEntries(Object.entries(MODE_AVERAGES).flatMap(([mode, config]) => {
+        const value = average(history.filter((item) => item.mode === mode).slice(-config.window).map((item) => item.avg_score as number))
+        return value === undefined ? [] : [[config.key, value]]
+      }))
+      const dimensions = history.filter((item) => item.dimension_scores && typeof item.dimension_scores === 'object').slice(-5)
+      const dimensionKeys = new Set(dimensions.flatMap((item) => Object.keys(item.dimension_scores as Record<string, unknown>)))
+      const dimensionScores = Object.fromEntries([...dimensionKeys].flatMap((key) => {
+        const value = average(dimensions.map((item) => numeric((item.dimension_scores as Record<string, unknown>)[key])).filter((item): item is number => item !== undefined))
+        return value === undefined ? [] : [[key, value]]
+      }))
+      return { stats: {
+        total_sessions: rows.length + Math.max(0, copilotSessions - (counts.copilot || 0)), total_answers: totalAnswers,
+        resume_sessions: counts.resume || 0, drill_sessions: counts.topic_drill || 0, job_prep_sessions: counts.jd_prep || 0,
+        recording_sessions: counts.recording || 0, copilot_sessions: copilotSessions, score_history: history,
+        ...modeAverages, ...(recent.length ? { avg_score: average(recent) } : {}), ...(Object.keys(dimensionScores).length ? { dimension_scores: dimensionScores } : {}),
+      }, topic_counts: topics }
     } finally { database.close() }
   }
 

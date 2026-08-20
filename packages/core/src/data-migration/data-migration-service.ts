@@ -69,8 +69,10 @@ export class DataMigrationService implements DataMigrationUseCases {
       for (const key of ['total_sessions', 'total_answers', 'resume_sessions', 'drill_sessions', 'job_prep_sessions', 'recording_sessions', 'copilot_sessions']) profile.stats[key] = Math.max(Number(profile.stats[key] || 0), Number(stats[key] || 0))
       if (Array.isArray(stats.score_history) && stats.score_history.length) profile.stats.score_history = stats.score_history as Array<Record<string, unknown>>
       if (typeof stats.avg_score === 'number') profile.stats.avg_score = stats.avg_score
+      for (const key of ['resume_avg_score', 'drill_avg_score', 'job_prep_avg_score', 'recording_avg_score', 'copilot_avg_score', 'dimension_scores']) if (stats[key] !== undefined) profile.stats[key] = stats[key]
       const topicCounts = record(rebuilt.topic_counts)
       for (const [topic, count] of Object.entries(topicCounts)) { const mastery = profile.topic_mastery[topic]; if (mastery) mastery.session_count = Math.max(Number(mastery.session_count || 0), Number(count || 0)) }
+      profile.updated_at = new Date().toISOString()
     })
     await this.deps.database.invalidateDerivedData(userId)
     return { ok: true, schema_version: archive.manifest.schema_version, current_schema_version: DATA_ARCHIVE_SCHEMA_VERSION, db_inserted: db.inserted, db_skipped: db.skipped, files_copied: copied, files_skipped: skipped, requires_reindex: true }
