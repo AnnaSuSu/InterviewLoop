@@ -19,6 +19,22 @@ function boundaryApp(overrides: Partial<AppDependencies>) {
 }
 
 describe('legacy nullable HTTP request contracts', () => {
+  test('accepts numeric confidence when ending a batch interview', async () => {
+    let received: unknown
+    const interview = {
+      async end(_context: unknown, _sessionId: string, answers: unknown) {
+        received = answers
+        return { session_id: 'drill-1', status: 'pending' }
+      },
+    } as unknown as InterviewUseCases
+    const response = await boundaryApp({ interview }).request('/api/interview/end/drill-1', {
+      method: 'POST', headers, body: JSON.stringify({ answers: [{ question_id: 1, answer: '答', confidence: 0 }] }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(received).toEqual([{ question_id: 1, answer: '答', confidence: 0 }])
+  })
+
   test('accepts topic: null when starting a resume interview', async () => {
     let received: StartInterviewInput | undefined
     const interview = {

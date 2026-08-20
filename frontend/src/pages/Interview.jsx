@@ -197,7 +197,7 @@ export default function Interview() {
       const answerList = questions.map((q) => ({
         question_id: q.id,
         answer: answers[q.id] || "",
-        ...(confidences[q.id] ? { confidence: confidences[q.id] } : {}),
+        ...(confidences[q.id] ? { confidence: confidences[q.id] === "high" ? 1 : 0 } : {}),
       }));
       await endInterview(sessionId, answerList);
       setSubmitted(true);
