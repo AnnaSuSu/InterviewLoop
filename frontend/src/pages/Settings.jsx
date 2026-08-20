@@ -206,7 +206,8 @@ export default function Settings() {
     account: accountRef,
     migration: migrationRef,
   };
-  const scrollSpyLock = useRef(0);
+  const scrollSpyLock = useRef(false);
+  const scrollSpyUnlockTimer = useRef(null);
 
   // 数据迁移状态
   const [exporting, setExporting] = useState(null); // null | "personal" | "system"
@@ -275,6 +276,12 @@ export default function Settings() {
 
   useEffect(() => () => cleanupRecorder(), [cleanupRecorder]);
 
+  useEffect(() => () => {
+    if (scrollSpyUnlockTimer.current != null) {
+      window.clearTimeout(scrollSpyUnlockTimer.current);
+    }
+  }, []);
+
   // ScrollSpy: highlight tab whose section is most prominent in the viewport
   useEffect(() => {
     if (loading) return;
@@ -284,7 +291,7 @@ export default function Settings() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (Date.now() < scrollSpyLock.current) return;
+        if (scrollSpyLock.current) return;
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -312,7 +319,14 @@ export default function Settings() {
     const el = sectionRefs[id]?.current;
     if (!el) return;
     // Suppress scrollspy briefly while the smooth scroll plays out
-    scrollSpyLock.current = Date.now() + 700;
+    scrollSpyLock.current = true;
+    if (scrollSpyUnlockTimer.current != null) {
+      window.clearTimeout(scrollSpyUnlockTimer.current);
+    }
+    scrollSpyUnlockTimer.current = window.setTimeout(() => {
+      scrollSpyLock.current = false;
+      scrollSpyUnlockTimer.current = null;
+    }, 700);
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 

@@ -46,9 +46,14 @@ export default function TopicDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
+    const loadingTimer = window.setTimeout(() => {
+      if (!cancelled) setLoading(true);
+    }, 0);
+
     Promise.all([getProfile(), getTopics(), getTopicHistory(topic)])
       .then(([prof, topics, hist]) => {
+        if (cancelled) return;
         setProfile(prof);
         setTopicInfo(topics[topic] || { name: topic, icon: "" });
         setSessions(Array.isArray(hist) ? hist : []);
@@ -57,7 +62,15 @@ export default function TopicDetail() {
         else setRetrospective(null);
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        window.clearTimeout(loadingTimer);
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(loadingTimer);
+    };
   }, [topic]);
 
   const handleGenerate = async () => {

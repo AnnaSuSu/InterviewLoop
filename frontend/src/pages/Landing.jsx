@@ -252,23 +252,23 @@ const revealStyle = (delay) => ({ "--reveal-delay": `${delay}s` });
 /* ── Typing effect for detail panel preview lines ── */
 function TypedLine({ text, delay = 0 }) {
   const [displayed, setDisplayed] = useState("");
-  const [started, setStarted] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setStarted(true), delay);
-    return () => clearTimeout(t);
-  }, [delay]);
-
-  useEffect(() => {
-    if (!started) { setDisplayed(""); return; }
     let i = 0;
-    const interval = setInterval(() => {
-      i++;
-      setDisplayed(text.slice(0, i));
-      if (i >= text.length) clearInterval(interval);
-    }, 22);
-    return () => clearInterval(interval);
-  }, [text, started]);
+    let interval = null;
+    const timer = window.setTimeout(() => {
+      setDisplayed("");
+      interval = window.setInterval(() => {
+        i++;
+        setDisplayed(text.slice(0, i));
+        if (i >= text.length) window.clearInterval(interval);
+      }, 22);
+    }, delay);
+    return () => {
+      window.clearTimeout(timer);
+      if (interval != null) window.clearInterval(interval);
+    };
+  }, [delay, text]);
 
   return (
     <span className="text-dim">

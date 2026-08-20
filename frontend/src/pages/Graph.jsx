@@ -77,17 +77,32 @@ export default function Graph() {
     velocities: new Map(),
     origins: new Map(),
   });
-  const motionConfigRef = useRef(DEFAULT_MOTION_CONFIG);
+  const motionConfigRef = useRef(
+    prefersReducedMotion ? REDUCED_MOTION_CONFIG : DEFAULT_MOTION_CONFIG,
+  );
   const [dimensions, setDimensions] = useState({ width: 960, height: 620 });
 
   const isGraphVisible = isPageVisible && isGraphInViewport;
   const needsContinuousRedraw = isGraphVisible
     && (!prefersReducedMotion || isNodeMotionActive);
 
+  const stopNodeMotion = useCallback(() => {
+    const motion = nodeMotionRef.current;
+    if (motion.frameId != null) cancelAnimationFrame(motion.frameId);
+    motion.frameId = null;
+    motion.lastFrameTime = null;
+    motion.draggedNodeId = null;
+    motion.velocities.clear();
+    motion.origins.clear();
+    setIsNodeMotionActive(false);
+  }, []);
+
   // 自定义 RAF 通过 ref 读取最新参数，确保用户运行中切换系统偏好时无需中断当前拖拽反馈。
-  motionConfigRef.current = prefersReducedMotion
-    ? REDUCED_MOTION_CONFIG
-    : DEFAULT_MOTION_CONFIG;
+  useEffect(() => {
+    motionConfigRef.current = prefersReducedMotion
+      ? REDUCED_MOTION_CONFIG
+      : DEFAULT_MOTION_CONFIG;
+  }, [prefersReducedMotion]);
 
   useEffect(() => {
     getTopics().then(setTopics).catch(() => {});
@@ -104,12 +119,14 @@ export default function Graph() {
 
   useEffect(() => {
     const updatePageVisibility = () => {
-      setIsPageVisible(document.visibilityState === "visible");
+      const isVisible = document.visibilityState === "visible";
+      if (!isVisible) stopNodeMotion();
+      setIsPageVisible(isVisible);
     };
 
     document.addEventListener("visibilitychange", updatePageVisibility);
     return () => document.removeEventListener("visibilitychange", updatePageVisibility);
-  }, []);
+  }, [stopNodeMotion]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -117,12 +134,13 @@ export default function Graph() {
 
     // 完全离开视口后才暂停，避免图谱贴近视口边缘时频繁启停渲染循环。
     const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) stopNodeMotion();
       setIsGraphInViewport(entry.isIntersecting);
     });
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [stopNodeMotion]);
 
   useEffect(() => () => {
     if (revealFrameRef.current != null) cancelAnimationFrame(revealFrameRef.current);
@@ -238,15 +256,9 @@ export default function Graph() {
   const filteredGraphData = useMemo(() => {
     if (!graphData) return null;
 
-    const query = searchQuery.trim().toLowerCase();
-    const nodes = graphData.nodes.filter((node) => {
-      const matchesQuery = !query
-        || node.question.toLowerCase().includes(query)
-        || (node.focus_area || "").toLowerCase().includes(query);
-      const matchesScore = matchesScoreFilter(node, scoreFilter);
-      const matchesArea = areaFilter === "all" || (node.focus_area || "") === areaFilter;
-      return matchesQuery && matchesScore && matchesArea;
-    });
+    const nodes = graphData.nodes.filter((node) => (
+      matchesGraphFilters(node, searchQuery, scoreFilter, areaFilter)
+    ));
 
     const visibleIds = new Set(nodes.map((node) => node.id));
     const links = graphData.links.filter((link) => {
@@ -258,20 +270,23 @@ export default function Graph() {
     return { nodes, links };
   }, [areaFilter, graphData, scoreFilter, searchQuery]);
 
-  useEffect(() => {
+  const applyFilters = (nextSearchQuery, nextScoreFilter, nextAreaFilter) => {
+    setSearchQuery(nextSearchQuery);
+    setScoreFilter(nextScoreFilter);
+    setAreaFilter(nextAreaFilter);
     setHoveredNode(null);
-  }, [areaFilter, scoreFilter, searchQuery, selectedTopic]);
-
-  useEffect(() => {
-    if (!filteredGraphData?.nodes?.length) {
-      setSelectedNodeId(null);
-      return;
-    }
 
     if (selectedNodeId == null) return;
-    const visibleIds = new Set(filteredGraphData.nodes.map((node) => node.id));
-    if (!visibleIds.has(selectedNodeId)) setSelectedNodeId(null);
-  }, [filteredGraphData, selectedNodeId]);
+    const selected = graphData?.nodes?.find((node) => node.id === selectedNodeId);
+    if (!selected || !matchesGraphFilters(
+      selected,
+      nextSearchQuery,
+      nextScoreFilter,
+      nextAreaFilter,
+    )) {
+      setSelectedNodeId(null);
+    }
+  };
 
   const selectedNode = useMemo(() => {
     if (selectedNodeId == null || !graphData?.nodes) return null;
@@ -311,21 +326,10 @@ export default function Graph() {
 
   const activeGraph = filteredGraphData || { nodes: [], links: [] };
 
-  const stopNodeMotion = useCallback(() => {
-    const motion = nodeMotionRef.current;
-    if (motion.frameId != null) cancelAnimationFrame(motion.frameId);
-    motion.frameId = null;
-    motion.lastFrameTime = null;
-    motion.draggedNodeId = null;
-    motion.velocities.clear();
-    motion.origins.clear();
-    setIsNodeMotionActive(false);
-  }, []);
-
   // 节点集合变化时必须终止旧动画，避免筛选或切换领域后继续修改已经离开画布的对象。
   useEffect(() => stopNodeMotion, [activeGraph.nodes, stopNodeMotion]);
 
-  const runNodeMotionFrame = useCallback((time) => {
+  const runNodeMotionFrame = useCallback(function runNodeMotionFrame(time) {
     const motion = nodeMotionRef.current;
     const motionConfig = motionConfigRef.current;
     const elapsed = motion.lastFrameTime == null ? 16.67 : Math.min(time - motion.lastFrameTime, 33.34);
@@ -598,9 +602,8 @@ export default function Graph() {
     }
 
     // 页面或图谱不可见时，停止底层循环并丢弃旧动量，避免返回页面后节点突然继续位移。
-    stopNodeMotion();
     graph.pauseAnimation?.();
-  }, [graphHasData, isGraphVisible, stopNodeMotion]);
+  }, [graphHasData, isGraphVisible]);
 
   return (
     <div ref={pageRef} className={PAGE_CLASS}>
@@ -661,7 +664,7 @@ export default function Graph() {
               className="w-full min-w-0"
               value={searchQuery}
               disabled={!selectedTopic}
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) => applyFilters(event.target.value, scoreFilter, areaFilter)}
               placeholder={selectedTopic ? "搜索题目或 focus area" : "先选择领域，再搜索题目"}
             />
 
@@ -676,7 +679,7 @@ export default function Graph() {
                     scoreFilter === item.key && "border border-primary/45 bg-primary/10 text-text"
                   )}
                   disabled={!selectedTopic}
-                  onClick={() => setScoreFilter(item.key)}
+                  onClick={() => applyFilters(searchQuery, item.key, areaFilter)}
                 >
                   {item.label}
                 </Button>
@@ -692,7 +695,7 @@ export default function Graph() {
                 className="w-0 min-w-0 flex-1 truncate bg-transparent text-right text-text outline-none"
                 value={areaFilter}
                 disabled={!selectedTopic}
-                onChange={(event) => setAreaFilter(event.target.value)}
+                onChange={(event) => applyFilters(searchQuery, scoreFilter, event.target.value)}
               >
                 <option value="all">全部</option>
                 {focusAreas.map((area) => (
@@ -781,9 +784,7 @@ export default function Graph() {
                   <Button
                     variant="outline"
                     onClick={() => {
-                      setSearchQuery("");
-                      setScoreFilter("all");
-                      setAreaFilter("all");
+                      applyFilters("", "all", "all");
                     }}
                   >
                     清空筛选
@@ -1072,6 +1073,15 @@ function matchesScoreFilter(node, filter) {
   if (filter === "mid") return node.score >= 4 && node.score < 8;
   if (filter === "strong") return node.score >= 8;
   return true;
+}
+
+function matchesGraphFilters(node, searchQuery, scoreFilter, areaFilter) {
+  const query = searchQuery.trim().toLowerCase();
+  const matchesQuery = !query
+    || node.question.toLowerCase().includes(query)
+    || (node.focus_area || "").toLowerCase().includes(query);
+  const matchesArea = areaFilter === "all" || (node.focus_area || "") === areaFilter;
+  return matchesQuery && matchesScoreFilter(node, scoreFilter) && matchesArea;
 }
 
 function buildScoreFilterLabel(filter) {

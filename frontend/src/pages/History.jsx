@@ -102,7 +102,10 @@ export default function History() {
   }, [modeFilter, topicFilter]);
 
   useEffect(() => {
-    runHistoryQuery({ offset: 0, reset: true });
+    const timer = window.setTimeout(() => {
+      void runHistoryQuery({ offset: 0, reset: true });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [runHistoryQuery]);
 
   const handleModeChange = (mode) => {

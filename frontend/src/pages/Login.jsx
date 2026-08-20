@@ -34,7 +34,10 @@ export default function Login() {
   }, []);
 
   useEffect(() => {
-    refreshRegistrationStatus();
+    const timer = window.setTimeout(() => {
+      void refreshRegistrationStatus();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [refreshRegistrationStatus]);
 
   useEffect(() => {

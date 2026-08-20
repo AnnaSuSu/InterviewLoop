@@ -136,7 +136,7 @@ function errorMessage(error: unknown) {
 
 export default function JobPrep({ embedded = false }: JobPrepProps) {
   const navigate = useNavigate();
-  const initialDraft = useMemo(loadDraft, []);
+  const initialDraft = useMemo(() => loadDraft(), []);
   const [company, setCompany] = useState(initialDraft.company || "");
   const [position, setPosition] = useState(initialDraft.position || "");
   const [jdText, setJdText] = useState(initialDraft.jdText || "");

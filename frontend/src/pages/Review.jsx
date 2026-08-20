@@ -546,7 +546,6 @@ export default function Review() {
 
   useEffect(() => {
     if (!review && !scores) {
-      setLoading(true);
       getReview(sessionId)
         .then((data) => {
           setReview(data.review);
