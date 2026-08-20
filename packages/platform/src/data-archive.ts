@@ -128,7 +128,7 @@ export class TarGzipArchiveCodec implements DataArchiveCodec {
   }
 
   async unpack(bytes: Uint8Array): Promise<ArchiveContents> {
-    const tar = gunzipLimited(bytes, this.maxExpandedBytes); const files = new Map<string, Uint8Array>(); const seen = new Set<string>(); const globalPax = new Map<string, string>(); let pendingPax = new Map<string, string>(); let pendingLongName: string | undefined; let pendingLongLink: string | undefined; let manifest: ArchiveManifest | undefined; let database: Uint8Array | undefined
+    const tar = gunzipLimited(bytes, this.maxExpandedBytes); const files = new Map<string, Uint8Array>(); const directories: string[] = []; const seen = new Set<string>(); const globalPax = new Map<string, string>(); let pendingPax = new Map<string, string>(); let pendingLongName: string | undefined; let pendingLongLink: string | undefined; let manifest: ArchiveManifest | undefined; let database: Uint8Array | undefined
     for (let offset = 0; offset + BLOCK <= tar.length;) {
       const header = tar.slice(offset, offset + BLOCK); offset += BLOCK
       if (header.every((value) => value === 0)) break
@@ -152,14 +152,14 @@ export class TarGzipArchiveCodec implements DataArchiveCodec {
       pendingPax = new Map(); pendingLongName = undefined; pendingLongLink = undefined
       if (seen.has(path)) throw new Error(`archive 包含重复条目: ${path}`); seen.add(path)
       if (type === '1' || type === '2') { if (linkPath) safeArchivePath(linkPath); throw new Error(`archive 不允许链接条目: ${path}`) }
-      if (type === '5') continue
+      if (type === '5') { directories.push(path); continue }
       if (type !== '0' && type !== '\0') throw new Error(`archive 包含不支持的条目: ${path}`)
       if (path === 'manifest.json') { const value = JSON.parse(new TextDecoder().decode(content)) as unknown; if (value && typeof value === 'object' && !Array.isArray(value)) manifest = value as ArchiveManifest }
       else if (path === 'data/interviews.db') database = content
       else files.set(path, content)
     }
     if (pendingPax.size || pendingLongName || pendingLongLink) throw new Error('archive 扩展头缺少后续条目')
-    return { ...(manifest ? { manifest } : {}), ...(database ? { database } : {}), files }
+    return { ...(manifest ? { manifest } : {}), ...(database ? { database } : {}), files, ...(directories.length ? { directories } : {}) }
   }
 }
 

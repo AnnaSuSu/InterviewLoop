@@ -13,7 +13,7 @@ export type ArchiveManifest = {
   includes_sensitive_credentials: boolean
   source?: string
 }
-export type ArchiveContents = { manifest?: ArchiveManifest; database?: Uint8Array; files: Map<string, Uint8Array> }
+export type ArchiveContents = { manifest?: ArchiveManifest; database?: Uint8Array; files: Map<string, Uint8Array>; directories?: string[] }
 
 export interface DataArchiveCodec {
   pack(contents: { manifest: ArchiveManifest; database?: Uint8Array; files: Map<string, Uint8Array> }): Promise<Uint8Array>
