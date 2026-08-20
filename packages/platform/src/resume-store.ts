@@ -39,7 +39,7 @@ export class FileResumeStore implements ResumeStore {
   async read(userId: string): Promise<ResumeFile | undefined> {
     const filename = await this.find(userId)
     if (!filename) return undefined
-    return { filename, bytes: await readFile(join(this.directory(userId), filename)) }
+    return { filename, bytes: new Uint8Array(await readFile(join(this.directory(userId), filename))) }
   }
 
   async replace(userId: string, filename: string, bytes: Uint8Array): Promise<void> {
