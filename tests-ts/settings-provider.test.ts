@@ -9,6 +9,9 @@ import {
   SettingsOperationsService,
   SettingsService,
   USER_PROVIDER,
+  DEFAULT_EMBEDDING_MODEL,
+  embeddingTarget,
+  normalizeEmbeddingSettings,
   resolveEmbeddingConfig,
   resolveLlmConfig,
   type PlatformProviderConfig,
@@ -40,6 +43,13 @@ describe('provider resolution', () => {
     const resolved = resolveEmbeddingConfig({ backend: 'local', api_base: '', api_key: '', api_model: '', local_model: '', local_path: '', api_batch_size: 10 }, platform)
     expect(resolved.backend).toBe('local')
     expect(resolved.source).toBe(USER_PROVIDER)
+  })
+
+  test('migrates the legacy Python bge-m3 identifier for local ONNX inference', () => {
+    const legacy = { backend: 'local' as const, api_base: '', api_key: '', api_model: '', local_model: 'BAAI/bge-m3', local_path: '', api_batch_size: 10 }
+    expect(normalizeEmbeddingSettings(legacy).local_model).toBe(DEFAULT_EMBEDDING_MODEL)
+    expect(resolveEmbeddingConfig(legacy, emptyPlatform).local_model).toBe(DEFAULT_EMBEDDING_MODEL)
+    expect(embeddingTarget(legacy)).toBe(DEFAULT_EMBEDDING_MODEL)
   })
 })
 
@@ -92,6 +102,18 @@ describe('settings persistence', () => {
     expect(registration.allowRegistration).toBe(true)
     expect(JSON.parse(await readFile(join(root, 'data', 'system_settings.json'), 'utf8'))).toEqual({ allow_registration: true })
     expect((await repository.loadProvider('admin')).embedding?.api_base).toBe('https://example.test/v1')
+  })
+
+  test('canonicalizes legacy local model ids while loading existing provider files', async () => {
+    root = await mkdtemp(join(tmpdir(), 'techspar-settings-'))
+    const data = join(root, 'data')
+    const repository = new FileProviderSettingsRepository(data)
+    await repository.saveProvider('legacy', {
+      embedding: { backend: 'local', api_base: '', api_key: '', api_model: '', local_model: 'BAAI/bge-m3', local_path: '', api_batch_size: 10 },
+      services: { dashscope_api_key: '', tavily_api_key: '', oss_access_key_id: '', oss_access_key_secret: '', oss_bucket: '', oss_endpoint: '' },
+    })
+    expect((await repository.loadProvider('legacy')).embedding?.local_model).toBe(DEFAULT_EMBEDDING_MODEL)
+    expect(JSON.parse(await readFile(join(data, 'users/legacy/provider.json'), 'utf8')).embedding.local_model).toBe(DEFAULT_EMBEDDING_MODEL)
   })
 })
 

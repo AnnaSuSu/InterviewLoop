@@ -18,7 +18,13 @@ export function normalizeEmbeddingApiBase(apiBase: string): string {
 }
 
 export function normalizeEmbeddingSettings(settings: EmbeddingSettings): EmbeddingSettings {
-  return { ...settings, api_base: normalizeEmbeddingApiBase(settings.api_base) }
+  const localModel = settings.local_model.trim()
+  return {
+    ...settings,
+    api_base: normalizeEmbeddingApiBase(settings.api_base),
+    local_model: localModel.toLocaleLowerCase() === 'baai/bge-m3' ? DEFAULT_EMBEDDING_MODEL : localModel,
+    local_path: settings.local_path.trim(),
+  }
 }
 
 export function embeddingModeOf(settings: EmbeddingSettings): 'api' | 'local' {
@@ -58,6 +64,7 @@ export function resolveEmbeddingConfig(
 }
 
 export function embeddingTarget(settings: EmbeddingSettings): string {
-  if (embeddingModeOf(settings) === 'api') return settings.api_model || DEFAULT_EMBEDDING_MODEL
-  return settings.local_path || settings.local_model || DEFAULT_EMBEDDING_MODEL
+  const normalized = normalizeEmbeddingSettings(settings)
+  if (embeddingModeOf(normalized) === 'api') return normalized.api_model || DEFAULT_EMBEDDING_MODEL
+  return normalized.local_path || normalized.local_model || DEFAULT_EMBEDDING_MODEL
 }

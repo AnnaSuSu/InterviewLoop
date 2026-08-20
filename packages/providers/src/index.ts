@@ -134,7 +134,16 @@ export class OpenAiEmbeddingDriverFactory implements EmbeddingDriverFactory {
     const cacheDir = process.env.TECHSPAR_MODEL_CACHE_DIR?.trim()
     if (cacheDir) env.cacheDir = cacheDir
     const model = config.local_path || config.local_model || DEFAULT_EMBEDDING_MODEL
-    const extractor = await pipeline('feature-extraction', model, { dtype: 'fp32' })
+    type FeatureExtractor = (texts: string[], options: { pooling: 'mean'; normalize: true }) => Promise<{ tolist(): number[][] }>
+    let extractor: FeatureExtractor
+    try {
+      extractor = await (pipeline as unknown as (task: 'feature-extraction', target: string, options: { dtype: 'fp32' }) => Promise<FeatureExtractor>)('feature-extraction', model, { dtype: 'fp32' })
+    } catch (error) {
+      if (config.local_path) {
+        throw new Error(`无法加载本地 Embedding 路径 ${config.local_path}。TypeScript 版本只支持 Transformers.js/ONNX 模型目录；旧 sentence-transformers/PyTorch 目录不能直接复用，请改用 ${DEFAULT_EMBEDDING_MODEL} 或先导出 ONNX 模型。`, { cause: error })
+      }
+      throw error
+    }
     return {
       async embed(texts, signal) {
         if (signal.aborted) throw signal.reason
