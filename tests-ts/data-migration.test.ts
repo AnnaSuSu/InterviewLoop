@@ -9,6 +9,8 @@ import { DataMigrationService, defaultProfile, type RequestContext, type UserRep
 import { BunDataMigrationRepository, BunInterviewSessionRepository, BunPersonalAgentRepository } from '@techspar/db'
 import { FileCandidateProfileRepository, FileMigrationStore, TarGzipArchiveCodec, atomicWriteJson } from '@techspar/platform'
 
+const TAR_BLOCK = 512
+const encoder = new TextEncoder()
 const roots: string[] = []
 async function root(): Promise<string> { const value = await mkdtemp(join(tmpdir(), 'techspar-migration-')); roots.push(value); return value }
 afterEach(async () => { while (roots.length) await rm(roots.pop()!, { recursive: true, force: true }) })
@@ -19,6 +21,37 @@ const users: UserRepository = {
 function service(base: string) {
   const data = join(base, 'data'); mkdirSync(data, { recursive: true }); const db = join(data, 'interviews.db'); const profiles = new FileCandidateProfileRepository(data)
   return { db, profiles, value: new DataMigrationService({ codec: new TarGzipArchiveCodec(), database: new BunDataMigrationRepository(db), files: new FileMigrationStore(data), profiles, users }) }
+}
+function concatBytes(parts: Array<Uint8Array<ArrayBufferLike>>): Uint8Array {
+  const output = new Uint8Array(parts.reduce((total, part) => total + part.length, 0)); let offset = 0
+  for (const part of parts) { output.set(part, offset); offset += part.length }
+  return output
+}
+function tarTestEntry(name: string, type: string, content: Uint8Array<ArrayBufferLike> = new Uint8Array(), linkName = ''): Uint8Array {
+  const header = new Uint8Array(TAR_BLOCK)
+  const write = (offset: number, length: number, value: string) => { const bytes = encoder.encode(value); if (bytes.length > length) throw new Error('test tar field is too long'); header.set(bytes, offset) }
+  const octal = (value: number, length: number) => value.toString(8).padStart(length - 1, '0') + '\0'
+  write(0, 100, name); write(100, 8, octal(0o600, 8)); write(108, 8, octal(0, 8)); write(116, 8, octal(0, 8)); write(124, 12, octal(content.length, 12)); write(136, 12, octal(1_700_000_000, 12))
+  header.fill(32, 148, 156); write(156, 1, type); if (linkName) write(157, 100, linkName); write(257, 6, 'ustar'); write(263, 2, '00')
+  const checksum = header.reduce((sum, value) => sum + value, 0); write(148, 8, `${checksum.toString(8).padStart(6, '0')}\0 `)
+  const output = new Uint8Array(TAR_BLOCK + Math.ceil(content.length / TAR_BLOCK) * TAR_BLOCK); output.set(header); output.set(content, TAR_BLOCK); return output
+}
+function tarTestArchive(entries: Uint8Array[]): Uint8Array { return gzipSync(concatBytes([...entries, new Uint8Array(TAR_BLOCK * 2)])) }
+function terminated(value: string): Uint8Array { return concatBytes([encoder.encode(value), new Uint8Array(1)]) }
+function paxRecord(key: string, value: string): Uint8Array {
+  const body = `${key}=${value}\n`; let length = encoder.encode(`0 ${body}`).length
+  for (;;) { const record = encoder.encode(`${length} ${body}`); if (record.length === length) return record; length = record.length }
+}
+function rawTarTypes(bytes: Uint8Array): string[] {
+  const tar = gunzipSync(bytes); const types: string[] = []
+  for (let offset = 0; offset + TAR_BLOCK <= tar.length;) {
+    const header = tar.slice(offset, offset + TAR_BLOCK); offset += TAR_BLOCK
+    if (header.every((value) => value === 0)) break
+    types.push(String.fromCharCode(header[156] || 48))
+    const size = Number.parseInt(new TextDecoder().decode(header.slice(124, 136)).replace(/\0/g, '').trim() || '0', 8)
+    offset += Math.ceil(size / TAR_BLOCK) * TAR_BLOCK
+  }
+  return types
 }
 
 describe('tar.gz archive safety', () => {
@@ -38,6 +71,57 @@ describe('tar.gz archive safety', () => {
 
     const oversized = await codec.pack({ manifest: { schema_version: 2, exported_at: '', user_id: 'user-a', backup_kind: 'personal', includes_sensitive_credentials: false }, files: new Map([['data/users/user-a/large.txt', new Uint8Array(4096)]]) })
     await expect(new TarGzipArchiveCodec(1024).unpack(oversized)).rejects.toThrow('解压后过大')
+  })
+
+  test('reads a real legacy Python tarfile PAX archive with directories and portable filenames', async () => {
+    // Generated once with Python stdlib tarfile in PAX_FORMAT, following the legacy exporter's tar.add layout.
+    const fixture = Buffer.from((await readFile(join(import.meta.dir, 'fixtures/python-tarfile-pax-personal.tar.gz.b64'), 'utf8')).trim(), 'base64')
+    const types = rawTarTypes(fixture)
+    expect(types).toContain('x')
+    expect(types).toContain('5')
+
+    const archive = await new TarGzipArchiveCodec().unpack(fixture)
+    expect(archive.manifest).toMatchObject({ schema_version: 2, user_id: 'legacy-user', backup_kind: 'personal' })
+    expect(new TextDecoder().decode(archive.files.get('data/users/legacy-user/library/ascii.txt'))).toBe('legacy ascii\n')
+    expect(new TextDecoder().decode(archive.files.get('data/users/legacy-user/library/中文简历.md'))).toBe('旧版中文内容\n')
+    const longPath = [...archive.files.keys()].find((path) => path.includes('/long-'))
+    expect(longPath?.length).toBeGreaterThan(200)
+    expect(new TextDecoder().decode(archive.files.get(longPath!))).toBe('legacy long path\n')
+
+    const targetRoot = await root(); const target = service(targetRoot)
+    expect(await target.value.importPersonal(context('target-user'), 'legacy-python.tar.gz', fixture, { dbStrategy: 'skip', overwriteFiles: false })).toMatchObject({ files_copied: 3, files_skipped: 0 })
+    expect(new TextDecoder().decode(await readFile(join(targetRoot, 'data/users/target-user/library/中文简历.md')))).toBe('旧版中文内容\n')
+  })
+
+  test('applies global PAX paths and GNU long names', async () => {
+    const globalPath = 'data/users/legacy-user/library/global.txt'
+    const globalArchive = tarTestArchive([
+      tarTestEntry('GlobalHead.0', 'g', paxRecord('path', globalPath)),
+      tarTestEntry('placeholder', '0', encoder.encode('global pax')),
+    ])
+    expect(new TextDecoder().decode((await new TarGzipArchiveCodec().unpack(globalArchive)).files.get(globalPath))).toBe('global pax')
+
+    const longPath = `data/users/legacy-user/library/${'segment'.repeat(22)}.txt`
+    const gnuArchive = tarTestArchive([
+      tarTestEntry('././@LongLink', 'L', terminated(longPath)),
+      tarTestEntry('placeholder', '0', encoder.encode('gnu longname')),
+    ])
+    expect(new TextDecoder().decode((await new TarGzipArchiveCodec().unpack(gnuArchive)).files.get(longPath))).toBe('gnu longname')
+  })
+
+  test('validates PAX path overrides and still rejects GNU long links', async () => {
+    const traversal = tarTestArchive([
+      tarTestEntry('././@PaxHeader', 'x', paxRecord('path', '../outside.txt')),
+      tarTestEntry('placeholder', '0', encoder.encode('unsafe')),
+    ])
+    await expect(new TarGzipArchiveCodec().unpack(traversal)).rejects.toThrow('越界路径')
+
+    const longTarget = `data/users/legacy-user/library/${'target'.repeat(24)}`
+    const linked = tarTestArchive([
+      tarTestEntry('././@LongLink', 'K', terminated(longTarget)),
+      tarTestEntry('data/users/legacy-user/library/link', '2', new Uint8Array(), 'placeholder'),
+    ])
+    await expect(new TarGzipArchiveCodec().unpack(linked)).rejects.toThrow('不允许链接条目')
   })
 
   test('exports a consistent full-system SQLite snapshot', async () => {
@@ -60,6 +144,7 @@ describe('personal archive migration', () => {
     await sessions.create({ sessionId: 'other', userId: 'other-user', mode: 'resume' })
     const personal = new BunPersonalAgentRepository(source.db); personal.initialize()
     await personal.createDocument({ documentId: 'd1', userId: 'source-user', filename: 'notes.md', storedName: 'd1.md', extension: '.md', sizeBytes: 5 })
+    await personal.setDocumentStatus({ documentId: 'd1', userId: 'source-user', status: 'ready', chunkCount: 2 })
     await personal.createConversation({ conversationId: 'c1', userId: 'source-user', title: '成长计划' })
     const profile = defaultProfile(); profile.name = 'Source'; profile.stats.total_sessions = 5; profile.weak_points.push({ point: 'GIL', topic: 'python', times_seen: 1 })
     await source.profiles.save('source-user', profile)
@@ -74,7 +159,7 @@ describe('personal archive migration', () => {
     expect(result).toMatchObject({ db_inserted: 3, db_skipped: 0, requires_reindex: true })
     const database = new Database(target.db, { readonly: true })
     expect(database.query<{ user_id: string }, []>("SELECT user_id FROM sessions WHERE session_id = 's1'").get()?.user_id).toBe('target-user')
-    expect(database.query<{ user_id: string }, []>("SELECT user_id FROM personal_documents WHERE document_id = 'd1'").get()?.user_id).toBe('target-user')
+    expect(database.query<{ user_id: string; status: string; chunk_count: number }, []>("SELECT user_id, status, chunk_count FROM personal_documents WHERE document_id = 'd1'").get()).toEqual({ user_id: 'target-user', status: 'needs_reindex', chunk_count: 0 })
     expect(database.query<{ user_id: string }, []>("SELECT user_id FROM personal_conversations WHERE conversation_id = 'c1'").get()?.user_id).toBe('target-user')
     database.close()
     expect(new TextDecoder().decode(await readFile(join(targetRoot, 'data/users/target-user/library/d1.md')))).toBe('notes')

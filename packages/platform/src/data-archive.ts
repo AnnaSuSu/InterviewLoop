@@ -9,6 +9,7 @@ const DEFAULT_MAX_EXPANDED_ARCHIVE_BYTES = 1024 * 1024 * 1024
 const GZIP_INPUT_CHUNK_BYTES = 32 * 1024
 const EXCLUDED_DIRS = new Set(['.index_cache', '__pycache__'])
 const SENSITIVE_FILES = new Set(['provider.json', 'voiceprint.json'])
+const UTF8 = new TextDecoder('utf-8', { fatal: true })
 
 function text(bytes: Uint8Array, offset: number, length: number): string {
   const value = new TextDecoder().decode(bytes.slice(offset, offset + length)); return value.slice(0, value.indexOf('\0') < 0 ? undefined : value.indexOf('\0')).trim()
@@ -50,8 +51,69 @@ function validateTarChecksum(header: Uint8Array, path: string): void {
   const actual = copy.reduce((sum, value) => sum + value, 0)
   if (!Number.isFinite(expected) || expected !== actual) throw new Error(`archive 条目校验失败: ${path}`)
 }
-function safeArchivePath(path: string): void {
-  if (!path || path.startsWith('/') || path.includes('\\') || path.split('/').some((part) => part === '..' || part === '')) throw new Error(`archive 包含越界路径: ${path}`)
+function validateHeaderPath(path: string): void {
+  const normalized = path.replace(/\/+$/, '')
+  if (!normalized || path.startsWith('/') || path.includes('\\') || normalized.split('/').some((part) => part === '..' || part === '')) throw new Error(`archive 包含越界路径: ${path}`)
+}
+function safeArchivePath(path: string, directory = false): string {
+  const normalized = directory ? path.replace(/\/+$/, '') : path
+  if (!normalized || path.startsWith('/') || path.includes('\\') || normalized.includes('\0') || normalized.split('/').some((part) => part === '.' || part === '..' || part === '')) throw new Error(`archive 包含越界路径: ${path}`)
+  return normalized
+}
+function decodeUtf8(bytes: Uint8Array, label: string): string {
+  try { return UTF8.decode(bytes) } catch { throw new Error(`archive ${label} 不是有效的 UTF-8`)}
+}
+function tarSize(header: Uint8Array, path: string): number {
+  const field = header.slice(124, 136)
+  if ((field[0] || 0) & 0x80) {
+    if ((field[0] || 0) & 0x40) throw new Error(`archive 条目大小无效: ${path}`)
+    let value = BigInt((field[0] || 0) & 0x7f)
+    for (const byte of field.slice(1)) value = (value << 8n) + BigInt(byte)
+    if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error(`archive 条目过大: ${path}`)
+    return Number(value)
+  }
+  const value = text(header, 124, 12).replace(/\0/g, '').trim()
+  if (value && !/^[0-7]+$/.test(value)) throw new Error(`archive 条目大小无效: ${path}`)
+  const size = Number.parseInt(value || '0', 8)
+  if (!Number.isSafeInteger(size) || size < 0) throw new Error(`archive 条目大小无效: ${path}`)
+  return size
+}
+function paxSize(value: string, path: string): number {
+  if (!/^\d+$/.test(value)) throw new Error(`archive PAX 条目大小无效: ${path}`)
+  const size = Number(value)
+  if (!Number.isSafeInteger(size) || size < 0) throw new Error(`archive PAX 条目大小无效: ${path}`)
+  return size
+}
+function tarContent(tar: Uint8Array, offset: number, size: number, path: string): { content: Uint8Array; nextOffset: number } {
+  const padded = Math.ceil(size / BLOCK) * BLOCK
+  if (!Number.isSafeInteger(padded) || offset + padded > tar.length) throw new Error(`archive 条目损坏: ${path}`)
+  return { content: tar.slice(offset, offset + size), nextOffset: offset + padded }
+}
+function parsePaxRecords(content: Uint8Array): Map<string, string> {
+  const records = new Map<string, string>()
+  for (let offset = 0; offset < content.length;) {
+    const separator = content.indexOf(32, offset)
+    if (separator < 0) throw new Error('archive PAX 扩展头损坏')
+    const lengthText = new TextDecoder().decode(content.slice(offset, separator))
+    if (!/^[1-9]\d*$/.test(lengthText)) throw new Error('archive PAX 扩展头损坏')
+    const length = Number(lengthText); const end = offset + length
+    if (!Number.isSafeInteger(length) || end > content.length || content[end - 1] !== 10) throw new Error('archive PAX 扩展头损坏')
+    const equals = content.indexOf(61, separator + 1)
+    if (equals < 0 || equals >= end - 1) throw new Error('archive PAX 扩展头损坏')
+    const key = decodeUtf8(content.slice(separator + 1, equals), 'PAX 键')
+    if (!key || /[\0\n=]/.test(key)) throw new Error('archive PAX 扩展头损坏')
+    records.set(key, decodeUtf8(content.slice(equals + 1, end - 1), `PAX 字段 ${key}`))
+    offset = end
+  }
+  return records
+}
+function updateGlobalPax(target: Map<string, string>, values: Map<string, string>): void {
+  for (const [key, value] of values) { if (value === '') target.delete(key); else target.set(key, value) }
+}
+function gnuExtendedValue(content: Uint8Array, label: string): string {
+  const terminator = content.indexOf(0); const value = decodeUtf8(content.slice(0, terminator < 0 ? content.length : terminator), label)
+  if (!value) throw new Error(`archive ${label} 为空`)
+  return value
 }
 
 export class TarGzipArchiveCodec implements DataArchiveCodec {
@@ -66,22 +128,37 @@ export class TarGzipArchiveCodec implements DataArchiveCodec {
   }
 
   async unpack(bytes: Uint8Array): Promise<ArchiveContents> {
-    const tar = gunzipLimited(bytes, this.maxExpandedBytes); const files = new Map<string, Uint8Array>(); const seen = new Set<string>(); let manifest: ArchiveManifest | undefined; let database: Uint8Array | undefined
+    const tar = gunzipLimited(bytes, this.maxExpandedBytes); const files = new Map<string, Uint8Array>(); const seen = new Set<string>(); const globalPax = new Map<string, string>(); let pendingPax = new Map<string, string>(); let pendingLongName: string | undefined; let pendingLongLink: string | undefined; let manifest: ArchiveManifest | undefined; let database: Uint8Array | undefined
     for (let offset = 0; offset + BLOCK <= tar.length;) {
       const header = tar.slice(offset, offset + BLOCK); offset += BLOCK
       if (header.every((value) => value === 0)) break
-      const name = text(header, 0, 100); const prefix = text(header, 345, 155); const path = prefix ? `${prefix}/${name}` : name; safeArchivePath(path); validateTarChecksum(header, path)
+      const name = text(header, 0, 100); const prefix = text(header, 345, 155); const headerPath = prefix ? `${prefix}/${name}` : name; validateHeaderPath(headerPath); validateTarChecksum(header, headerPath)
+      const type = String.fromCharCode(header[156] || 48); const rawSize = tarSize(header, headerPath)
+      if (type === 'x' || type === 'g' || type === 'L' || type === 'K') {
+        const entry = tarContent(tar, offset, rawSize, headerPath); offset = entry.nextOffset
+        if (type === 'x') for (const [key, value] of parsePaxRecords(entry.content)) pendingPax.set(key, value)
+        else if (type === 'g') updateGlobalPax(globalPax, parsePaxRecords(entry.content))
+        else if (type === 'L') pendingLongName = gnuExtendedValue(entry.content, 'GNU longname')
+        else pendingLongLink = gnuExtendedValue(entry.content, 'GNU longlink')
+        continue
+      }
+      const localPath = pendingPax.get('path'); const globalPath = pendingPax.has('path') ? undefined : globalPax.get('path')
+      const path = safeArchivePath((localPath || pendingLongName || globalPath || headerPath), type === '5')
+      const localSize = pendingPax.get('size'); const globalSize = pendingPax.has('size') ? undefined : globalPax.get('size')
+      const size = localSize ? paxSize(localSize, path) : globalSize ? paxSize(globalSize, path) : rawSize
+      const entry = tarContent(tar, offset, size, path); const content = entry.content; offset = entry.nextOffset
+      const localLinkPath = pendingPax.get('linkpath'); const globalLinkPath = pendingPax.has('linkpath') ? undefined : globalPax.get('linkpath')
+      const linkPath = localLinkPath || pendingLongLink || globalLinkPath || text(header, 157, 100)
+      pendingPax = new Map(); pendingLongName = undefined; pendingLongLink = undefined
       if (seen.has(path)) throw new Error(`archive 包含重复条目: ${path}`); seen.add(path)
-      const type = String.fromCharCode(header[156] || 48); if (type === '1' || type === '2') throw new Error(`archive 不允许链接条目: ${path}`)
-      const size = Number.parseInt(text(header, 124, 12).replace(/\0/g, '').trim() || '0', 8); const padded = Math.ceil(size / BLOCK) * BLOCK
-      if (!Number.isFinite(size) || size < 0 || offset + padded > tar.length) throw new Error(`archive 条目损坏: ${path}`)
-      const content = tar.slice(offset, offset + size); offset += padded
+      if (type === '1' || type === '2') { if (linkPath) safeArchivePath(linkPath); throw new Error(`archive 不允许链接条目: ${path}`) }
       if (type === '5') continue
       if (type !== '0' && type !== '\0') throw new Error(`archive 包含不支持的条目: ${path}`)
       if (path === 'manifest.json') { const value = JSON.parse(new TextDecoder().decode(content)) as unknown; if (value && typeof value === 'object' && !Array.isArray(value)) manifest = value as ArchiveManifest }
       else if (path === 'data/interviews.db') database = content
       else files.set(path, content)
     }
+    if (pendingPax.size || pendingLongName || pendingLongLink) throw new Error('archive 扩展头缺少后续条目')
     return { ...(manifest ? { manifest } : {}), ...(database ? { database } : {}), files }
   }
 }

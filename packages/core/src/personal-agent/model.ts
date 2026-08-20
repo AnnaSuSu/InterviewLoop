@@ -12,7 +12,7 @@ export type PersonalDocument = {
   stored_name?: string
   extension: string
   size_bytes: number
-  status: 'indexing' | 'ready' | 'error'
+  status: 'indexing' | 'needs_reindex' | 'ready' | 'error'
   chunk_count: number
   error?: string | null
   created_at: string

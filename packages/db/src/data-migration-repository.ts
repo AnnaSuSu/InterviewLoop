@@ -102,7 +102,7 @@ export class BunDataMigrationRepository implements MigrationDatabase {
     try {
       if (exists(database, 'memory_vectors')) database.query('DELETE FROM memory_vectors WHERE user_id = $userId').run({ $userId: userId })
       if (exists(database, 'question_embeddings')) database.query('DELETE FROM question_embeddings WHERE user_id = $userId').run({ $userId: userId })
-      if (exists(database, 'personal_documents')) database.query("UPDATE personal_documents SET status = 'indexing', chunk_count = 0, error = NULL, updated_at = CURRENT_TIMESTAMP WHERE user_id = $userId").run({ $userId: userId })
+      if (exists(database, 'personal_documents')) database.query("UPDATE personal_documents SET status = 'needs_reindex', chunk_count = 0, error = NULL, updated_at = CURRENT_TIMESTAMP WHERE user_id = $userId").run({ $userId: userId })
     } finally { database.close() }
   }
 }

@@ -9,7 +9,7 @@ export interface PersonalAgentRepository {
   listDocuments(userId: string): Promise<PersonalDocument[]>
   getDocument(documentId: string, userId: string): Promise<PersonalDocument | undefined>
   createDocument(input: { documentId: string; userId: string; filename: string; storedName: string; extension: string; sizeBytes: number }): Promise<void>
-  setDocumentStatus(input: { documentId: string; userId: string; status: 'indexing' | 'ready' | 'error'; chunkCount?: number; error?: string }): Promise<void>
+  setDocumentStatus(input: { documentId: string; userId: string; status: PersonalDocument['status']; chunkCount?: number; error?: string }): Promise<void>
   deleteDocument(documentId: string, userId: string): Promise<boolean>
   replaceDocumentChunks(input: { documentId: string; userId: string; filename: string; chunks: Array<{ content: string; embedding: Float32Array }> }): Promise<void>
   deleteDocumentChunks(documentId: string, userId: string): Promise<void>

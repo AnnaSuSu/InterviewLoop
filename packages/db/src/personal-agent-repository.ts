@@ -61,7 +61,7 @@ export class BunPersonalAgentRepository implements PersonalAgentRepository {
   async createDocument(input: { documentId: string; userId: string; filename: string; storedName: string; extension: string; sizeBytes: number }): Promise<void> {
     this.sqlite.query("INSERT INTO personal_documents (document_id, user_id, filename, stored_name, extension, size_bytes, status) VALUES ($id, $userId, $filename, $storedName, $extension, $size, 'indexing')").run({ $id: input.documentId, $userId: input.userId, $filename: input.filename, $storedName: input.storedName, $extension: input.extension, $size: input.sizeBytes })
   }
-  async setDocumentStatus(input: { documentId: string; userId: string; status: 'indexing' | 'ready' | 'error'; chunkCount?: number; error?: string }): Promise<void> {
+  async setDocumentStatus(input: { documentId: string; userId: string; status: PersonalDocument['status']; chunkCount?: number; error?: string }): Promise<void> {
     this.sqlite.query('UPDATE personal_documents SET status = $status, chunk_count = $count, error = $error, updated_at = CURRENT_TIMESTAMP WHERE document_id = $id AND user_id = $userId').run({ $status: input.status, $count: input.chunkCount || 0, $error: input.error ?? null, $id: input.documentId, $userId: input.userId })
   }
   async deleteDocument(documentId: string, userId: string): Promise<boolean> { return this.sqlite.query('DELETE FROM personal_documents WHERE document_id = $id AND user_id = $userId').run({ $id: documentId, $userId: userId }).changes > 0 }
