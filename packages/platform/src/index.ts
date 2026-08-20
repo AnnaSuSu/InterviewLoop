@@ -20,7 +20,9 @@ export type AppConfig = {
   platformEmbeddingModel: string
   platformDailyCallLimit: number
   voiceprintEncryptionKey: string
+  host: string
   port: number
+  webDir?: string
 }
 
 const truthy = new Set(['1', 'true', 'yes', 'on'])
@@ -45,7 +47,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     platformEmbeddingModel: env.PLATFORM_EMBEDDING_MODEL || '',
     platformDailyCallLimit: Number(env.PLATFORM_DAILY_CALL_LIMIT || 0),
     voiceprintEncryptionKey: env.VOICEPRINT_ENCRYPTION_KEY || env.JWT_SECRET || 'change-me-in-production',
+    host: env.HOST || '0.0.0.0',
     port: Number(env.PORT || 8000),
+    ...(env.TECHSPAR_WEB_DIR ? { webDir: resolve(env.TECHSPAR_WEB_DIR) } : {}),
   }
 }
 

@@ -33,6 +33,7 @@ import { registerDataMigrationRoutes } from './routes/data-migration.ts'
 import { registerRecordingRoutes } from './routes/recording.ts'
 import { registerCopilotRoutes, registerCopilotWebSocket } from './routes/copilot.ts'
 import { registerVoiceprintRoutes } from './routes/voiceprint.ts'
+import { registerStaticFrontend } from './http/static-frontend.ts'
 
 export type AppDependencies = {
   auth: AuthUseCases
@@ -52,6 +53,7 @@ export type AppDependencies = {
   copilotRealtime?: CopilotRealtimeUseCases
   websocketUpgrade?: UpgradeWebSocket
   voiceprint?: VoiceprintUseCases
+  webDir?: string
 }
 
 export function createApp(deps: AppDependencies): OpenAPIHono {
@@ -82,5 +84,6 @@ export function createApp(deps: AppDependencies): OpenAPIHono {
   if (deps.copilotRealtime && deps.websocketUpgrade) registerCopilotWebSocket(app, { realtime: deps.copilotRealtime, tokens: deps.tokens, upgrade: deps.websocketUpgrade })
   if (deps.voiceprint) registerVoiceprintRoutes(app, { voiceprint: deps.voiceprint, tokens: deps.tokens })
   app.doc('/openapi.json', { openapi: '3.1.0', info: { title: 'TechSpar', version: '0.2.0' } })
+  if (deps.webDir) registerStaticFrontend(app, deps.webDir)
   return app
 }

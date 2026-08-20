@@ -1,0 +1,40 @@
+appId: top.techspar.desktop
+productName: TechSpar
+artifactName: TechSpar-${version}-${os}-${arch}.${ext}
+asar: true
+npmRebuild: false
+directories:
+  output: ../../dist/desktop
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+  - "!node_modules/**/*"
+extraResources:
+  - from: resources/backend
+    to: backend
+    filter:
+      - "**/*"
+  - from: ../../frontend/dist
+    to: web
+    filter:
+      - "**/*"
+mac:
+  category: public.app-category.education
+  icon: build/icon.png
+  target:
+    - dmg
+    - zip
+win:
+  icon: build/icon.png
+  target:
+    - nsis
+linux:
+  icon: build/icon.png
+  category: Education
+  target:
+    - AppImage
+    - deb
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

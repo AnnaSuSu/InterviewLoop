@@ -1,0 +1,165 @@
+import { access } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { createServer } from 'node:net'
+import { fileURLToPath } from 'node:url'
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
+import { BackendSupervisor, type BackendLaunch, type BackendReady } from './backend-supervisor.ts'
+import { DESKTOP_RUNTIME_CHANNEL, type DesktopRuntimeInfo } from './contracts.ts'
+import { loadOrCreateRuntimeSecrets } from './runtime-secrets.ts'
+
+app.enableSandbox()
+if (process.env.TECHSPAR_DESKTOP_USER_DATA_DIR) app.setPath('userData', resolve(process.env.TECHSPAR_DESKTOP_USER_DATA_DIR))
+const singleInstance = app.requestSingleInstanceLock()
+if (!singleInstance) app.quit()
+
+const sourceDir = fileURLToPath(new URL('.', import.meta.url))
+let mainWindow: BrowserWindow | undefined
+let backend: BackendSupervisor | undefined
+let backendReady: BackendReady | undefined
+let rendererOrigin = ''
+let quitting = false
+
+function sameOrigin(candidate: string, expected: string): boolean {
+  try { return new URL(candidate).origin === new URL(expected).origin } catch { return false }
+}
+
+function projectRoot(): string {
+  return resolve(process.env.TECHSPAR_PROJECT_ROOT || join(app.getAppPath(), '..', '..'))
+}
+
+async function freePort(): Promise<number> {
+  return new Promise((resolvePort, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address()
+      server.close((error) => error ? reject(error) : resolvePort(typeof address === 'object' && address ? address.port : 0))
+    })
+  })
+}
+
+async function backendLaunch(): Promise<BackendLaunch> {
+  const userData = app.getPath('userData')
+  const dataDir = join(userData, 'data')
+  const secrets = await loadOrCreateRuntimeSecrets(join(userData, 'runtime-secrets.json'))
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOST: '127.0.0.1',
+    PORT: app.isPackaged ? String(await freePort()) : process.env.TECHSPAR_DESKTOP_API_PORT || '8000',
+    TECHSPAR_BASE_DIR: userData,
+    TECHSPAR_DATA_DIR: dataDir,
+    DB_PATH: join(dataDir, 'interviews.db'),
+    TECHSPAR_MODEL_CACHE_DIR: join(userData, 'models'),
+    JWT_SECRET: process.env.JWT_SECRET || secrets.jwtSecret,
+    VOICEPRINT_ENCRYPTION_KEY: process.env.VOICEPRINT_ENCRYPTION_KEY || secrets.voiceprintKey,
+  }
+  if (app.isPackaged) {
+    const executable = join(process.resourcesPath, 'backend', process.platform === 'win32' ? 'techspar-api.exe' : 'techspar-api')
+    const onnxRuntime = join(process.resourcesPath, 'backend', 'onnxruntime')
+    const webDir = join(process.resourcesPath, 'web')
+    await Promise.all([access(executable), access(onnxRuntime), access(join(webDir, 'index.html'))])
+    if (process.platform === 'darwin') env.DYLD_LIBRARY_PATH = [onnxRuntime, process.env.DYLD_LIBRARY_PATH].filter(Boolean).join(':')
+    else if (process.platform === 'linux') env.LD_LIBRARY_PATH = [onnxRuntime, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':')
+    else env.PATH = [onnxRuntime, process.env.PATH].filter(Boolean).join(';')
+    env.TECHSPAR_WEB_DIR = webDir
+    return { command: executable, args: [], cwd: userData, env }
+  }
+  const root = projectRoot()
+  return { command: process.env.TECHSPAR_BUN_EXECUTABLE || 'bun', args: ['apps/api/src/entry.bun.ts'], cwd: root, env }
+}
+
+function runtimeInfo(): DesktopRuntimeInfo {
+  return {
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    electronVersion: process.versions.electron || '',
+    chromeVersion: process.versions.chrome || '',
+    nodeVersion: process.versions.node,
+  }
+}
+
+function registerIpc(): void {
+  ipcMain.handle(DESKTOP_RUNTIME_CHANNEL, (event) => {
+    if (!event.senderFrame?.url || !sameOrigin(event.senderFrame.url, rendererOrigin)) throw new Error('Untrusted IPC sender')
+    return runtimeInfo()
+  })
+}
+
+function configurePermissions(window: BrowserWindow): void {
+  const allowed = (webContents: Electron.WebContents | null, permission: string, requestingOrigin?: string) => {
+    return webContents === window.webContents && permission === 'media' && Boolean(requestingOrigin && sameOrigin(requestingOrigin, rendererOrigin))
+  }
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => allowed(webContents, permission, requestingOrigin))
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => callback(allowed(webContents, permission, details.requestingUrl)))
+}
+
+async function createWindow(): Promise<void> {
+  if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); return }
+  const window = new BrowserWindow({
+    width: 1440,
+    height: 920,
+    minWidth: 1060,
+    minHeight: 700,
+    backgroundColor: '#09090b',
+    show: false,
+    title: 'TechSpar',
+    webPreferences: {
+      preload: resolve(sourceDir, '..', 'preload', 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+    },
+  })
+  mainWindow = window
+  configurePermissions(window)
+  window.once('ready-to-show', () => window.show())
+  window.on('closed', () => { if (mainWindow === window) mainWindow = undefined })
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  window.webContents.on('will-navigate', (event, url) => {
+    if (sameOrigin(url, rendererOrigin)) return
+    event.preventDefault()
+    if (url.startsWith('https://')) void shell.openExternal(url)
+  })
+  await window.loadURL(process.env.TECHSPAR_RENDERER_URL || backendReady!.origin)
+}
+
+async function smokeTest(): Promise<void> {
+  const response = await fetch(`${backendReady!.origin}/api/`, { signal: AbortSignal.timeout(10_000) })
+  if (!response.ok) throw new Error(`Desktop backend smoke failed with HTTP ${response.status}`)
+  console.log(JSON.stringify({ event: 'techspar:desktop-smoke-ok', packaged: app.isPackaged, port: backendReady!.port, runtime: runtimeInfo() }))
+}
+
+async function boot(): Promise<void> {
+  if (!singleInstance) return
+  await app.whenReady()
+  backend = new BackendSupervisor(await backendLaunch(), (message) => {
+    if (quitting) return
+    dialog.showErrorBox('TechSpar 服务意外退出', message)
+    app.quit()
+  })
+  backendReady = await backend.start()
+  rendererOrigin = process.env.TECHSPAR_RENDERER_URL || backendReady.origin
+  if (process.argv.includes('--smoke-test')) { await smokeTest(); quitting = true; await backend.stop(); app.exit(0); return }
+  registerIpc()
+  await createWindow()
+}
+
+app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus() } })
+app.on('activate', () => { if (backendReady) void createWindow() })
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
+app.on('before-quit', (event) => {
+  if (quitting || !backend) return
+  event.preventDefault(); quitting = true
+  void backend.stop().finally(() => app.quit())
+})
+
+void boot().catch((error) => {
+  const message = error instanceof Error ? error.stack || error.message : String(error)
+  dialog.showErrorBox('TechSpar 启动失败', message)
+  app.exit(1)
+})

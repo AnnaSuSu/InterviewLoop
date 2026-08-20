@@ -130,7 +130,9 @@ export class OpenAiEmbeddingDriverFactory implements EmbeddingDriverFactory {
       }
     }
 
-    const { pipeline } = await import('@huggingface/transformers')
+    const { env, pipeline } = await import('@huggingface/transformers')
+    const cacheDir = process.env.TECHSPAR_MODEL_CACHE_DIR?.trim()
+    if (cacheDir) env.cacheDir = cacheDir
     const model = config.local_path || config.local_model || DEFAULT_EMBEDDING_MODEL
     const extractor = await pipeline('feature-extraction', model, { dtype: 'fp32' })
     return {

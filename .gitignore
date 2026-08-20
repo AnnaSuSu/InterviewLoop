@@ -11,6 +11,7 @@ node_modules/
 package-lock.json
 frontend/dist/
 dist/
+apps/desktop/resources/backend/
 demo_imges/
 # 生成素材原图/草稿目录，最终优化版已放进 frontend/src/assets/
 images/images2/

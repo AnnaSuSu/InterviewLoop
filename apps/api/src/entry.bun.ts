@@ -48,6 +48,11 @@ const config = loadConfig()
 mkdirSync(dirname(config.dbPath), { recursive: true })
 const users = new BunUserRepository(config.dbPath, config.defaultEmail)
 users.initialize()
+const passwordHasher = new BcryptPasswordHasher()
+const ids = new ShortUuidGenerator()
+if (!await users.findByEmail(config.defaultEmail)) {
+  await users.create({ id: ids.next(), email: config.defaultEmail, password: await passwordHasher.hash(config.defaultPassword), name: config.defaultName })
+}
 const usageRepository = new BunUsageRepository(config.dbPath)
 usageRepository.initialize()
 const settingsRepository = new FileProviderSettingsRepository(config.dataDir)
@@ -56,9 +61,9 @@ const registration = { allowRegistration: persistedSystem?.allow_registration ??
 const tokens = new JoseTokenService(config.jwtSecret)
 const auth = new AuthService(
   users,
-  new BcryptPasswordHasher(),
+  passwordHasher,
   tokens,
-  new ShortUuidGenerator(),
+  ids,
   registration,
 )
 const platform: PlatformProviderConfig = {
@@ -124,7 +129,8 @@ taskQueue.register('copilot_prep', (task) => copilotPrep.runPrepTask(task))
 taskQueue.register('retrospective', (task) => profile.runRetrospectiveTask(task))
 await taskQueue.start()
 const { upgradeWebSocket, websocket } = createBunWebSocket()
-const app = createApp({ auth, registration, settings, settingsOperations, quota, tokens, knowledge, resume, interview, profile, personalAgent, migration, recording, copilotPrep, copilotRealtime, websocketUpgrade: upgradeWebSocket, voiceprint })
+const app = createApp({ auth, registration, settings, settingsOperations, quota, tokens, knowledge, resume, interview, profile, personalAgent, migration, recording, copilotPrep, copilotRealtime, websocketUpgrade: upgradeWebSocket, voiceprint, webDir: config.webDir })
 
-const server = Bun.serve({ port: config.port, fetch: app.fetch, websocket })
-console.log(`TechSpar Hono API listening on http://localhost:${server.port}`)
+const server = Bun.serve({ hostname: config.host, port: config.port, fetch: app.fetch, websocket })
+console.log(JSON.stringify({ event: 'techspar:ready', host: config.host, port: server.port }))
+for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => { void server.stop(true).finally(() => process.exit(0)) })
