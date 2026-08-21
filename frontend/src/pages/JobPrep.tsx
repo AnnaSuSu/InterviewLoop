@@ -208,10 +208,14 @@ export default function JobPrep({ embedded = false }: JobPrepProps) {
   };
 
   const handleStart = async () => {
+    if (!preview) return;
     setStarting(true);
     setError("");
     try {
-      const data = await startJobPrep({ ...payload, preview_data: preview }) as unknown as { session_id: string; [key: string]: unknown };
+      const data = await startJobPrep({
+        ...payload,
+        preview_data: { ...preview },
+      }) as unknown as { session_id: string; [key: string]: unknown };
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       navigate(`/interview/${data.session_id}`, { state: data });
     } catch (err) {

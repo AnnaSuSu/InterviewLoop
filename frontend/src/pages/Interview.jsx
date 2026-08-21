@@ -6,6 +6,7 @@ import ChatBubble from "../components/ChatBubble";
 import { sendMessage, sendMessageStream, endInterview, retryReview, getResumableSession, saveDraftAnswers } from "../api/interview";
 import useTaskStatus from "../hooks/useTaskStatus";
 import useVoiceInput from "../hooks/useVoiceInput";
+import { buildInterviewAnswers } from "../lib/interviewAnswers";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -194,11 +195,7 @@ export default function Interview() {
     if (submitted && !isRetry) return;
     setSubmitting(true);
     try {
-      const answerList = questions.map((q) => ({
-        question_id: q.id,
-        answer: answers[q.id] || "",
-        ...(confidences[q.id] ? { confidence: confidences[q.id] === "high" ? 1 : 0 } : {}),
-      }));
+      const answerList = buildInterviewAnswers(questions, answers, confidences);
       await endInterview(sessionId, answerList);
       setSubmitted(true);
       setFinished(true);
