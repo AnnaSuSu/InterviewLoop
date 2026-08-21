@@ -7,6 +7,30 @@ type JsonBody<T> = T extends { content: { "application/json": infer J } }
   ? J
   : unknown;
 
+type Operation<
+  P extends keyof paths,
+  M extends keyof paths[P],
+> = NonNullable<paths[P][M]>;
+
+type RequestBody<
+  P extends keyof paths,
+  M extends keyof paths[P],
+> = Operation<P, M> extends { requestBody?: infer R } ? NonNullable<R> : never;
+
+/**
+ * 按路径/方法从生成的 openapi schema 提取请求体类型。
+ * 默认提取 JSON；上传接口可把第三个参数指定为 multipart/form-data。
+ */
+export type ApiRequestBody<
+  P extends keyof paths,
+  M extends keyof paths[P],
+  MediaType extends string = "application/json",
+> = RequestBody<P, M> extends { content: infer Content }
+  ? MediaType extends keyof Content
+    ? Content[MediaType]
+    : never
+  : never;
+
 /**
  * 按路径/方法从生成的 openapi schema 提取 200 响应的 JSON 类型。
  * 后端目前未声明 response_model,一律解析为 unknown;

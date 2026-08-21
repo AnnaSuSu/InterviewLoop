@@ -1,4 +1,10 @@
-import { API_BASE, authFetch, consumeSSE, type ApiResponse } from "./client";
+import {
+  API_BASE,
+  authFetch,
+  consumeSSE,
+  type ApiRequestBody,
+  type ApiResponse,
+} from "./client";
 
 // 兼容旧引用:authFetch 历史上从本模块导出
 export { authFetch } from "./client";
@@ -92,19 +98,33 @@ export async function parseUploadedResume(): Promise<
 
 // ── Interview ──
 
+type StartInterviewBody = ApiRequestBody<"/api/interview/start", "post">;
+type InterviewMode = StartInterviewBody["mode"];
+type JobPrepPreviewBody = ApiRequestBody<"/api/job-prep/preview", "post">;
+type JobPrepStartBody = ApiRequestBody<"/api/job-prep/start", "post">;
+type EndInterviewBody = ApiRequestBody<
+  "/api/interview/end/{session_id}",
+  "post"
+>;
+type DraftInterviewBody = ApiRequestBody<
+  "/api/interview/draft/{session_id}",
+  "post"
+>;
+type InterviewAnswers = NonNullable<EndInterviewBody["answers"]>;
+
 interface StartInterviewOptions {
-  numQuestions?: number;
-  divergence?: number;
-  targetRole?: string;
-  jobDescription?: string;
+  numQuestions?: StartInterviewBody["num_questions"];
+  divergence?: StartInterviewBody["divergence"];
+  targetRole?: StartInterviewBody["target_role"];
+  jobDescription?: StartInterviewBody["job_description"];
 }
 
 export async function startInterview(
-  mode: string,
-  topic: string | null = null,
+  mode: InterviewMode,
+  topic: StartInterviewBody["topic"] = null,
   { numQuestions, divergence, targetRole, jobDescription }: StartInterviewOptions = {}
 ): Promise<ApiResponse<"/api/interview/start", "post">> {
-  const body: Record<string, unknown> = { mode, topic };
+  const body: StartInterviewBody = { mode, topic };
   if (numQuestions != null) body.num_questions = numQuestions;
   if (divergence != null) body.divergence = divergence;
   if (targetRole != null) body.target_role = targetRole;
@@ -129,7 +149,7 @@ export async function inferTargetRole(): Promise<
 }
 
 export async function previewJobPrep(
-  payload: Record<string, unknown>
+  payload: JobPrepPreviewBody
 ): Promise<ApiResponse<"/api/job-prep/preview", "post">> {
   const res = await authFetch(`${API_BASE}/job-prep/preview`, {
     method: "POST",
@@ -141,7 +161,7 @@ export async function previewJobPrep(
 }
 
 export async function startJobPrep(
-  payload: Record<string, unknown>
+  payload: JobPrepStartBody
 ): Promise<ApiResponse<"/api/job-prep/start", "post">> {
   const res = await authFetch(`${API_BASE}/job-prep/start`, {
     method: "POST",
@@ -198,7 +218,7 @@ export async function sendMessageStream(
 
 export async function endInterview(
   sessionId: string,
-  answers: Record<string, unknown> | null = null
+  answers: InterviewAnswers | null = null
 ): Promise<ApiResponse<"/api/interview/end/{session_id}", "post">> {
   const options: RequestInit = { method: "POST" };
   if (answers) {
@@ -212,7 +232,7 @@ export async function endInterview(
 
 export async function saveDraftAnswers(
   sessionId: string,
-  answers: Record<string, unknown>
+  answers: NonNullable<DraftInterviewBody["answers"]>
 ): Promise<ApiResponse<"/api/interview/draft/{session_id}", "post">> {
   const res = await authFetch(`${API_BASE}/interview/draft/${sessionId}`, {
     method: "POST",
@@ -264,7 +284,10 @@ export async function getTaskStatus(
 
 export async function getReferenceAnswer(
   sessionId: string,
-  questionId: string
+  questionId: ApiRequestBody<
+    "/api/interview/reference-answer",
+    "post"
+  >["question_id"]
 ): Promise<ApiResponse<"/api/interview/reference-answer", "post">> {
   const res = await authFetch(`${API_BASE}/interview/reference-answer`, {
     method: "POST",
@@ -278,7 +301,7 @@ export async function getReferenceAnswer(
 export async function getHistory(
   limit = 20,
   offset = 0,
-  mode: string | null = null,
+  mode: InterviewMode | null = null,
   topic: string | null = null
 ): Promise<ApiResponse<"/api/interview/history", "get">> {
   const params = new URLSearchParams({
@@ -334,8 +357,14 @@ export async function markProfileViewed(): Promise<
 }
 
 export async function sendPatternFeedback(
-  point: string,
-  verdict: string
+  point: ApiRequestBody<
+    "/api/profile/pattern/feedback",
+    "post"
+  >["point"],
+  verdict: ApiRequestBody<
+    "/api/profile/pattern/feedback",
+    "post"
+  >["verdict"]
 ): Promise<ApiResponse<"/api/profile/pattern/feedback", "post">> {
   const res = await authFetch(`${API_BASE}/profile/pattern/feedback`, {
     method: "POST",
@@ -459,7 +488,13 @@ export async function generateKnowledge(
 
 export async function transcribeRecording(
   audioBlob: Blob & { name?: string },
-  mode = "dual"
+  mode: NonNullable<
+    ApiRequestBody<
+      "/api/recording/transcribe",
+      "post",
+      "multipart/form-data"
+    >["mode"]
+  > = "dual"
 ): Promise<ApiResponse<"/api/recording/transcribe", "post">> {
   const form = new FormData();
   form.append("file", audioBlob, audioBlob.name || "recording.webm");
@@ -473,12 +508,14 @@ export async function transcribeRecording(
 }
 
 export async function analyzeRecording(
-  transcript: string,
-  recordingMode: string,
-  company?: string,
-  position?: string
+  transcript: ApiRequestBody<"/api/recording/analyze", "post">["transcript"],
+  recordingMode: NonNullable<
+    ApiRequestBody<"/api/recording/analyze", "post">["recording_mode"]
+  >,
+  company?: ApiRequestBody<"/api/recording/analyze", "post">["company"],
+  position?: ApiRequestBody<"/api/recording/analyze", "post">["position"]
 ): Promise<ApiResponse<"/api/recording/analyze", "post">> {
-  const body: Record<string, unknown> = {
+  const body: ApiRequestBody<"/api/recording/analyze", "post"> = {
     transcript,
     recording_mode: recordingMode,
   };
@@ -529,7 +566,7 @@ export async function getSettings(): Promise<
 }
 
 export async function updateSettings(
-  payload: Record<string, unknown>
+  payload: ApiRequestBody<"/api/settings", "put">
 ): Promise<ApiResponse<"/api/settings", "put">> {
   const res = await authFetch(`${API_BASE}/settings`, {
     method: "PUT",
@@ -540,31 +577,25 @@ export async function updateSettings(
   return res.json();
 }
 
-interface LLMConnectionPayload {
-  api_base?: string;
-  api_key?: string;
-  model?: string;
-}
+type LLMConnectionPayload = ApiRequestBody<"/api/settings/test-llm", "post">;
 
 // 连接测试：探测「表单里当前填的」配置（尚未保存也能测），返回 { ok, error }
-export async function testLLMConnection({
-  api_base,
-  api_key,
-  model,
-}: LLMConnectionPayload): Promise<
+export async function testLLMConnection(
+  payload: LLMConnectionPayload
+): Promise<
   ApiResponse<"/api/settings/test-llm", "post">
 > {
   const res = await authFetch(`${API_BASE}/settings/test-llm`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ api_base, api_key, model }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 export async function testEmbeddingConnection(
-  payload: Record<string, unknown>
+  payload: ApiRequestBody<"/api/settings/test-embedding", "post">
 ): Promise<ApiResponse<"/api/settings/test-embedding", "post">> {
   const res = await authFetch(`${API_BASE}/settings/test-embedding`, {
     method: "POST",
