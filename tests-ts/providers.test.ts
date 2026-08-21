@@ -1,6 +1,57 @@
 import { describe, expect, test } from 'bun:test'
-import { DEFAULT_EMBEDDING_MODEL } from '@techspar/core'
-import { ApiEmbeddingClient, PcmSpeechSegmenter, normalizeEmbeddingApiBase } from '@techspar/providers'
+import { DEFAULT_EMBEDDING_MODEL, USER_PROVIDER } from '@techspar/core'
+import { ApiEmbeddingClient, OpenAiChatDriverFactory, PcmSpeechSegmenter, normalizeEmbeddingApiBase } from '@techspar/providers'
+
+function completion(choices: unknown, usage = { prompt_tokens: 1, completion_tokens: 0, total_tokens: 1 }) {
+  return { id: 'chatcmpl-test', object: 'chat.completion', created: 0, model: 'test-model', choices, usage }
+}
+
+function chatFetch(replies: unknown[], requests: Array<Record<string, unknown>>): typeof globalThis.fetch {
+  return (async (_input: string | URL | Request, init?: RequestInit) => {
+    requests.push(JSON.parse(String(init?.body || '{}')) as Record<string, unknown>)
+    const reply = replies.length > 1 ? replies.shift() : replies[0]
+    return new Response(JSON.stringify(reply), { status: 200, headers: { 'content-type': 'application/json' } })
+  }) as typeof globalThis.fetch
+}
+
+describe('chat provider compatibility', () => {
+  const config = { api_base: 'https://example.test/v1', api_key: 'key', model: 'test-model', temperature: 0.7, source: USER_PROVIDER }
+  const valid = completion([{ index: 0, message: { role: 'assistant', content: '[{"id":1,"question":"题目"}]' }, finish_reason: 'stop' }], { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 })
+
+  test('retries null choices with backoff and preserves the output limit', async () => {
+    const requests: Array<Record<string, unknown>> = []
+    const delays: number[] = []
+    const factory = new OpenAiChatDriverFactory({
+      fetch: chatFetch([completion(null), valid], requests),
+      retryDelaysMs: [10, 20],
+      sleep: async (milliseconds) => { delays.push(milliseconds) },
+    })
+    const result = await factory.create(config).complete([{ role: 'user', content: 'generate' }], new AbortController().signal, { maxTokens: 4096 })
+
+    expect(result).toEqual({ text: '[{"id":1,"question":"题目"}]', promptTokens: 4, completionTokens: 4 })
+    expect(delays).toEqual([10])
+    expect(requests).toHaveLength(2)
+    expect(requests.every((request) => request.max_tokens === 4096)).toBeTrue()
+  })
+
+  test('raises a readable 502 after repeated null choices', async () => {
+    const requests: Array<Record<string, unknown>> = []
+    const delays: number[] = []
+    const factory = new OpenAiChatDriverFactory({
+      fetch: chatFetch([completion(null)], requests),
+      retryDelaysMs: [10, 20],
+      sleep: async (milliseconds) => { delays.push(milliseconds) },
+    })
+
+    await expect(factory.create(config).complete([{ role: 'user', content: 'generate' }], new AbortController().signal)).rejects.toMatchObject({
+      status: 502,
+      code: 'provider_response_error',
+      message: '模型服务连续返回空内容，已自动重试，请稍后再试或更换模型。',
+    })
+    expect(requests).toHaveLength(3)
+    expect(delays).toEqual([10, 20])
+  })
+})
 
 describe('embedding provider compatibility', () => {
   test('defaults local inference to a Transformers.js ONNX checkpoint', () => {

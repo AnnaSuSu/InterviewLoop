@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { CopilotPrepUseCases, InterviewUseCases, JobPrepInput, PersonalAgentUseCases, StartInterviewInput } from '@techspar/core'
+import { ProviderResponseError, type CopilotPrepUseCases, type InterviewUseCases, type JobPrepInput, type PersonalAgentUseCases, type StartInterviewInput } from '@techspar/core'
 import { createApp, type AppDependencies } from '../apps/api/src/app.ts'
 
 const unavailable = new Proxy({}, { get() { return () => Promise.reject(new Error('unexpected dependency call')) } })
@@ -93,6 +93,16 @@ describe('legacy nullable HTTP request contracts', () => {
 })
 
 describe('FastAPI-compatible HTTP validation', () => {
+  test('keeps provider response failures as a readable 502', async () => {
+    const interview = { async start() { throw new ProviderResponseError('模型服务连续返回空内容，请稍后再试。') } } as unknown as InterviewUseCases
+    const response = await boundaryApp({ interview }).request('/api/interview/start', {
+      method: 'POST', headers, body: JSON.stringify({ mode: 'topic_drill', topic: 'typescript' }),
+    })
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({ detail: '模型服务连续返回空内容，请稍后再试。', code: 'provider_response_error' })
+  })
+
   test('keeps malformed JSON as a JSON 400 response', async () => {
     const response = await boundaryApp({}).request('/api/auth/login', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: '{',

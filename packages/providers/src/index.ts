@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { createHash, createHmac, randomUUID } from 'node:crypto'
 import {
   DEFAULT_EMBEDDING_MODEL,
+  ProviderResponseError,
   embeddingModeOf,
   normalizeEmbeddingApiBase,
   type ChatDriver,
@@ -24,25 +25,61 @@ import {
 
 export { normalizeEmbeddingApiBase } from '@techspar/core'
 
+const DEFAULT_EMPTY_COMPLETION_RETRY_DELAYS_MS = [250, 750] as const
+
+type ChatFactoryOptions = {
+  fetch?: typeof globalThis.fetch
+  retryDelaysMs?: readonly number[]
+  sleep?: (milliseconds: number, signal: AbortSignal) => Promise<void>
+}
+
+async function abortableSleep(milliseconds: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) throw signal.reason || new Error('Request aborted')
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, milliseconds)
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal.reason || new Error('Request aborted'))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 export class OpenAiChatDriverFactory implements ChatDriverFactory {
+  constructor(private readonly options: ChatFactoryOptions = {}) {}
+
   create(config: ResolvedLlmConfig): ChatDriver {
-    const client = new OpenAI({ apiKey: config.api_key, baseURL: config.api_base || undefined })
+    const client = new OpenAI({
+      apiKey: config.api_key,
+      baseURL: config.api_base || undefined,
+      ...(this.options.fetch ? { fetch: this.options.fetch } : {}),
+    })
+    const retryDelaysMs = this.options.retryDelaysMs || DEFAULT_EMPTY_COMPLETION_RETRY_DELAYS_MS
+    const sleep = this.options.sleep || abortableSleep
     return {
       async complete(messages: readonly ChatMessage[], signal: AbortSignal, options?: { maxTokens?: number; temperature?: number }) {
-        const response = await client.chat.completions.create(
-          {
-            model: config.model,
-            messages: [...messages],
-            temperature: options?.temperature ?? config.temperature,
-            ...(options?.maxTokens === undefined ? {} : { max_tokens: options.maxTokens }),
-          },
-          { signal },
-        )
-        return {
-          text: response.choices[0]?.message.content || '',
-          promptTokens: response.usage?.prompt_tokens || 0,
-          completionTokens: response.usage?.completion_tokens || 0,
+        let promptTokens = 0
+        let completionTokens = 0
+        for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+          const response = await client.chat.completions.create(
+            {
+              model: config.model,
+              messages: [...messages],
+              temperature: options?.temperature ?? config.temperature,
+              ...(options?.maxTokens === undefined ? {} : { max_tokens: options.maxTokens }),
+            },
+            { signal },
+          )
+          promptTokens += response.usage?.prompt_tokens || 0
+          completionTokens += response.usage?.completion_tokens || 0
+          const text = response.choices?.[0]?.message.content || ''
+          if (text.trim()) return { text, promptTokens, completionTokens }
+          if (attempt < retryDelaysMs.length) await sleep(retryDelaysMs[attempt]!, signal)
         }
+        throw new ProviderResponseError('模型服务连续返回空内容，已自动重试，请稍后再试或更换模型。')
       },
       async *stream(messages: readonly ChatMessage[], signal: AbortSignal, options?: { temperature?: number }) {
         const response = await client.chat.completions.create(

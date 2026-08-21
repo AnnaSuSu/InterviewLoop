@@ -28,6 +28,12 @@ export class ProviderNotConfigured extends AppError {
   }
 }
 
+export class ProviderResponseError extends AppError {
+  constructor(message = '模型服务没有返回有效内容，请稍后重试或更换模型。') {
+    super(message, 502, 'provider_response_error')
+  }
+}
+
 export class QuotaExceeded extends AppError {
   constructor(message: string) {
     super(message, 402, 'quota_exceeded')
