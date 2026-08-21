@@ -1,4 +1,5 @@
 import { AuthenticationError } from '../kernel/errors.ts'
+import { parseJsonResponse } from '../kernel/json.ts'
 import type { RequestContext } from '../kernel/context.ts'
 import type { KnowledgeVectorRepository, KnowledgeStore } from '../knowledge/ports.ts'
 import type { PersonalAgentUseCases } from '../personal-agent/ports.ts'
@@ -21,6 +22,26 @@ function message(error: unknown): string {
 }
 function userId(context: RequestContext): string { if (!context.userId) throw new AuthenticationError(); return context.userId }
 
+const LLM_PROBE_MESSAGES = [
+  { role: 'system' as const, content: '你是专项训练出题引擎。只返回 JSON 数组，不要其他内容。' },
+  { role: 'user' as const, content: '请生成 2 道 JavaScript 专项训练题，只返回严格 JSON 数组。每项包含 id、question、difficulty、focus_area，必须完整闭合。' },
+]
+
+function validateLlmProbe(text: string): void {
+  try {
+    const value = parseJsonResponse(text)
+    if (!Array.isArray(value) || value.length !== 2 || !value.every((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+      const question = item as Record<string, unknown>
+      return typeof question.question === 'string' && question.question.trim().length > 0
+        && typeof question.focus_area === 'string' && question.focus_area.trim().length > 0
+        && Number.isFinite(Number(question.difficulty))
+    })) throw new SyntaxError('Unexpected structured probe response')
+  } catch (error) {
+    throw new Error('模型已连接，但未返回完整的专项训练结构化结果；请换用支持长文本 JSON 输出的模型。', { cause: error })
+  }
+}
+
 export class SettingsOperationsService implements SettingsOperationsUseCases {
   constructor(private readonly deps: {
     chats: ChatDriverFactory
@@ -37,7 +58,8 @@ export class SettingsOperationsService implements SettingsOperationsUseCases {
   async testLlm(context: RequestContext, value: LlmSettings): Promise<{ ok: boolean; error?: string }> {
     try {
       if (!value.api_key.trim() || !value.model.trim()) throw new Error('请先填写必填字段')
-      await this.deps.chats.create({ ...value, source: USER_PROVIDER }).complete([{ role: 'user', content: 'ping' }], context.signal, { maxTokens: 1, temperature: 0 })
+      const result = await this.deps.chats.create({ ...value, source: USER_PROVIDER }).complete(LLM_PROBE_MESSAGES, context.signal, { maxTokens: 2048, temperature: 0 })
+      validateLlmProbe(result.text)
       return { ok: true }
     } catch (error) { return { ok: false, error: message(error) } }
   }

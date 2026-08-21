@@ -31,9 +31,11 @@ const context: RequestContext = { requestId: 'test', userId: 'user-a', signal: n
 
 class FakeAi implements TextGenerationUseCases {
   calls: ChatMessage[][] = []
+  options: Array<{ maxTokens?: number; temperature?: number } | undefined> = []
   constructor(private readonly replies: string[]) {}
-  async complete(_context: RequestContext, messages: readonly ChatMessage[]): Promise<string> {
+  async complete(_context: RequestContext, messages: readonly ChatMessage[], options?: { maxTokens?: number; temperature?: number }): Promise<string> {
     this.calls.push([...messages])
+    this.options.push(options)
     const reply = this.replies.shift()
     if (reply === undefined) throw new Error('Unexpected LLM call')
     return reply
@@ -213,6 +215,43 @@ describe('interview application service', () => {
     await service.start(context, { mode: 'topic_drill', topic: 'typescript', num_questions: 1 })
     expect(ai.calls[0]![1]!.content).toContain('本轮到期复习：微任务队列')
     expect(ai.calls[0]![1]!.content).toContain('历史语义洞察：上次忽略了饿饿问题')
+    sessions.close(); states.close()
+  })
+
+  test('retries an incomplete topic drill batch and sets a bounded output limit', async () => {
+    const path = await databasePath()
+    const sessions = new BunInterviewSessionRepository(path); sessions.initialize()
+    const states = new BunResumeInterviewStateRepository(path); states.initialize()
+    const completeQuestions = Array.from({ length: 10 }, (_, index) => ({ id: index + 1, question: `事件循环问题 ${index + 1}`, difficulty: 3 }))
+    const ai = new FakeAi([JSON.stringify(completeQuestions.slice(0, 1)), JSON.stringify(completeQuestions)])
+    const service = new InterviewService(interviewDependencies({
+      sessions, states, ai,
+      knowledgeStore: emptyKnowledgeStore({ typescript: { name: 'TypeScript', icon: '', dir: 'typescript' } }),
+    }))
+
+    const result = await service.start(context, { mode: 'topic_drill', topic: 'typescript', num_questions: 10 })
+    expect(result.questions).toHaveLength(10)
+    expect(ai.calls).toHaveLength(2)
+    expect(ai.options).toEqual([{ maxTokens: 5120 }, { maxTokens: 5120 }])
+    sessions.close(); states.close()
+  })
+
+  test('returns a readable 502 after repeated truncated topic drill JSON', async () => {
+    const path = await databasePath()
+    const sessions = new BunInterviewSessionRepository(path); sessions.initialize()
+    const states = new BunResumeInterviewStateRepository(path); states.initialize()
+    const ai = new FakeAi(['[{"id":1', '[{"id":1'])
+    const service = new InterviewService(interviewDependencies({
+      sessions, states, ai,
+      knowledgeStore: emptyKnowledgeStore({ typescript: { name: 'TypeScript', icon: '', dir: 'typescript' } }),
+    }))
+
+    await expect(service.start(context, { mode: 'topic_drill', topic: 'typescript', num_questions: 10 })).rejects.toMatchObject({
+      status: 502,
+      code: 'provider_response_error',
+      message: '模型返回的专项训练题目不完整，已自动重试，请稍后再试或更换模型。',
+    })
+    expect(ai.calls).toHaveLength(2)
     sessions.close(); states.close()
   })
 

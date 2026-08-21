@@ -1,5 +1,5 @@
 import type { RequestContext } from '../kernel/context.ts'
-import { AppError, AuthenticationError } from '../kernel/errors.ts'
+import { AppError, AuthenticationError, ProviderResponseError } from '../kernel/errors.ts'
 import { parseJsonResponse } from '../kernel/json.ts'
 import type { InterviewUseCases, InterviewDependencies } from './ports.ts'
 import type {
@@ -38,6 +38,10 @@ function questions(value: unknown, limit: number): InterviewQuestion[] {
     const difficulty = Number(source.difficulty || 3)
     return [{ ...source, id: source.id as string | number ?? index + 1, question, difficulty: Number.isFinite(difficulty) ? difficulty : 3 } as InterviewQuestion]
   })
+}
+
+function topicQuestionMaxTokens(count: number): number {
+  return Math.min(8192, Math.max(2048, count * 512))
 }
 
 function answerMap(answers: InterviewAnswer[]): Map<string, string> {
@@ -186,11 +190,16 @@ export class InterviewService implements InterviewUseCases {
         this.deps.sessions.recentQuestions(id, input.topic),
         this.deps.profile.summary(id, input.topic),
       ])
-      const generated = questions(parseJsonResponse(await this.deps.ai.complete(context, [
+      const messages = [
         { role: 'system', content: '你是专项训练出题引擎。只返回 JSON 数组。' },
         { role: 'user', content: fill(DRILL_QUESTION_PROMPT, { topic_name: topics[input.topic]!.name, num_questions: count, knowledge_context: knowledge, user_profile: profile, high_frequency: highFrequency.slice(0, 4000) || '暂无', recent_questions: recent.map((value) => `- ${value}`).join('\n') || '暂无', divergence }) },
-      ])), count)
-      if (!generated.length) throw new AppError('出题失败，LLM 返回格式异常', 500)
+      ] as const
+      let generated: InterviewQuestion[] = []
+      for (let attempt = 0; attempt < 2 && generated.length !== count; attempt += 1) {
+        const text = await this.deps.ai.complete(context, messages, { maxTokens: topicQuestionMaxTokens(count) })
+        try { generated = questions(parseJsonResponse(text), count) } catch { generated = [] }
+      }
+      if (generated.length !== count) throw new ProviderResponseError('模型返回的专项训练题目不完整，已自动重试，请稍后再试或更换模型。')
       await this.deps.sessions.create({ sessionId, userId: id, mode: 'topic_drill', topic: input.topic, questions: generated })
       return { session_id: sessionId, mode: 'topic_drill', topic: input.topic, questions: generated }
     }
