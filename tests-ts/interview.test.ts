@@ -232,7 +232,10 @@ describe('interview application service', () => {
     const result = await service.start(context, { mode: 'topic_drill', topic: 'typescript', num_questions: 10 })
     expect(result.questions).toHaveLength(10)
     expect(ai.calls).toHaveLength(2)
-    expect(ai.options).toEqual([{ maxTokens: 5120 }, { maxTokens: 5120 }])
+    expect(ai.options).toEqual([
+      { maxTokens: 5120, jsonMode: true, reasoningEffort: 'low' },
+      { maxTokens: 5120, jsonMode: true, reasoningEffort: 'low' },
+    ])
     sessions.close(); states.close()
   })
 

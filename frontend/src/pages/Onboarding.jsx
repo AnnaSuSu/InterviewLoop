@@ -31,6 +31,7 @@ export default function Onboarding() {
   const [apiBase, setApiBase] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
+  const [compatibility, setCompatibility] = useState("generic");
   const [embApiBase, setEmbApiBase] = useState("");
   const [embApiKey, setEmbApiKey] = useState("");
   const [embApiModel, setEmbApiModel] = useState("");
@@ -44,6 +45,7 @@ export default function Onboarding() {
         setApiBase(data.llm?.api_base || "");
         setApiKey(data.llm?.api_key || "");
         setModel(data.llm?.model || "");
+        setCompatibility(data.llm?.compatibility || "generic");
         const emb = data.embedding || {};
         setEmbApiBase(emb.api_base || "");
         setEmbApiKey(emb.api_key || "");
@@ -66,6 +68,7 @@ export default function Onboarding() {
         api_base: apiBase.trim(),
         api_key: apiKey.trim(),
         model: model.trim(),
+        compatibility,
       });
       if (!r.ok) {
         setError("LLM 连接失败：" + r.error);
@@ -99,6 +102,7 @@ export default function Onboarding() {
           api_base: apiBase.trim(),
           api_key: apiKey.trim(),
           model: model.trim(),
+          compatibility,
           temperature: base?.llm?.temperature ?? 0.7,
         },
         embedding: {
@@ -185,6 +189,23 @@ export default function Onboarding() {
                 <div className="space-y-2">
                   <Label className={labelClass}>Model</Label>
                   <Input className={inputClass} autoComplete="off" placeholder="例：ZhipuAI/GLM-5" value={model} onChange={(e) => setModel(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className={labelClass}>API 兼容模式</Label>
+                  <label className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/75 px-3 py-2.5 text-sm">
+                    <span className="shrink-0 text-dim">请求配置</span>
+                    <select
+                      className="min-w-0 flex-1 bg-transparent text-right text-text outline-none"
+                      value={compatibility}
+                      onChange={(e) => setCompatibility(e.target.value)}
+                    >
+                      <option value="generic">通用 OpenAI 兼容</option>
+                      <option value="deepseek">DeepSeek V4</option>
+                    </select>
+                  </label>
+                  <div className="text-[12px] text-dim/70">
+                    {compatibility === "deepseek" ? "DeepSeek 官方 API 填 https://api.deepseek.com（不要加 /v1）" : "多数 OpenAI 兼容服务填写包含 /v1 的 Base URL。"}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>API Key</Label>

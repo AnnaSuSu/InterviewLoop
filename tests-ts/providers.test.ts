@@ -15,7 +15,7 @@ function chatFetch(replies: unknown[], requests: Array<Record<string, unknown>>)
 }
 
 describe('chat provider compatibility', () => {
-  const config = { api_base: 'https://example.test/v1', api_key: 'key', model: 'test-model', temperature: 0.7, source: USER_PROVIDER }
+  const config = { api_base: 'https://example.test/v1', api_key: 'key', model: 'test-model', temperature: 0.7, compatibility: 'generic' as const, source: USER_PROVIDER }
   const valid = completion([{ index: 0, message: { role: 'assistant', content: '[{"id":1,"question":"题目"}]' }, finish_reason: 'stop' }], { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 })
 
   test('retries null choices with backoff and preserves the output limit', async () => {
@@ -50,6 +50,39 @@ describe('chat provider compatibility', () => {
     })
     expect(requests).toHaveLength(3)
     expect(delays).toEqual([10, 20])
+  })
+
+  test('sends DeepSeek-only structured parameters only in DeepSeek mode', async () => {
+    const requests: Array<Record<string, unknown>> = []
+    const factory = new OpenAiChatDriverFactory({ fetch: chatFetch([valid], requests), retryDelaysMs: [], sleep: async () => {} })
+    await factory.create({ ...config, compatibility: 'deepseek' }).complete(
+      [{ role: 'user', content: 'return json' }],
+      new AbortController().signal,
+      { maxTokens: 4096, jsonMode: true, reasoningEffort: 'low' },
+    )
+    expect(requests[0]).toMatchObject({
+      response_format: { type: 'json_object' },
+      reasoning_effort: 'low',
+      max_tokens: 4096,
+    })
+
+    requests.length = 0
+    await factory.create(config).complete(
+      [{ role: 'user', content: 'return json' }],
+      new AbortController().signal,
+      { maxTokens: 4096, jsonMode: true, reasoningEffort: 'low' },
+    )
+    expect(requests[0]?.response_format).toBeUndefined()
+    expect(requests[0]?.reasoning_effort).toBeUndefined()
+
+    requests.length = 0
+    await factory.create({ ...config, compatibility: 'deepseek' }).complete(
+      [{ role: 'user', content: 'answer normally' }],
+      new AbortController().signal,
+      { reasoningEffort: 'low' },
+    )
+    expect(requests[0]?.response_format).toBeUndefined()
+    expect(requests[0]?.reasoning_effort).toBeUndefined()
   })
 })
 

@@ -1,6 +1,7 @@
 import type { RequestContext } from '../kernel/context.ts'
 import { AppError, AuthenticationError } from '../kernel/errors.ts'
 import { parseJsonResponse } from '../kernel/json.ts'
+import { STRUCTURED_CHAT_OPTIONS } from '../provider/ports.ts'
 import type { CandidateProfilePort } from '../interview/ports.ts'
 import type { InterviewSession, TaskRecord } from '../interview/model.ts'
 import { fill } from '../interview/prompts.ts'
@@ -399,7 +400,7 @@ export class ProfileService implements ProfileUseCases, CandidateProfilePort {
       const parsed = parseJsonResponse(await this.deps.ai.complete(this.context(userId, 'consolidation'), [
         { role: 'system', content: '你是模式识别引擎。只返回 JSON。' },
         { role: 'user', content: fill(CONSOLIDATION_PROMPT, { weak_points: formatted }) },
-      ]))
+      ], STRUCTURED_CHAT_OPTIONS))
       patterns = Array.isArray(object(parsed).patterns) ? object(parsed).patterns as unknown[] : []
     } catch { return }
 
@@ -442,7 +443,7 @@ export class ProfileService implements ProfileUseCases, CandidateProfilePort {
     let extraction: Record<string, unknown> | undefined
     for (let attempt = 0; attempt < 2 && !extraction; attempt += 1) {
       try {
-        const parsed = parseJsonResponse(await this.deps.ai.complete(context, [{ role: 'system', content: '你是面试分析引擎。只返回 JSON。' }, { role: 'user', content: fill(EXTRACT_PROMPT, { mode: input.session.mode, topic: input.session.topic || '综合', transcript, scores: JSON.stringify(input.session.scores), existing_behavior_signals: behaviorSummary(before), review: input.session.review || '' }) }]))
+        const parsed = parseJsonResponse(await this.deps.ai.complete(context, [{ role: 'system', content: '你是面试分析引擎。只返回 JSON。' }, { role: 'user', content: fill(EXTRACT_PROMPT, { mode: input.session.mode, topic: input.session.topic || '综合', transcript, scores: JSON.stringify(input.session.scores), existing_behavior_signals: behaviorSummary(before), review: input.session.review || '' }) }], STRUCTURED_CHAT_OPTIONS))
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) extraction = parsed
       }
       catch { /* retry once */ }

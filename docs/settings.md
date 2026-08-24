@@ -4,7 +4,7 @@
 
 ## LLM
 
-填写 OpenAI-compatible API Base、API Key、Model 和 Temperature。先点击测试，确认账号确实能调用该模型，再保存。训练、面试、复盘、个人 Agent 和 Copilot 都使用这套生效中的配置。
+填写 OpenAI-compatible API Base、API Key、Model、API 兼容模式和 Temperature。普通平台选择“通用 OpenAI 兼容”；DeepSeek V4 选择“DeepSeek V4”。先点击测试，确认账号确实能调用该模型，再保存。训练、面试、复盘、个人 Agent 和 Copilot 都使用这套生效中的配置。DeepSeek 模式只会对结构化请求附加 JSON 输出和低推理参数，普通文本请求及其他平台不会收到这些字段。
 
 ## Embedding
 

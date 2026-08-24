@@ -2,6 +2,7 @@ import { AppError, AuthenticationError } from '../kernel/errors.ts'
 import { parseJsonResponse } from '../kernel/json.ts'
 import type { RequestContext } from '../kernel/context.ts'
 import { fill } from '../interview/prompts.ts'
+import { STRUCTURED_CHAT_OPTIONS } from '../provider/ports.ts'
 import type { CopilotClientMessage, CopilotConversationTurn, CopilotServerEvent, CopilotSessionState } from './model.ts'
 import type { CopilotDependencies, CopilotRealtimeConnection, CopilotRealtimeUseCases, RealtimeAsrSession } from './ports.ts'
 import { COPILOT_ADVICE_PROMPT, COPILOT_HR_PROFILE_PROMPT, COPILOT_MONITOR_PROMPT } from './prompts.ts'
@@ -114,14 +115,14 @@ class RealtimeConnection implements CopilotRealtimeConnection {
 
   private async hrProfile(turns: CopilotConversationTurn[]): Promise<void> {
     if (turns.length < 3 || this.stopped) return
-    try { const result = parseObject(await this.deps.ai.complete(this.context, [{ role: 'system', content: '只输出 JSON' }, { role: 'user', content: fill(COPILOT_HR_PROFILE_PROMPT, { conversation: conversationText(turns) }) }])); if (result && !this.stopped) await this.emit({ type: 'hr_profile_update', ...result }) } catch { /* background analysis is best effort */ }
+    try { const result = parseObject(await this.deps.ai.complete(this.context, [{ role: 'system', content: '只输出 JSON' }, { role: 'user', content: fill(COPILOT_HR_PROFILE_PROMPT, { conversation: conversationText(turns) }) }], STRUCTURED_CHAT_OPTIONS)); if (result && !this.stopped) await this.emit({ type: 'hr_profile_update', ...result }) } catch { /* background analysis is best effort */ }
   }
 
   private async monitor(turns: CopilotConversationTurn[]): Promise<void> {
     if (!turns.length || this.stopped) return
     const fit = object(this.prep.fit_report); const jd = object(this.prep.jd_analysis); const profile = object(this.prep.profile)
     const skills = items(jd.required_skills).slice(0, 10).map((item) => String(item.skill || JSON.stringify(item))).join('; ') || '无'
-    try { const result = parseObject(await this.deps.ai.complete(this.context, [{ role: 'system', content: '只输出 JSON' }, { role: 'user', content: fill(COPILOT_MONITOR_PROMPT, { conversation: conversationText(turns), required_skills: skills, highlights: summaryPoints(fit.highlights, 5), weak_points: summaryPoints(profile.weak_points, 5) }) }])); if (result && !this.stopped) await this.emit({ type: 'monitor_update', ...result }) } catch { /* background analysis is best effort */ }
+    try { const result = parseObject(await this.deps.ai.complete(this.context, [{ role: 'system', content: '只输出 JSON' }, { role: 'user', content: fill(COPILOT_MONITOR_PROMPT, { conversation: conversationText(turns), required_skills: skills, highlights: summaryPoints(fit.highlights, 5), weak_points: summaryPoints(profile.weak_points, 5) }) }], STRUCTURED_CHAT_OPTIONS)); if (result && !this.stopped) await this.emit({ type: 'monitor_update', ...result }) } catch { /* background analysis is best effort */ }
   }
 
   private async stop(): Promise<void> { this.stopped = true; await this.asr?.stop(); this.asr = undefined; if (this.state) { this.state.status = 'stopped'; await this.persist() }; await this.emit({ type: 'stopped' }) }

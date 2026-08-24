@@ -5,6 +5,8 @@ import type { PlatformProviderConfig } from './model.ts'
 import type {
   ChatDriverFactory,
   ChatMessage,
+  ChatCompleteOptions,
+  ChatStreamOptions,
   ProviderSettingsRepository,
   QuotaUseCases,
   TextGenerationUseCases,
@@ -28,7 +30,7 @@ export class AiService implements TextGenerationUseCases {
   async complete(
     context: RequestContext,
     messages: readonly ChatMessage[],
-    options?: { maxTokens?: number; temperature?: number },
+    options?: ChatCompleteOptions,
   ): Promise<string> {
     const config = await this.resolved(context)
     await this.quota.check(context.userId, config.source)
@@ -46,7 +48,7 @@ export class AiService implements TextGenerationUseCases {
   async *stream(
     context: RequestContext,
     messages: readonly ChatMessage[],
-    options?: { temperature?: number },
+    options?: ChatStreamOptions,
   ): AsyncIterable<string> {
     const config = await this.resolved(context)
     await this.quota.check(context.userId, config.source)

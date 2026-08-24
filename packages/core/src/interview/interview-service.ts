@@ -1,6 +1,7 @@
 import type { RequestContext } from '../kernel/context.ts'
 import { AppError, AuthenticationError, ProviderResponseError } from '../kernel/errors.ts'
 import { parseJsonResponse } from '../kernel/json.ts'
+import { STRUCTURED_CHAT_OPTIONS } from '../provider/ports.ts'
 import type { InterviewUseCases, InterviewDependencies } from './ports.ts'
 import type {
   InterviewAnswer,
@@ -29,8 +30,13 @@ function object(value: unknown): Record<string, unknown> {
 }
 
 function questions(value: unknown, limit: number): InterviewQuestion[] {
-  if (!Array.isArray(value)) throw new SyntaxError('Expected JSON array')
-  return value.slice(0, limit).flatMap((item, index) => {
+  const items = Array.isArray(value)
+    ? value
+    : value && typeof value === 'object' && !Array.isArray(value) && Array.isArray((value as Record<string, unknown>).questions)
+      ? (value as { questions: unknown[] }).questions
+      : undefined
+  if (!items) throw new SyntaxError('Expected JSON question array')
+  return items.slice(0, limit).flatMap((item, index) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return []
     const source = item as Record<string, unknown>
     const question = typeof source.question === 'string' ? source.question.trim() : ''
@@ -138,7 +144,7 @@ export class InterviewService implements InterviewUseCases {
     const parsed = object(parseJsonResponse(await this.deps.ai.complete(context, [
       { role: 'system', content: '你是 JD 备面分析引擎。只返回 JSON。' },
       { role: 'user', content: fill(JOB_PREVIEW_PROMPT, { company: input.company || '未提供', position: input.position || '未提供', jd_text: jd.slice(0, 6000), resume_context: resumeContext || '未启用简历联动', user_profile: await this.deps.profile.summary(id) }) },
-    ])))
+    ], STRUCTURED_CHAT_OPTIONS)))
     const alignment = objectOrEmpty(parsed.resume_alignment)
     return { preview: {
       company: (input.company || String(parsed.company || '')).trim(),
@@ -165,9 +171,9 @@ export class InterviewService implements InterviewUseCases {
     const preview = input.preview_data || (await this.previewJob(context, input)).preview
     const resumeContext = (input.use_resume ?? true) ? (await this.deps.resume.text(context)).slice(0, 5000) : ''
     const generated = questions(parseJsonResponse(await this.deps.ai.complete(context, [
-      { role: 'system', content: '你是 JD 备面出题引擎。只返回 JSON 数组。' },
+      { role: 'system', content: '你是 JD 备面出题引擎。只返回 JSON 对象，题目放在 questions 数组中。' },
       { role: 'user', content: fill(JOB_QUESTION_PROMPT, { preview: JSON.stringify(preview, null, 2).slice(0, 5000), jd_text: jd.slice(0, 5000), resume_context: resumeContext || '未启用简历联动', user_profile: await this.deps.profile.summary(id) }) },
-    ])), 8)
+    ], STRUCTURED_CHAT_OPTIONS)), 8)
     if (generated.length < 4) throw new AppError('JD 备面出题失败，生成的问题数量不足。请重试。', 500)
     const sessionId = this.deps.ids.next()
     const meta = { company: String(preview.company || input.company || '').trim(), position: String(preview.position || input.position || '').trim() || 'JD 备面', jd_text: jd, use_resume: input.use_resume ?? true, preview }
@@ -191,12 +197,12 @@ export class InterviewService implements InterviewUseCases {
         this.deps.profile.summary(id, input.topic),
       ])
       const messages = [
-        { role: 'system', content: '你是专项训练出题引擎。只返回 JSON 数组。' },
+        { role: 'system', content: '你是专项训练出题引擎。只返回 JSON 对象，题目放在 questions 数组中。' },
         { role: 'user', content: fill(DRILL_QUESTION_PROMPT, { topic_name: topics[input.topic]!.name, num_questions: count, knowledge_context: knowledge, user_profile: profile, high_frequency: highFrequency.slice(0, 4000) || '暂无', recent_questions: recent.map((value) => `- ${value}`).join('\n') || '暂无', divergence }) },
       ] as const
       let generated: InterviewQuestion[] = []
       for (let attempt = 0; attempt < 2 && generated.length !== count; attempt += 1) {
-        const text = await this.deps.ai.complete(context, messages, { maxTokens: topicQuestionMaxTokens(count) })
+        const text = await this.deps.ai.complete(context, messages, { ...STRUCTURED_CHAT_OPTIONS, maxTokens: topicQuestionMaxTokens(count) })
         try { generated = questions(parseJsonResponse(text), count) } catch { generated = [] }
       }
       if (generated.length !== count) throw new ProviderResponseError('模型返回的专项训练题目不完整，已自动重试，请稍后再试或更换模型。')
@@ -305,9 +311,9 @@ export class InterviewService implements InterviewUseCases {
           const topics = await this.deps.knowledgeStore.loadTopics(session.user_id)
           const topicName = topics[session.topic || '']?.name || session.topic || ''
           const references = await this.deps.knowledge.context(context, session.topic || '', session.questions.map((question) => question.question), { topK: 2, charBudget: 8000 })
-          parsed = object(parseJsonResponse(await this.deps.ai.complete(context, [{ role: 'system', content: '你是训练评估引擎。只返回 JSON。' }, { role: 'user', content: fill(DRILL_EVALUATION_PROMPT, { topic_name: topicName, qa_pairs: qaText(session.questions, answers), references }) }])))
+          parsed = object(parseJsonResponse(await this.deps.ai.complete(context, [{ role: 'system', content: '你是训练评估引擎。只返回 JSON。' }, { role: 'user', content: fill(DRILL_EVALUATION_PROMPT, { topic_name: topicName, qa_pairs: qaText(session.questions, answers), references }) }], STRUCTURED_CHAT_OPTIONS)))
         } else {
-          parsed = object(parseJsonResponse(await this.deps.ai.complete(context, [{ role: 'system', content: '你是 JD 备面评估引擎。只返回 JSON。' }, { role: 'user', content: fill(JOB_EVALUATION_PROMPT, { preview: JSON.stringify(session.meta.preview || {}, null, 2).slice(0, 5000), qa_pairs: qaText(session.questions, answers) }) }])))
+          parsed = object(parseJsonResponse(await this.deps.ai.complete(context, [{ role: 'system', content: '你是 JD 备面评估引擎。只返回 JSON。' }, { role: 'user', content: fill(JOB_EVALUATION_PROMPT, { preview: JSON.stringify(session.meta.preview || {}, null, 2).slice(0, 5000), qa_pairs: qaText(session.questions, answers) }) }], STRUCTURED_CHAT_OPTIONS)))
         }
         const scores = Array.isArray(parsed.scores) ? parsed.scores as Array<Record<string, unknown>> : []
         const difficulty = new Map(session.questions.map((question) => [String(question.id), question.difficulty || 3]))

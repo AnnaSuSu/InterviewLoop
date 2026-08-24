@@ -3,6 +3,7 @@ import { fill } from '../interview/prompts.ts'
 import { AppError, AuthenticationError } from '../kernel/errors.ts'
 import { parseJsonResponse } from '../kernel/json.ts'
 import type { RequestContext } from '../kernel/context.ts'
+import { STRUCTURED_CHAT_OPTIONS } from '../provider/ports.ts'
 import { formatDualReview, formatSoloReview } from './formatters.ts'
 import type { RecordingAnalyzeInput } from './model.ts'
 import type { RecordingDependencies, RecordingUseCases } from './ports.ts'
@@ -67,7 +68,7 @@ export class RecordingService implements RecordingUseCases {
         const structured = object(parseJsonResponse(await this.deps.ai.complete(request, [
           { role: 'system', content: '你是面试记录分析引擎。只返回 JSON，不要其他内容。' },
           { role: 'user', content: fill(RECORDING_STRUCTURE_PROMPT, { transcript }) },
-        ])))
+        ], STRUCTURED_CHAT_OPTIONS)))
         const pairs = arrayOfObjects(structured.qa_pairs)
         const questions: InterviewQuestion[] = pairs.flatMap((pair, index) => {
           const question = String(pair.question || '').trim()
@@ -80,7 +81,7 @@ export class RecordingService implements RecordingUseCases {
         const evaluated = object(parseJsonResponse(await this.deps.ai.complete(request, [
           { role: 'system', content: '你是面试评估引擎。只返回 JSON，不要其他内容。' },
           { role: 'user', content: fill(RECORDING_DUAL_EVAL_PROMPT, { qa_pairs: qa, profile_summary: await this.deps.profile.summary(session.user_id) }) + contextSuffix(session.meta.company, session.meta.position) },
-        ])))
+        ], STRUCTURED_CHAT_OPTIONS)))
         scores = arrayOfObjects(evaluated.scores)
         for (const score of scores) if (score.difficulty === undefined) score.difficulty = 3
         overall = object(evaluated.overall || {})
@@ -89,7 +90,7 @@ export class RecordingService implements RecordingUseCases {
         const evaluated = object(parseJsonResponse(await this.deps.ai.complete(request, [
           { role: 'system', content: '你是录音评估引擎。只返回 JSON，不要其他内容。' },
           { role: 'user', content: fill(RECORDING_SOLO_EVAL_PROMPT, { transcript, profile_summary: await this.deps.profile.summary(session.user_id) }) + contextSuffix(session.meta.company, session.meta.position) },
-        ])))
+        ], STRUCTURED_CHAT_OPTIONS)))
         const topics = arrayOfObjects(evaluated.topics_covered)
         overall = object(evaluated.overall || {})
         overall.topics_covered = topics

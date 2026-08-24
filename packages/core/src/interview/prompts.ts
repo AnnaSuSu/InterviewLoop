@@ -52,8 +52,8 @@ export const DRILL_QUESTION_PROMPT = `你是「{topic_name}」领域的技术专
 - 发散度 {divergence}/5；发散度越低越聚焦薄弱与核心概念，越高越多跨场景迁移
 - 难度从 1 到 5 递进，每题只考一个独立知识点
 - 考理解、原理和权衡，不考定义背诵
-- 只返回 JSON 数组，不要解释：
-[{"id":1,"question":"问题","difficulty":2,"focus_area":"知识点"}]`
+- 只返回 JSON 对象，不要解释，题目放在 questions 数组中：
+{"questions":[{"id":1,"question":"问题","difficulty":2,"focus_area":"知识点"}]}`
 
 export const DRILL_EVALUATION_PROMPT = `你是「{topic_name}」领域的技术专家，请逐题评估候选人的回答。参考知识只用于判断核心理解，不要求原文复述。
 
@@ -88,7 +88,7 @@ JD：{jd_text}
 简历：{resume_context}
 历史画像：{user_profile}
 
-只返回 JSON 数组：[{"id":1,"question":"问题","difficulty":3,"focus_area":"考察点","category":"类别","intent":"意图"}]。每题只问一个重点，不要泄露参考答案。`
+只返回 JSON 对象，题目放在 questions 数组中：{"questions":[{"id":1,"question":"问题","difficulty":3,"focus_area":"考察点","category":"类别","intent":"意图"}]}。每题只问一个重点，不要泄露参考答案。`
 
 export const JOB_EVALUATION_PROMPT = `你是 JD 定向面试评估引擎。根据岗位真实招聘标准评估回答。
 
