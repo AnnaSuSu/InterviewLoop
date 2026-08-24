@@ -9,7 +9,46 @@ import type { ProfileDependencies, ProfileMemoryEntry, ProfileMemorySearchResult
 
 const INFER_ROLE_PROMPT = `根据以下简历内容，推断候选人最可能应聘的岗位名称。给出一个具体岗位，12 个汉字以内；学生可带实习生或校招后缀。只返回岗位名称，不要解释。\n\n{resume}`
 const EXTRACT_PROMPT = `你是面试教练分析引擎。根据本次面试记录提取结构化洞察。不要把表达习惯混入知识弱点，不得编造记录中没有的事实。\n\n模式：{mode}\n领域：{topic}\n对话：\n{transcript}\n\n逐题评分：\n{scores}\n\n现有行为信号（尽量复用 ID）：\n{existing_behavior_signals}\n\n复盘：\n{review}\n\n只返回 JSON：{"session_summary":"摘要","weak_points":[{"point":"具体知识薄弱点","topic":"领域"}],"strong_points":[{"point":"具体知识强项","topic":"领域"}],"behavior_signals":[{"action":"ADD|UPDATE|IMPROVE|NOOP","id":"reasoning.example","namespace":"reasoning","polarity":"negative","description":"行为描述","snippet":"本次新证据","evidence_snippet":"改善证据"}],"topic_mastery":{"notes":"掌握情况"},"avg_score":7,"dimension_scores":{"technical_depth":7,"project_articulation":7,"communication":7,"problem_solving":7}}。仅 resume 模式返回四维 dimension_scores，其他模式省略。avg_score 为有效维度的平均分，保留一位小数。`
-const RETROSPECTIVE_PROMPT = `你是面试教练，请基于「{topic_name}」的多次训练历史生成 Markdown 回顾。总结进步趋势、稳定强项、反复薄弱点，并给出下一轮训练计划。每个判断必须能在历史中找到依据。\n\n当前掌握度：{mastery}\n\n训练历史：\n{history}`
+const RETROSPECTIVE_PROMPT = `你是面试教练，请基于「{topic_name}」的多次训练历史生成一份适合窄卡片阅读的 Markdown 回顾。总结整体诊断、逐题得分与依据、进步趋势、稳定强项、反复薄弱点，并给出下一轮训练计划。每个判断必须能在历史中找到依据，不得编造训练记录之外的事实。
+
+当前掌握度：{mastery}
+
+训练历史：
+{history}
+
+## 输出要求
+
+- 只输出 Markdown 正文，不要解释生成过程，不要包裹在代码块中。
+- 禁止使用 Markdown 表格，不要输出任何由「|」分隔的表格行。当前页面适合窄卡片，表格会降低可读性。
+- 只使用当前页面稳定支持的基础 Markdown：标题（#、##、###）、粗体、斜体、无序列表（-）、引用（>）、行内代码、代码块和分割线。
+- 不要使用 GFM 表格、任务清单、删除线、HTML、JSX、Mermaid 或数学公式。
+- 一级标题只用于报告标题；下面固定使用以下四个二级标题，标题文字必须完全一致：
+
+## 总体诊断
+
+用 2-4 句说明当前掌握度、最近表现和最核心的问题；随后分别用粗体标签「稳定强项」和「反复薄弱点」列出有历史证据支持的内容。必要时使用无序列表，但不要使用有序列表。
+
+## 逐题复盘
+
+先写一句「逐题得分与依据」，然后每道题使用一个独立的粗体行，不要再使用三级或更深标题。格式如下：
+
+**Q1 · 题目或考查点 · 7/10**
+
+- **考查点：** [知识点]
+- **关键依据：** [基于回答的具体判断，1-2句话]
+- **遗漏与改进：** [最重要的遗漏和下一步改进]
+
+题目较多时，每道题保持简洁；不要把多道题合并到同一段。没有作答的题目明确写「未作答」，不要推测原因。
+
+## 进步趋势
+
+用简短段落或无序列表说明与历史记录相比的变化。只有在至少两次训练记录能够支持时，才描述“进步”“退步”或“稳定”。
+
+## 下一轮训练计划
+
+用 3-5 条无序列表给出按优先级排列的练习动作，每条都要对应前面的薄弱点或遗漏点。
+
+如果历史中没有足够证据支持某个部分，明确写「暂无足够记录」，不要用泛泛的夸奖或推测代替。`
 const CONSOLIDATION_PROMPT = `你是面试教练的模式识别引擎。仅从下列活跃薄弱点中归纳跨至少两个领域、比原观察更抽象、可被后续证据证伪的稳定规律。宁可返回空数组，不要编造。\n\n{weak_points}\n\n只返回 JSON：{"patterns":[{"statement":"40字以内的规律","supporting_wp_indices":[0,2],"topic":"cross_cutting","confidence":0.8}]}`
 
 const BEHAVIOR_NAMESPACES = new Set(['reasoning', 'narrative', 'communication', 'metacognition'])
