@@ -123,6 +123,6 @@ bun run restore:system -- --archive=/safe/backups/techspar-system.tar.gz --data-
 
 ## License
 
-项目整体使用 [CC BY-NC 4.0](LICENSE)。提交贡献即表示同意以相同条款发布。
+项目整体使用 [AGPL-3.0](LICENSE)。提交贡献即表示同意以相同条款发布。
 
 `frontend/src/resume/` 移植自 [Magic Resume](https://github.com/JOYCEQL/magic-resume)，保留该目录中的原始协议和附加商业限制；向该目录贡献时请同时遵守其 `LICENSE` 与 `README.md`。
