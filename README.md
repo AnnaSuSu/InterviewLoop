@@ -4,34 +4,24 @@
 
 **把专项训练、简历面试、JD 备面、实时 Copilot 与录音复盘，串成一个持续进化的技术面试闭环。**
 
-[在线 Demo](https://techspar.top/) · [快速开始](#快速开始) · [English](README.en.md)
+[在线体验](https://techspar.top/) · [下载桌面端](https://github.com/AnnaSuSu/TechSpar/releases) · [快速开始](#快速开始) · [English](README.en.md)
 
-[![Bun](https://img.shields.io/badge/Bun-1.3+-000000.svg)](https://bun.sh/)
-[![Hono](https://img.shields.io/badge/Hono-4-E36002.svg)](https://hono.dev/)
-[![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/AnnaSuSu/TechSpar?color=6E56CF)](https://github.com/AnnaSuSu/TechSpar/releases)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-6E56CF.svg)](LICENSE)
+[![Self-host](https://img.shields.io/badge/自托管-永久免费-2EA043.svg)](#快速开始)
+[![Status](https://img.shields.io/badge/状态-持续开发中-2EA043.svg)](https://github.com/AnnaSuSu/TechSpar/commits/main)
 
 ![TechSpar 产品总览](images/techspar-overview.png)
+
 </div>
 
-TechSpar 不只是生成一组面试题。专项训练、简历面试、JD 备面、实时 Copilot 和录音复盘共用同一套长期画像、知识库、薄弱点和复习调度；每轮结果会写回系统，改变下一轮训练重点。
+## 这是什么
 
-## 版本与分支
+市面上的面试工具大多做同一件事：给你生成一堆题，你答完，结束。没有人记得你上次哪道题答崩了，也没有人知道你下周要面的那家公司想听什么。
 
-- **`main`**：当前版本。后端已完全迁移为 TypeScript + Bun + Hono，使用 Bun workspace 统一管理前后端依赖；新功能和修复都在这里继续。
-- **`legacy/python-backend`**：迁移前最后一个 Python + FastAPI 版本，固定在提交 `73d1a7c`，只作为历史归档和紧急回看，不再接收新功能。
+TechSpar 想做的是另一件事——**让每一次练习都算数**。专项训练、简历面试、JD 备面、实时 Copilot、录音复盘共用同一套长期画像、知识库、薄弱点和复习调度；每轮结果写回系统，决定下一轮练什么。
 
-查看旧版时必须使用独立 checkout 和迁移前的数据副本。推荐从当前 `main` checkout 创建只读 worktree：
-
-```bash
-git fetch origin legacy/python-backend
-git worktree add --detach ../TechSpar-python-legacy origin/legacy/python-backend
-cp -R /path/to/pre-migration-data-backup/. ../TechSpar-python-legacy/data/
-```
-
-也可以把 `legacy/python-backend` 单独 clone 到另一个目录。不要在当前工作目录直接切换分支，不要软链接或复用 `data/`，也不要让新旧服务同时连接同一份 SQLite、用户文件或模型缓存。没有迁移前备份时，只用空数据启动旧版做代码回看。
+适合正在准备技术面试、并且愿意用工具持续记录自己进步的人。
 
 ## 功能闭环
 
@@ -43,6 +33,20 @@ cp -R /path/to/pre-migration-data-backup/. ../TechSpar-python-legacy/data/
 - **长期画像**：汇总强项、薄弱点、训练轨迹，并通过 SM-2 安排复习。
 - **个人资料库**：导入 PDF、DOCX、Markdown 和文本，为训练与个人 Agent 提供上下文。
 - **数据迁移**：导出/导入单账户或管理员全站归档；个人敏感凭证默认不导出。
+
+想看实际效果，直接去 [在线体验](https://techspar.top/)，比截图直观。
+
+## 为什么它是开源的，又为什么有个收费的托管版
+
+这东西是我自己找工作的时候想要、但没找到的，所以把它写了出来，完整开源。
+
+完整开源的意思是：没有企业版，没有高级版，功能不会被锁在付费墙后面。你带上自己的 API key，Docker 起来，所有能力都在，这条路永远免费。
+
+但真正需要它的人大多不是工程师，不会部署，也搞不到 key。所以我另外跑了一个托管版：不用装、不用配 key，注册就能用。托管版有免费额度，用超了可以在[爱发电](https://afdian.com/)赞助，档位和权益在那边写着。
+
+钱都花在模型推理和服务器上。我没指望靠这个赚钱，能把成本覆盖掉、让我有理由接着更新，就够了。
+
+托管版和你自己部署的，功能完全一样，区别只有额度和要不要自己准备 key。这点你不用信我——配额和订阅的代码就在 `apps/api/src/cloud/`，自己看。
 
 ## 快速开始
 
@@ -140,6 +144,12 @@ LLM、Embedding、DashScope、Tavily、OSS 与腾讯云 VPR 密钥默认按用�
 
 ## 技术架构
 
+[![Bun](https://img.shields.io/badge/Bun-1.3+-000000.svg)](https://bun.sh/)
+[![Hono](https://img.shields.io/badge/Hono-4-E36002.svg)](https://hono.dev/)
+[![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+
 | 层 | 技术 |
 | --- | --- |
 | API Host | Bun 1.3、Hono 4、`@hono/zod-openapi` |
@@ -164,6 +174,8 @@ packages/providers/   LLM、Embedding、ASR、OSS、搜索与声纹适配器
 frontend/             React Web 客户端
 tests-ts/             TypeScript 测试与旧版 OpenAPI 基线
 ```
+
+托管版用到的配额与订阅模块是一个可选扩展，通过 `.env` 里的 `TECHSPAR_EXTENSIONS` 加载；不配置它就是一份干净的开源安装，不会有任何付费相关的接口存在。
 
 ## 质量检查
 
@@ -211,13 +223,27 @@ bun run restore:system -- --archive=/safe/backups/techspar-system.tar.gz --data-
 
 Electron 使用系统标准的应用数据目录，数据库、用户文件、模型缓存和每次安装随机生成的运行密钥都放在那里；本地 Hono sidecar 只监听 `127.0.0.1` 的动态端口。
 
+## 支持与更新节奏
+
+这是一个人在维护的项目，所以把话说在前面：
+
+- **Bug 会修**，[Issue](https://github.com/AnnaSuSu/TechSpar/issues) 和 PR 我都会看。
+- **功能按我自己的路线走**，不接定制需求；有想法欢迎开 Issue 讨论，但不承诺排期。
+- **更新节奏取决于我有多少时间**，不保证频率。
+
 ## 参与贡献
 
 欢迎提交 [Issue](https://github.com/AnnaSuSu/TechSpar/issues) 或 PR。开发约定和流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## 旧版本
+
+`legacy/python-backend` 是迁移前最后一个 Python + FastAPI 版本，固定在提交 `73d1a7c`，只作为历史归档，不再接收新功能。查看方式见 [旧版本分支说明](docs/legacy-python-backend.md)。
+
 ## License
 
-CC BY-NC 4.0。
+[AGPL-3.0](LICENSE)。你可以自由使用、修改、自托管；如果你把修改后的版本作为网络服务提供给他人，需要同样开源你的改动。
+
+**TechSpar 这个名称和 logo 不随代码授权**，请不要用它们命名你的分发版本。
 
 例外：`frontend/src/resume/` 的简历编辑与模板代码移植自 [Magic Resume](https://github.com/JOYCEQL/magic-resume)，保留该目录内的原始协议与附加条款。
 
