@@ -19,12 +19,25 @@ export interface Subscription {
   plans: Plan[];
 }
 
+/**
+ * 未登录时一律不打接口。
+ *
+ * 额度条挂在全局 portal 上,落地页也在跑;而 authFetch 遇到 401 会直接
+ * window.location.href = "/login",于是「轮询 → 401 → 跳转 → 重新挂载 → 轮询」
+ * 成环,表现为首页不停刷新。
+ */
+function signedIn(): boolean {
+  return !!localStorage.getItem("token");
+}
+
 export async function fetchQuota(): Promise<Quota | null> {
+  if (!signedIn()) return null;
   const res = await authFetch(`${API_BASE}/usage/quota`);
   return res.ok ? ((await res.json()) as Quota) : null;
 }
 
 export async function fetchSubscription(): Promise<Subscription | null> {
+  if (!signedIn()) return null;
   const res = await authFetch(`${API_BASE}/cloud/subscription`);
   return res.ok ? ((await res.json()) as Subscription) : null;
 }
