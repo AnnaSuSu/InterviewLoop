@@ -4,7 +4,7 @@
 
 **把专项训练、简历面试、JD 备面、实时 Copilot 与录音复盘，串成一个持续进化的技术面试闭环。**
 
-[在线体验](https://techspar.top/) · [下载桌面端](https://github.com/AnnaSuSu/TechSpar/releases) · [快速开始](#快速开始) · [English](README.en.md)
+[在线体验](https://techspar.cn/) · [下载桌面端](https://github.com/AnnaSuSu/TechSpar/releases) · [快速开始](#快速开始) · [English](README.en.md)
 
 [![Release](https://img.shields.io/github/v/release/AnnaSuSu/TechSpar?color=6E56CF)](https://github.com/AnnaSuSu/TechSpar/releases)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-6E56CF.svg)](LICENSE)
@@ -34,7 +34,7 @@ TechSpar 想做的是另一件事——**让每一次练习都算数**。专项�
 - **个人资料库**：导入 PDF、DOCX、Markdown 和文本，为训练与个人 Agent 提供上下文。
 - **数据迁移**：导出/导入单账户或管理员全站归档；个人敏感凭证默认不导出。
 
-想看实际效果，直接去 [在线体验](https://techspar.top/)，比截图直观。
+想看实际效果，直接去 [在线体验](https://techspar.cn/)，比截图直观。
 
 ## 为什么它是开源的，又为什么有个收费的托管版
 
