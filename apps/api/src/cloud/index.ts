@@ -11,7 +11,7 @@ import { SubscriptionRepository } from './subscriptions.ts'
 const RECONCILE_MS = 10 * 60 * 1000
 
 // quota 与 routes 由上游分两次调用,共用同一批实例,避免各自初始化两份表句柄。
-let shared: { subscriptions: SubscriptionRepository; orders: OrderRepository; users: BunUserRepository } | undefined
+let shared: { subscriptions: SubscriptionRepository; orders: OrderRepository; users: BunUserRepository; usage: BunUsageRepository } | undefined
 
 function store(dbPath: string) {
   if (!shared) {
@@ -19,7 +19,7 @@ function store(dbPath: string) {
     subscriptions.initialize()
     const orders = new OrderRepository(dbPath)
     orders.initialize()
-    shared = { subscriptions, orders, users: new BunUserRepository(dbPath, '') }
+    shared = { subscriptions, orders, users: new BunUserRepository(dbPath, ''), usage: new BunUsageRepository(dbPath) }
     startReconcile(shared)
   }
   return shared
@@ -42,6 +42,7 @@ function startReconcile(deps: NonNullable<typeof shared>): void {
         const outcome = await processOrder(order, {
           orders: deps.orders,
           subscriptions: deps.subscriptions,
+          usage: deps.usage,
           userExists: async (id) => !!(await deps.users.findById(id)),
         })
         if (outcome === 'granted') granted += 1
@@ -56,13 +57,16 @@ function startReconcile(deps: NonNullable<typeof shared>): void {
 }
 
 const extensions: Extensions = {
-  quota: (base, context) =>
-    new CloudQuotaService(base, new BunUsageRepository(context.dbPath), store(context.dbPath).subscriptions),
+  quota: (base, context) => {
+    const { subscriptions, usage } = store(context.dbPath)
+    return new CloudQuotaService(base, usage, subscriptions)
+  },
   routes: (app, context) => {
-    const { subscriptions, orders, users } = store(context.dbPath)
+    const { subscriptions, orders, users, usage } = store(context.dbPath)
     registerCloudRoutes(app, {
       subscriptions,
       orders,
+      usage,
       tokens: context.tokens,
       userExists: async (id) => !!(await users.findById(id)),
     })

@@ -46,7 +46,7 @@ class MemorySettings implements ProviderSettingsRepository {
 const platform: PlatformProviderConfig = {
   llm: { api_base: '', api_key: '', model: '' },
   embedding: { api_base: '', api_key: '', api_model: '' },
-  dailyCallLimit: 0,
+  dailyCallLimit: 0, dailyTokenLimit: 0,
 }
 
 function testApp(allowRegistration = false) {
@@ -57,7 +57,7 @@ function testApp(allowRegistration = false) {
   const registration = { allowRegistration }
   const auth = new AuthService(users, passwords, tokens, new ShortUuidGenerator(), registration)
   const settings = new SettingsService(new MemorySettings(), users, { async invalidateUser() {}, resetEmbeddingClient() {} }, platform, registration)
-  const usage = { initialize() {}, async record() {}, async platformCallsToday() { return 0 } }
+  const usage = { initialize() {}, async record() {}, async platformCallsToday() { return 0 }, async platformTokensToday() { return 0 }, async platformTokensSince() { return 0 } }
   return { users, config, passwords, app: createApp({ auth, registration, settings, quota: new QuotaService(usage, platform), tokens, knowledge: {} as KnowledgeUseCases, resume: {} as ResumeUseCases }) }
 }
 

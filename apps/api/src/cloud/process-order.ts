@@ -1,4 +1,6 @@
+import type { UsageRepository } from '@techspar/core'
 import type { AfdianOrder } from './afdian.ts'
+import { grantWithCarryOver } from './grant.ts'
 import type { OrderOutcome, OrderRepository } from './orders.ts'
 import type { SubscriptionRepository } from './subscriptions.ts'
 import { tierByPlanId } from './tiers.ts'
@@ -6,6 +8,7 @@ import { tierByPlanId } from './tiers.ts'
 export type OrderDependencies = {
   orders: OrderRepository
   subscriptions: SubscriptionRepository
+  usage: UsageRepository
   /** 校验 custom_order_id 确实是本站用户,避免给不存在的账号建订阅 */
   userExists: (userId: string) => Promise<boolean>
 }
@@ -56,7 +59,7 @@ export async function processOrder(
     return 'unmatched'
   }
 
-  deps.subscriptions.grant(userId, tier.key, months)
+  await grantWithCarryOver(userId, tier.key, months, { subscriptions: deps.subscriptions, usage: deps.usage })
   deps.orders.record({ ...base, userId, tier: tier.key, outcome: 'granted' })
   return 'granted'
 }

@@ -62,11 +62,19 @@ export interface UsageRepository {
   initialize(): void
   record(input: { userId: string; source: ProviderSource; model: string; promptTokens: number; completionTokens: number }): Promise<void>
   platformCallsToday(userId: string): Promise<number>
+  /** 今日平台 token 消耗(输入+输出),用于免费额度 */
+  platformTokensToday(userId: string): Promise<number>
+  /** 自某时刻起的平台 token 消耗,用于订阅期内的额度包 */
+  platformTokensSince(userId: string, since: string): Promise<number>
 }
+
+export type QuotaUnit = 'token' | 'call'
+
+export type QuotaStatus = { source: ProviderSource; used: number; limit: number | null; unit: QuotaUnit }
 
 export interface QuotaUseCases {
   check(userId: string | undefined, source: ProviderSource): Promise<void>
-  status(userId: string, source: ProviderSource): Promise<{ source: ProviderSource; used: number; limit: number | null }>
+  status(userId: string, source: ProviderSource): Promise<QuotaStatus>
   record(input: { userId?: string; source: ProviderSource; model?: string; promptTokens?: number; completionTokens?: number }): Promise<void>
 }
 

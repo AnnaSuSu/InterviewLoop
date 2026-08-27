@@ -15,22 +15,24 @@ import { resetTierCache } from './tiers.ts'
 
 const DAY = 86_400_000
 const TIERS = [
-  { key: 'basic', planId: 'plan-basic', label: '保持手感', price_cents: 990, daily_limit: 100 },
-  { key: 'sprint', planId: 'plan-sprint', label: '全力冲刺', price_cents: 6990, daily_limit: 0 },
-  { key: 'tip', planId: 'plan-tip', label: '随意投喂', price_cents: 500, daily_limit: 0, donation: true },
+  { key: 'basic', planId: 'plan-basic', label: '保持手感', price_cents: 990, token_quota: 1000 },
+  { key: 'sprint', planId: 'plan-sprint', label: '全力冲刺', price_cents: 6990, token_quota: 0 },
+  { key: 'tip', planId: 'plan-tip', label: '随意投喂', price_cents: 500, token_quota: 0, donation: true },
 ]
 
 class StubUsage implements UsageRepository {
-  constructor(public calls = 0) {}
+  constructor(public tokens = 0) {}
   initialize(): void {}
   async record(): Promise<void> {}
-  async platformCallsToday(): Promise<number> { return this.calls }
+  async platformCallsToday(): Promise<number> { return 0 }
+  async platformTokensToday(): Promise<number> { return this.tokens }
+  async platformTokensSince(): Promise<number> { return this.tokens }
 }
 
 class StubBaseQuota implements QuotaUseCases {
   checked = 0
   async check(): Promise<void> { this.checked += 1 }
-  async status(_userId: string, source: ProviderSource) { return { source, used: 0, limit: 20 } }
+  async status(_userId: string, source: ProviderSource) { return { source, used: 0, limit: 20, unit: 'token' as const } }
   async record(): Promise<void> {}
 }
 
@@ -116,14 +118,16 @@ describe('CloudQuotaService', () => {
     expect(base.checked).toBe(1)
   })
 
-  test('按档位取上限,超额被拦', async () => {
+  test('按档位额度包计,烧完被拦', async () => {
     subscriptions.grant('u1', 'basic')
-    const quota = new CloudQuotaService(new StubBaseQuota(), new StubUsage(100), subscriptions)
+    const quota = new CloudQuotaService(new StubBaseQuota(), new StubUsage(1000), subscriptions)
     expect(quota.check('u1', PLATFORM_PROVIDER)).rejects.toThrow(QuotaExceeded)
-    expect((await quota.status('u1', PLATFORM_PROVIDER)).limit).toBe(100)
+    const status = await quota.status('u1', PLATFORM_PROVIDER)
+    expect(status.limit).toBe(1000)
+    expect(status.unit).toBe('token')
   })
 
-  test('daily_limit 为 0 的档位不限量', async () => {
+  test('token_quota 为 0 的档位不限量', async () => {
     subscriptions.grant('u1', 'sprint')
     const base = new StubBaseQuota()
     const quota = new CloudQuotaService(base, new StubUsage(10_000), subscriptions)
@@ -131,10 +135,18 @@ describe('CloudQuotaService', () => {
     expect(base.checked).toBe(0)
     expect((await quota.status('u1', PLATFORM_PROVIDER)).limit).toBeNull()
   })
+
+  test('额度按订阅期起算,不看历史消耗', async () => {
+    subscriptions.grant('u1', 'basic')
+    // StubUsage 返回的是"自 periodStart 起"的量,未超额即放行
+    const quota = new CloudQuotaService(new StubBaseQuota(), new StubUsage(400), subscriptions)
+    await quota.check('u1', PLATFORM_PROVIDER)
+    expect((await quota.status('u1', PLATFORM_PROVIDER)).used).toBe(400)
+  })
 })
 
 describe('processOrder', () => {
-  const deps = () => ({ orders, subscriptions, userExists: async (id: string) => id === 'u1' })
+  const deps = () => ({ orders, subscriptions, usage: new StubUsage(), userExists: async (id: string) => id === 'u1' })
 
   test('正常订单发放订阅', async () => {
     expect(await processOrder(order(), deps())).toBe('granted')
@@ -170,6 +182,14 @@ describe('processOrder', () => {
     expect(subscriptions.isActive('u1')).toBe(false)
   })
 
+  test('续费结转上期没用完的 token', async () => {
+    await processOrder(order(), deps())
+    // 用掉 300,剩 700;再买一次应得 700 + 1000
+    const carried = { orders, subscriptions, usage: new StubUsage(300), userExists: async (id: string) => id === 'u1' }
+    await processOrder(order({ out_trade_no: 'order-2' }), carried)
+    expect(subscriptions.active('u1')?.tokenQuota).toBe(1700)
+  })
+
   test('按订单月份数发放', async () => {
     await processOrder(order({ month: 2 }), deps())
     expect(Math.round((subscriptions.expiresAt('u1')!.getTime() - Date.now()) / DAY)).toBe(60)
@@ -196,7 +216,7 @@ describe('cloud routes', () => {
       if (error instanceof AppError) return c.json({ detail: error.message }, error.status as 400)
       throw error
     })
-    registerCloudRoutes(app, { subscriptions, orders, tokens, userExists: async (id) => id === 'u1' })
+    registerCloudRoutes(app, { subscriptions, orders, usage: new StubUsage(), tokens, userExists: async (id) => id === 'u1' })
     return app
   }
 

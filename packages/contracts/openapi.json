@@ -813,12 +813,20 @@
                       "nullable": true,
                       "minimum": 0,
                       "exclusiveMinimum": true
+                    },
+                    "unit": {
+                      "type": "string",
+                      "enum": [
+                        "token",
+                        "call"
+                      ]
                     }
                   },
                   "required": [
                     "source",
                     "used",
-                    "limit"
+                    "limit",
+                    "unit"
                   ]
                 }
               }

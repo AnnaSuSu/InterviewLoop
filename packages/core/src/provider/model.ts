@@ -75,4 +75,6 @@ export type PlatformProviderConfig = {
   llm: Pick<LlmSettings, 'api_base' | 'api_key' | 'model'> & { compatibility?: LlmCompatibility }
   embedding: Pick<EmbeddingSettings, 'api_base' | 'api_key' | 'api_model'>
   dailyCallLimit: number
+  /** 每日 token 上限,0 表示不启用;设了就优先于 dailyCallLimit */
+  dailyTokenLimit: number
 }

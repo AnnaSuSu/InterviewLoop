@@ -1,10 +1,11 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { AppError, type TokenService } from '@techspar/core'
+import { AppError, type TokenService, type UsageRepository } from '@techspar/core'
 import { authenticatedContext } from '../http/context.ts'
 import { verifyOrderSignature, type AfdianOrder } from './afdian.ts'
 import type { OrderRepository } from './orders.ts'
+import { grantWithCarryOver } from './grant.ts'
 import { processOrder, type OrderDependencies } from './process-order.ts'
 import type { SubscriptionRepository } from './subscriptions.ts'
 import { tierByKey, tiers } from './tiers.ts'
@@ -14,7 +15,7 @@ const TierSchema = z.object({
   planId: z.string(),
   label: z.string(),
   price_cents: z.number(),
-  daily_limit: z.number(),
+  token_quota: z.number(),
 })
 
 const SubscriptionSchema = z.object({
@@ -43,7 +44,7 @@ function requireSecret(provided: string): void {
 
 export function registerCloudRoutes(
   app: OpenAPIHono,
-  deps: { subscriptions: SubscriptionRepository; orders: OrderRepository; tokens: TokenService; userExists: OrderDependencies['userExists'] },
+  deps: { subscriptions: SubscriptionRepository; orders: OrderRepository; usage: UsageRepository; tokens: TokenService; userExists: OrderDependencies['userExists'] },
 ): void {
   app.openapi(
     createRoute({
@@ -77,7 +78,7 @@ export function registerCloudRoutes(
         return c.json({ ec: 403, em: 'invalid signature' })
       }
 
-      const outcome = await processOrder(order, { orders: deps.orders, subscriptions: deps.subscriptions, userExists: deps.userExists })
+      const outcome = await processOrder(order, { orders: deps.orders, subscriptions: deps.subscriptions, usage: deps.usage, userExists: deps.userExists })
       console.log(JSON.stringify({ event: 'cloud:afdian_order', outTradeNo: order.out_trade_no, planId: order.plan_id, outcome }))
       // 已落库的一律回 200 让平台收手;真正需要重投的只有上面那些没走到这步的情况
       return c.json({ ec: 200, em: '' })
@@ -99,7 +100,7 @@ export function registerCloudRoutes(
       if (!userId || !tierByKey(body.plan.trim())) {
         throw new AppError(`user_id and a valid plan are required (${tiers().map((t) => t.key).join(', ')})`, 400)
       }
-      const expiry = deps.subscriptions.grant(userId, body.plan.trim(), body.months ?? 1)
+      const expiry = await grantWithCarryOver(userId, body.plan.trim(), body.months ?? 1, { subscriptions: deps.subscriptions, usage: deps.usage })
       console.log(JSON.stringify({ event: 'cloud:subscription_granted', userId, tier: body.plan.trim(), expiresAt: expiry.toISOString() }))
       return c.json({ ok: true as const, expires_at: expiry.toISOString() })
     },

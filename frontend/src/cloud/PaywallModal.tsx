@@ -5,7 +5,7 @@ import AfdianIcon from "@/components/AfdianIcon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { currentUserId, fetchSubscription, formatPrice, type Subscription, type Tier } from "./api";
+import { currentUserId, fetchSubscription, formatPrice, formatTokens, type Subscription, type Tier } from "./api";
 import { closePaywall, getState, subscribe } from "./store";
 
 /**
@@ -40,6 +40,12 @@ export default function PaywallModal() {
 
   const plans: Tier[] = sub?.plans ?? [];
   const chosen = selected || plans[0]?.key || "";
+  const freeQuotaText =
+    quota?.limit == null
+      ? ""
+      : quota.unit === "token"
+        ? `${formatTokens(quota.limit)} tokens`
+        : `每天 ${quota.limit} 次`;
   // 弹窗有两个入口:额度耗尽时自动弹,和用户主动点角标提前升级。
   // 后者额度还没用完,再说"已用完"就是假话。
   const exhausted = quota?.limit != null && quota.used >= quota.limit;
@@ -63,14 +69,14 @@ export default function PaywallModal() {
         </button>
 
         <h2 className="text-lg font-semibold text-card-foreground">
-          {exhausted ? "今日免费额度已用完" : "提升每日额度"}
+          {exhausted ? "额度已用完" : "提升额度"}
         </h2>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {exhausted
             ? "赞助后额度按档位提升，可以继续训练。"
-            : quota
-              ? `免费额度每天 ${quota.limit} 次，赞助后按档位提升。`
-              : "赞助后每日额度按档位提升。"}
+            : freeQuotaText
+              ? `当前额度 ${freeQuotaText}，赞助后按档位提升。`
+              : "赞助后额度按档位提升。"}
         </p>
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground/80">
           服务器和模型推理都是我自费在扛。如果 TechSpar 帮到了你，赞助一点能让它继续做下去。
@@ -92,7 +98,7 @@ export default function PaywallModal() {
               <div>
                 <div className="text-sm font-medium text-card-foreground">{p.label}</div>
                 <div className="text-xs text-muted-foreground">
-                  {p.daily_limit > 0 ? `每天 ${p.daily_limit} 次` : "不限每日额度"}
+                  {p.token_quota > 0 ? `${formatTokens(p.token_quota)} tokens` : "不限额度"}
                 </div>
               </div>
               <div className="flex items-center gap-2">

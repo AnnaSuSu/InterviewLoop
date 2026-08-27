@@ -550,6 +550,8 @@ export interface paths {
                             source: "user" | "platform";
                             used: number;
                             limit: number | null;
+                            /** @enum {string} */
+                            unit: "token" | "call";
                         };
                     };
                 };

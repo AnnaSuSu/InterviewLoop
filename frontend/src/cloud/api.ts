@@ -4,6 +4,8 @@ export interface Quota {
   source: "user" | "platform";
   used: number;
   limit: number | null;
+  /** token 按消耗量计，call 是仅按次数的兼容模式 */
+  unit: "token" | "call";
 }
 
 export interface Tier {
@@ -11,8 +13,8 @@ export interface Tier {
   planId: string;
   label: string;
   price_cents: number;
-  /** 每日调用上限，0 表示不限 */
-  daily_limit: number;
+  /** 订阅期内可用的 token 总量，0 表示不限 */
+  token_quota: number;
 }
 
 export interface Subscription {
@@ -56,4 +58,13 @@ export async function fetchSubscription(): Promise<Subscription | null> {
 
 export function formatPrice(cents: number): string {
   return `¥${(cents / 100).toFixed(2).replace(/\.00$/, "")}`;
+}
+
+/** token 数按中文习惯折成「万」，原始位数对用户没有意义。 */
+export function formatTokens(value: number): string {
+  if (value >= 10_000) {
+    const wan = value / 10_000;
+    return `${wan >= 100 ? Math.round(wan) : wan.toFixed(1).replace(/\.0$/, "")} 万`;
+  }
+  return value.toLocaleString("zh-CN");
 }

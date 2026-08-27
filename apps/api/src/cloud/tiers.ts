@@ -12,17 +12,20 @@ export type Tier = {
   planId: string
   label: string
   price_cents: number
-  /** 每日调用上限,0 表示不限 */
-  daily_limit: number
+  /** 订阅期内可用的 token 总量(输入+输出)。按次数计费与真实成本脱节:
+   *  一次实时 Copilot 的上下文可能是普通问答的几十倍,却同样只算一次。 */
+  token_quota: number
   /** 纯赞助档:不含任何权益,不发订阅,也不出现在付费墙里 */
   donation?: boolean
 }
 
+const MILLION = 1_000_000
+
 const DEFAULT_TIERS: readonly Tier[] = [
-  { key: 'basic', planId: '', label: '保持手感', price_cents: 990, daily_limit: 100 },
-  { key: 'plus', planId: '', label: '在投简历了', price_cents: 1990, daily_limit: 250 },
-  { key: 'season', planId: '', label: '面试季', price_cents: 3990, daily_limit: 600 },
-  { key: 'sprint', planId: '', label: '全力冲刺', price_cents: 6990, daily_limit: 1200 },
+  { key: 'basic', planId: '', label: '保持手感', price_cents: 990, token_quota: 2.5 * MILLION },
+  { key: 'plus', planId: '', label: '在投简历了', price_cents: 1990, token_quota: 6 * MILLION },
+  { key: 'season', planId: '', label: '面试季', price_cents: 3990, token_quota: 14 * MILLION },
+  { key: 'sprint', planId: '', label: '全力冲刺', price_cents: 6990, token_quota: 28 * MILLION },
 ]
 
 /** 一次赞助按多少天计。爱发电按月计费,月份数乘以这个天数。 */
@@ -40,8 +43,8 @@ export function tiers(): readonly Tier[] {
   if (!raw) return (cached = DEFAULT_TIERS)
   try {
     const parsed = JSON.parse(raw) as Tier[]
-    if (!Array.isArray(parsed) || parsed.some((t) => !t.key || typeof t.daily_limit !== 'number')) {
-      throw new Error('每个档位至少需要 key 与数字 daily_limit')
+    if (!Array.isArray(parsed) || parsed.some((t) => !t.key || typeof t.token_quota !== 'number')) {
+      throw new Error('每个档位至少需要 key 与数字 token_quota')
     }
     return (cached = parsed)
   } catch (error) {

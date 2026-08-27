@@ -23,7 +23,7 @@ import { FileProviderSettingsRepository } from '@techspar/platform'
 const emptyPlatform: PlatformProviderConfig = {
   llm: { api_base: '', api_key: '', model: '' },
   embedding: { api_base: '', api_key: '', api_model: '' },
-  dailyCallLimit: 0,
+  dailyCallLimit: 0, dailyTokenLimit: 0,
 }
 
 describe('provider resolution', () => {
@@ -56,12 +56,27 @@ describe('provider resolution', () => {
 describe('quota policy', () => {
   class MemoryUsage implements UsageRepository {
     calls = new Map<string, number>()
+    tokens = new Map<string, number>()
     initialize(): void {}
-    async record(input: { userId: string; source: 'user' | 'platform' }) {
-      if (input.source === PLATFORM_PROVIDER) this.calls.set(input.userId, (this.calls.get(input.userId) || 0) + 1)
+    async record(input: { userId: string; source: 'user' | 'platform'; promptTokens?: number; completionTokens?: number }) {
+      if (input.source !== PLATFORM_PROVIDER) return
+      this.calls.set(input.userId, (this.calls.get(input.userId) || 0) + 1)
+      const spent = (input.promptTokens || 0) + (input.completionTokens || 0)
+      this.tokens.set(input.userId, (this.tokens.get(input.userId) || 0) + spent)
     }
     async platformCallsToday(userId: string) { return this.calls.get(userId) || 0 }
+    async platformTokensToday(userId: string) { return this.tokens.get(userId) || 0 }
+    async platformTokensSince(userId: string) { return this.tokens.get(userId) || 0 }
   }
+
+  test('配了 token 上限就按 token 计,而不是次数', async () => {
+    const repository = new MemoryUsage()
+    const quota = new QuotaService(repository, { ...emptyPlatform, dailyCallLimit: 100, dailyTokenLimit: 1000 })
+    // 一次调用就烧掉整个 token 上限:按次数算远没到 100 次,按 token 算已经满了
+    await quota.record({ userId: 'u1', source: PLATFORM_PROVIDER, promptTokens: 900, completionTokens: 100 })
+    await expect(quota.check('u1', PLATFORM_PROVIDER)).rejects.toBeInstanceOf(QuotaExceeded)
+    expect((await quota.status('u1', PLATFORM_PROVIDER)).unit).toBe('token')
+  })
 
   test('limits platform calls per user but never own-key calls', async () => {
     const repository = new MemoryUsage()
@@ -75,7 +90,7 @@ describe('quota policy', () => {
   test('zero means unlimited and status uses null', async () => {
     const quota = new QuotaService(new MemoryUsage(), emptyPlatform)
     await quota.check('u1', PLATFORM_PROVIDER)
-    expect(await quota.status('u1', PLATFORM_PROVIDER)).toEqual({ source: PLATFORM_PROVIDER, used: 0, limit: null })
+    expect(await quota.status('u1', PLATFORM_PROVIDER)).toEqual({ source: PLATFORM_PROVIDER, used: 0, limit: null, unit: 'call' })
   })
 })
 
