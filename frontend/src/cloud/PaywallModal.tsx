@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { X, Check } from "lucide-react";
 
+import AfdianIcon from "@/components/AfdianIcon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +104,7 @@ export default function PaywallModal() {
 
         {SPONSOR_URL && (
           <Button className="mt-5 w-full" onClick={() => openSponsorPage(plans.find((p) => p.key === chosen))}>
+            <AfdianIcon size={15} className="mr-1.5" />
             去爱发电赞助
           </Button>
         )}

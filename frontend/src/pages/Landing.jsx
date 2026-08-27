@@ -9,7 +9,6 @@ import {
   BookOpen,
   BriefcaseBusiness,
   FileText,
-  Zap,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import useScrollReveal from "@/hooks/useScrollReveal";
@@ -18,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Logo from "../components/Logo";
 import GitHubStar from "../components/GitHubStar";
+import AfdianIcon from "../components/AfdianIcon";
 import heroArt from "../assets/hero-art.jpg";
 
 /** 赞助页。托管版的服务器与模型推理费用由此支撑。 */
@@ -337,7 +337,7 @@ export default function Landing() {
               aria-label="在爱发电赞助 TechSpar"
               className="group inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 text-sm font-medium text-text backdrop-blur-sm transition-colors hover:border-primary/40 hover:bg-card"
             >
-              <Zap size={15} className="text-primary transition-transform duration-300 group-hover:scale-110" />
+              <AfdianIcon size={15} className="text-primary transition-transform duration-300 group-hover:scale-110" />
               <span className="hidden sm:inline">赞助</span>
             </a>
             <Button variant="outline" onClick={() => navigate("/login")}>

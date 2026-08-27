@@ -18,7 +18,6 @@ import {
   RotateCw,
   KeyRound,
   Plug,
-  Zap,
   XCircle,
 } from "lucide-react";
 import {
@@ -35,6 +34,7 @@ import {
   deleteVoiceprintEnrollment,
 } from "../api/voiceprint";
 import { exportPersonalData, exportSystemData, importData } from "../api/dataMigration";
+import AfdianIcon from "../components/AfdianIcon";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1518,7 +1518,7 @@ export default function Settings() {
         <Card className="overflow-hidden border-border/40 bg-card/40">
           <CardContent className="p-5 md:p-7">
             <div className="flex items-center gap-2 mb-1">
-              <Zap size={16} className="text-primary" />
+              <AfdianIcon size={16} className="text-primary" />
               <h2 className="text-[15px] font-semibold">支持这个项目</h2>
             </div>
             <p className="mb-4 text-[13px] leading-relaxed text-dim">
@@ -1534,7 +1534,7 @@ export default function Settings() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-[13px] font-medium transition-colors hover:border-primary/40 hover:text-primary"
             >
-              <Zap size={15} className="text-primary" />
+              <AfdianIcon size={15} className="text-primary" />
               去爱发电赞助
             </a>
           </CardContent>
