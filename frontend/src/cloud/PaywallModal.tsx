@@ -8,11 +8,13 @@ import { currentUserId, fetchSubscription, formatPrice, type Subscription, type 
 import { closePaywall, getState, subscribe } from "./store";
 
 /**
- * 赞助页地址,由部署方配置;没配就不显示赞助按钮,自托管不需要它。
- * 钱不经过本服务——用户在爱发电付款,平台回调打
- * POST /api/cloud/subscription/grant 发放订阅。
+ * 赞助页地址，由部署方配置；没配就不显示赞助按钮，自托管不需要它。
+ * 钱不经过本服务——用户在收款平台付款，平台回调发放订阅。
  */
 const SPONSOR_URL: string = import.meta.env.VITE_SPONSOR_URL || "";
+
+/** 爱发电下单页。档位有 plan_id 时直连到该档位的收银台，省掉用户自己找档位。 */
+const ORDER_URL = "https://ifdian.net/order/create";
 
 export default function PaywallModal() {
   const { paywallOpen, quota } = useSyncExternalStore(subscribe, getState);
@@ -116,15 +118,20 @@ export default function PaywallModal() {
 }
 
 /**
- * 跳去赞助页，并把本站用户 ID 挂在 custom_order_id 上。
+ * 跳去付款页，并把本站用户 ID 挂在 custom_order_id 上。
  *
  * 平台会把这个字段原样带回订单回调，服务端据此认出是谁付的钱——不然两边是
  * 两套账号体系，只能让用户自己填备注再人工对账。
+ *
+ * 档位配了 plan_id 就直连该档位的下单页；没配则退回赞助主页，让用户自己选。
  */
 function openSponsorPage(tier?: Tier): void {
-  const url = new URL(SPONSOR_URL);
+  const url = new URL(tier?.planId ? ORDER_URL : SPONSOR_URL);
+  if (tier?.planId) {
+    url.searchParams.set("plan_id", tier.planId);
+    url.searchParams.set("product_type", "0"); // 0 = 订阅方案
+  }
   const userId = currentUserId();
   if (userId) url.searchParams.set("custom_order_id", userId);
-  if (tier?.planId) url.searchParams.set("plan_id", tier.planId);
   window.open(url.toString(), "_blank", "noopener,noreferrer");
 }
