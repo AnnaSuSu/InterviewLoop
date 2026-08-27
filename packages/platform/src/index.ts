@@ -19,7 +19,8 @@ export type AppConfig = {
   platformEmbeddingApiKey: string
   platformEmbeddingModel: string
   platformDailyCallLimit: number
-  platformDailyTokenLimit: number
+  platformTokenLimit: number
+  platformTokenWindow: 'day' | 'month'
   voiceprintEncryptionKey: string
   host: string
   port: number
@@ -47,7 +48,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     platformEmbeddingApiKey: env.PLATFORM_EMBEDDING_API_KEY || '',
     platformEmbeddingModel: env.PLATFORM_EMBEDDING_MODEL || '',
     platformDailyCallLimit: Number(env.PLATFORM_DAILY_CALL_LIMIT || 0),
-    platformDailyTokenLimit: Number(env.PLATFORM_DAILY_TOKEN_LIMIT || 0),
+    platformTokenLimit: Number(env.PLATFORM_TOKEN_LIMIT || 0),
+    platformTokenWindow: env.PLATFORM_TOKEN_WINDOW === 'month' ? 'month' : 'day',
     voiceprintEncryptionKey: env.VOICEPRINT_ENCRYPTION_KEY || env.JWT_SECRET || 'change-me-in-production',
     host: env.HOST || '0.0.0.0',
     port: Number(env.PORT || 8000),

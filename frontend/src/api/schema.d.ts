@@ -552,6 +552,8 @@ export interface paths {
                             limit: number | null;
                             /** @enum {string} */
                             unit: "token" | "call";
+                            /** @enum {string} */
+                            window: "day" | "month" | "subscription";
                         };
                     };
                 };

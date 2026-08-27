@@ -21,11 +21,19 @@ export type Tier = {
 
 const MILLION = 1_000_000
 
+/**
+ * 默认档位。
+ *
+ * 额度按最坏情况估算:高峰时段、缓存不命中。注意输出的单价数倍于输入且占大头,
+ * 拿输入价当基准会严重低估——这里踩过两次。
+ *
+ * 越往上每块钱买到的额度越多,否则没人有理由升级。
+ */
 const DEFAULT_TIERS: readonly Tier[] = [
-  { key: 'basic', planId: '', label: '保持手感', price_cents: 990, token_quota: 2.5 * MILLION },
-  { key: 'plus', planId: '', label: '在投简历了', price_cents: 1990, token_quota: 6 * MILLION },
-  { key: 'season', planId: '', label: '面试季', price_cents: 3990, token_quota: 14 * MILLION },
-  { key: 'sprint', planId: '', label: '全力冲刺', price_cents: 6990, token_quota: 28 * MILLION },
+  { key: 'basic', planId: '', label: '保持手感', price_cents: 990, token_quota: 0.8 * MILLION },
+  { key: 'plus', planId: '', label: '在投简历了', price_cents: 1990, token_quota: 1.8 * MILLION },
+  { key: 'season', planId: '', label: '面试季', price_cents: 3990, token_quota: 3.8 * MILLION },
+  { key: 'sprint', planId: '', label: '全力冲刺', price_cents: 6990, token_quota: 7 * MILLION },
 ]
 
 /** 一次赞助按多少天计。爱发电按月计费,月份数乘以这个天数。 */

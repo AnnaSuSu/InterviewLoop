@@ -6,6 +6,13 @@ export interface Quota {
   limit: number | null;
   /** token 按消耗量计，call 是仅按次数的兼容模式 */
   unit: "token" | "call";
+  /** 计量窗口。subscription 表示按订阅期的额度包计 */
+  window: "day" | "month" | "subscription";
+}
+
+/** 额度窗口的中文说法。订阅期的额度包不按自然周期滚动，所以只说「剩余」。 */
+export function windowLabel(window: Quota["window"]): string {
+  return window === "day" ? "今日额度" : window === "month" ? "本月额度" : "剩余额度";
 }
 
 export interface Tier {

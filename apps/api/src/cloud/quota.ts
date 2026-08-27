@@ -41,6 +41,7 @@ export class CloudQuotaService implements QuotaUseCases {
       used: await this.usage.platformTokensSince(userId, active.periodStart),
       limit: active.tokenQuota > 0 ? active.tokenQuota : null,
       unit: 'token',
+      window: 'subscription',
     }
   }
 

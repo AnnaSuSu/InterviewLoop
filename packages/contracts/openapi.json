@@ -820,13 +820,22 @@
                         "token",
                         "call"
                       ]
+                    },
+                    "window": {
+                      "type": "string",
+                      "enum": [
+                        "day",
+                        "month",
+                        "subscription"
+                      ]
                     }
                   },
                   "required": [
                     "source",
                     "used",
                     "limit",
-                    "unit"
+                    "unit",
+                    "window"
                   ]
                 }
               }

@@ -70,7 +70,9 @@ export interface UsageRepository {
 
 export type QuotaUnit = 'token' | 'call'
 
-export type QuotaStatus = { source: ProviderSource; used: number; limit: number | null; unit: QuotaUnit }
+export type QuotaWindow = 'day' | 'month' | 'subscription'
+
+export type QuotaStatus = { source: ProviderSource; used: number; limit: number | null; unit: QuotaUnit; window: QuotaWindow }
 
 export interface QuotaUseCases {
   check(userId: string | undefined, source: ProviderSource): Promise<void>

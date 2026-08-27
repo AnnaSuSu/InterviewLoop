@@ -79,7 +79,8 @@ const platform: PlatformProviderConfig = {
     api_model: config.platformEmbeddingModel,
   },
   dailyCallLimit: config.platformDailyCallLimit,
-  dailyTokenLimit: config.platformDailyTokenLimit,
+  tokenLimit: config.platformTokenLimit,
+  tokenWindow: config.platformTokenWindow,
 }
 const extensions = await loadExtensions(process.env.TECHSPAR_EXTENSIONS)
 const extensionContext = { dbPath: config.dbPath, tokens }

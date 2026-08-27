@@ -75,6 +75,8 @@ export type PlatformProviderConfig = {
   llm: Pick<LlmSettings, 'api_base' | 'api_key' | 'model'> & { compatibility?: LlmCompatibility }
   embedding: Pick<EmbeddingSettings, 'api_base' | 'api_key' | 'api_model'>
   dailyCallLimit: number
-  /** 每日 token 上限,0 表示不启用;设了就优先于 dailyCallLimit */
-  dailyTokenLimit: number
+  /** token 上限,0 表示不启用;设了就优先于 dailyCallLimit */
+  tokenLimit: number
+  /** token 上限的计量窗口。按天算,一个白嫖用户一年能烧掉几十块;按月封顶才可控 */
+  tokenWindow: 'day' | 'month'
 }

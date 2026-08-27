@@ -4,7 +4,7 @@ import { Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-import { formatTokens } from "./api";
+import { formatTokens, windowLabel } from "./api";
 import { getState, openPaywall, subscribe } from "./store";
 
 /**
@@ -50,7 +50,7 @@ export default function SidebarQuota({ collapsed }: { collapsed: boolean }) {
             <>
               <span className="flex items-center gap-2.5">
                 <Zap size={18} className="shrink-0" />
-                <span className="flex-1 text-left">{quota.unit === "token" ? "剩余额度" : "今日额度"}</span>
+                <span className="flex-1 text-left">{quota.unit === "token" ? windowLabel(quota.window) : "今日额度"}</span>
                 <span className="tabular-nums text-[12px]">
                   {quota.unit === "token"
                     ? formatTokens(Math.max(0, quota.limit - quota.used))
@@ -70,7 +70,7 @@ export default function SidebarQuota({ collapsed }: { collapsed: boolean }) {
       {collapsed && (
         <TooltipContent side="right" sideOffset={8}>
           {quota.unit === "token"
-            ? `剩余 ${formatTokens(Math.max(0, quota.limit - quota.used))} / ${formatTokens(quota.limit)} tokens`
+            ? `${windowLabel(quota.window)} 剩余 ${formatTokens(Math.max(0, quota.limit - quota.used))} / ${formatTokens(quota.limit)} tokens`
             : `今日免费额度 ${quota.used}/${quota.limit}`}
           {exhausted && " · 已用完"}
         </TooltipContent>

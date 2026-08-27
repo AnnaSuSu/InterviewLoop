@@ -32,7 +32,7 @@ class StubUsage implements UsageRepository {
 class StubBaseQuota implements QuotaUseCases {
   checked = 0
   async check(): Promise<void> { this.checked += 1 }
-  async status(_userId: string, source: ProviderSource) { return { source, used: 0, limit: 20, unit: 'token' as const } }
+  async status(_userId: string, source: ProviderSource) { return { source, used: 0, limit: 20, unit: 'token' as const, window: 'month' as const } }
   async record(): Promise<void> {}
 }
 

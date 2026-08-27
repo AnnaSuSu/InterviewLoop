@@ -5,7 +5,7 @@ import AfdianIcon from "@/components/AfdianIcon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { currentUserId, fetchSubscription, formatPrice, formatTokens, type Subscription, type Tier } from "./api";
+import { currentUserId, fetchSubscription, formatPrice, formatTokens, windowLabel, type Subscription, type Tier } from "./api";
 import { closePaywall, getState, subscribe } from "./store";
 
 /**
@@ -44,7 +44,7 @@ export default function PaywallModal() {
     quota?.limit == null
       ? ""
       : quota.unit === "token"
-        ? `${formatTokens(quota.limit)} tokens`
+        ? `${windowLabel(quota.window)} ${formatTokens(quota.limit)} tokens`
         : `每天 ${quota.limit} 次`;
   // 弹窗有两个入口:额度耗尽时自动弹,和用户主动点角标提前升级。
   // 后者额度还没用完,再说"已用完"就是假话。
@@ -98,7 +98,7 @@ export default function PaywallModal() {
               <div>
                 <div className="text-sm font-medium text-card-foreground">{p.label}</div>
                 <div className="text-xs text-muted-foreground">
-                  {p.token_quota > 0 ? `${formatTokens(p.token_quota)} tokens` : "不限额度"}
+                  {p.token_quota > 0 ? `${formatTokens(p.token_quota)} tokens / 期` : "不限额度"}
                 </div>
               </div>
               <div className="flex items-center gap-2">

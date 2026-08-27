@@ -46,7 +46,7 @@ class MemorySettings implements ProviderSettingsRepository {
 const platform: PlatformProviderConfig = {
   llm: { api_base: '', api_key: '', model: '' },
   embedding: { api_base: '', api_key: '', api_model: '' },
-  dailyCallLimit: 0, dailyTokenLimit: 0,
+  dailyCallLimit: 0, tokenLimit: 0, tokenWindow: 'day' as const,
 }
 
 function testApp(allowRegistration = false) {

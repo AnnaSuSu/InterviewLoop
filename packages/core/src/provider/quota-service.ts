@@ -1,6 +1,6 @@
 import { QuotaExceeded } from '../kernel/errors.ts'
 import { PLATFORM_PROVIDER, type PlatformProviderConfig, type ProviderSource } from './model.ts'
-import type { QuotaStatus, QuotaUseCases, QuotaUnit, UsageRepository } from './ports.ts'
+import type { QuotaStatus, QuotaUseCases, QuotaUnit, QuotaWindow, UsageRepository } from './ports.ts'
 
 /**
  * 平台额度。
@@ -16,34 +16,47 @@ export class QuotaService implements QuotaUseCases {
   ) {}
 
   private get unit(): QuotaUnit {
-    return this.platform.dailyTokenLimit > 0 ? 'token' : 'call'
+    return this.platform.tokenLimit > 0 ? 'token' : 'call'
+  }
+
+  private get window(): QuotaWindow {
+    return this.unit === 'token' ? this.platform.tokenWindow : 'day'
   }
 
   private get limit(): number {
-    return this.unit === 'token' ? this.platform.dailyTokenLimit : this.platform.dailyCallLimit
+    return this.unit === 'token' ? this.platform.tokenLimit : this.platform.dailyCallLimit
   }
 
-  private async usedToday(userId: string): Promise<number> {
-    return this.unit === 'token'
-      ? this.usage.platformTokensToday(userId)
-      : this.usage.platformCallsToday(userId)
+  /** 本月起点。按月窗口时用它界定用量,跨月自动归零。 */
+  private static monthStart(): string {
+    const now = new Date()
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
+  }
+
+  private async usedInWindow(userId: string): Promise<number> {
+    if (this.unit !== 'token') return this.usage.platformCallsToday(userId)
+    return this.window === 'month'
+      ? this.usage.platformTokensSince(userId, QuotaService.monthStart())
+      : this.usage.platformTokensToday(userId)
   }
 
   async check(userId: string | undefined, source: ProviderSource): Promise<void> {
     if (!userId || source !== PLATFORM_PROVIDER || this.limit <= 0) return
-    const used = await this.usedToday(userId)
+    const used = await this.usedInWindow(userId)
     if (used >= this.limit) {
-      throw new QuotaExceeded('今日平台额度已用完。可以在「设置」里填自己的 API Key 继续免费使用。')
+      const span = this.window === 'month' ? '本月' : '今日'
+      throw new QuotaExceeded(`${span}平台额度已用完。可以在「设置」里填自己的 API Key 继续免费使用。`)
     }
   }
 
   async status(userId: string, source: ProviderSource): Promise<QuotaStatus> {
-    if (source !== PLATFORM_PROVIDER) return { source, used: 0, limit: null, unit: this.unit }
+    if (source !== PLATFORM_PROVIDER) return { source, used: 0, limit: null, unit: this.unit, window: this.window }
     return {
       source,
-      used: await this.usedToday(userId),
+      used: await this.usedInWindow(userId),
       limit: this.limit > 0 ? this.limit : null,
       unit: this.unit,
+      window: this.window,
     }
   }
 

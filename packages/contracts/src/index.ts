@@ -97,6 +97,8 @@ export const QuotaStatusSchema = z.object({
   limit: z.number().int().positive().nullable(),
   /** 计量单位。token 按消耗量计，call 是仅按次数的兼容模式 */
   unit: z.enum(['token', 'call']),
+  /** 额度的计量窗口。subscription 表示按订阅期的额度包计 */
+  window: z.enum(['day', 'month', 'subscription']),
 })
 
 export const TopicSchema = z.object({ name: z.string(), icon: z.string(), dir: z.string() })
