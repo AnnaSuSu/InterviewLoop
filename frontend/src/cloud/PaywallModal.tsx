@@ -63,14 +63,17 @@ export default function PaywallModal() {
         </button>
 
         <h2 className="text-lg font-semibold text-card-foreground">
-          {exhausted ? "今日免费额度已用完" : "开通后不限每日额度"}
+          {exhausted ? "今日免费额度已用完" : "提升每日额度"}
         </h2>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {exhausted
-            ? "赞助后额度会提升,可以继续训练。"
+            ? "赞助后额度按档位提升，可以继续训练。"
             : quota
               ? `免费额度每天 ${quota.limit} 次，赞助后按档位提升。`
               : "赞助后每日额度按档位提升。"}
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground/80">
+          服务器和模型推理都是我自费在扛。如果 TechSpar 帮到了你，赞助一点能让它继续做下去。
         </p>
 
         <div className="mt-5 space-y-2">

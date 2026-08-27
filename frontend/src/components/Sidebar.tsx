@@ -20,7 +20,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const SPONSOR_URL = "https://ifdian.net/a/techspar";
 
 interface NavItem {
   path: string;
@@ -124,23 +123,6 @@ export default function Sidebar() {
         <div className={cn("py-2 space-y-0.5", collapsed ? "px-2" : "px-3")}>
           <SidebarQuota collapsed={collapsed} />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <a
-                href={SPONSOR_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  "flex items-center gap-2.5 w-full py-2 rounded-lg text-[13px] text-dim hover:text-primary hover:bg-hover transition-all",
-                  collapsed && "justify-center"
-                )}
-              >
-                <AfdianIcon size={18} />
-                {!collapsed && "赞助项目"}
-              </a>
-            </TooltipTrigger>
-            {collapsed && <TooltipContent side="right" sideOffset={8}>赞助项目</TooltipContent>}
-          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
