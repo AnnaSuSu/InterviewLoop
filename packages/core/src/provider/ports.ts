@@ -17,8 +17,18 @@ export type ChatCompleteOptions = {
   jsonMode?: boolean
   reasoningEffort?: ChatReasoningEffort
 }
+/** 一次调用的 token 消耗。cachedTokens 是 promptTokens 中命中缓存的部分。 */
+export type ChatUsage = { promptTokens: number; completionTokens: number; cachedTokens: number }
+
 export type ChatStreamOptions = {
   temperature?: number
+  /**
+   * 流式结束时回调用量。
+   *
+   * 流式响应的 usage 只在最后一个分片里,拿不到就只能记 0——而流式恰恰是
+   * 面试作答、Copilot 这些最贵的场景,记 0 等于让它免费无限量。
+   */
+  onUsage?: (usage: ChatUsage) => void
 }
 
 /** Options used by calls whose response is parsed as JSON. Providers may ignore provider-specific fields. */
@@ -60,7 +70,7 @@ export interface SettingsOperationsUseCases {
 
 export interface UsageRepository {
   initialize(): void
-  record(input: { userId: string; source: ProviderSource; model: string; promptTokens: number; completionTokens: number }): Promise<void>
+  record(input: { userId: string; source: ProviderSource; model: string; promptTokens: number; completionTokens: number; cachedTokens?: number }): Promise<void>
   platformCallsToday(userId: string): Promise<number>
   /** 今日平台 token 消耗(输入+输出),用于免费额度 */
   platformTokensToday(userId: string): Promise<number>
@@ -77,11 +87,11 @@ export type QuotaStatus = { source: ProviderSource; used: number; limit: number 
 export interface QuotaUseCases {
   check(userId: string | undefined, source: ProviderSource): Promise<void>
   status(userId: string, source: ProviderSource): Promise<QuotaStatus>
-  record(input: { userId?: string; source: ProviderSource; model?: string; promptTokens?: number; completionTokens?: number }): Promise<void>
+  record(input: { userId?: string; source: ProviderSource; model?: string; promptTokens?: number; completionTokens?: number; cachedTokens?: number }): Promise<void>
 }
 
 export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
-export type ChatResult = { text: string; promptTokens: number; completionTokens: number }
+export type ChatResult = { text: string; promptTokens: number; completionTokens: number; cachedTokens: number }
 
 export interface ChatDriver {
   complete(messages: readonly ChatMessage[], signal: AbortSignal, options?: ChatCompleteOptions): Promise<ChatResult>

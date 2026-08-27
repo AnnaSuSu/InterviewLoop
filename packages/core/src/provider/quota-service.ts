@@ -60,7 +60,7 @@ export class QuotaService implements QuotaUseCases {
     }
   }
 
-  async record(input: { userId?: string; source: ProviderSource; model?: string; promptTokens?: number; completionTokens?: number }): Promise<void> {
+  async record(input: { userId?: string; source: ProviderSource; model?: string; promptTokens?: number; completionTokens?: number; cachedTokens?: number }): Promise<void> {
     if (!input.userId) return
     try {
       await this.usage.record({
@@ -69,6 +69,7 @@ export class QuotaService implements QuotaUseCases {
         model: input.model || '',
         promptTokens: input.promptTokens || 0,
         completionTokens: input.completionTokens || 0,
+        cachedTokens: input.cachedTokens || 0,
       })
     } catch (error) {
       console.error('记录 LLM 用量失败', error)

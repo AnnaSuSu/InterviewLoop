@@ -45,7 +45,7 @@ export class CloudQuotaService implements QuotaUseCases {
     }
   }
 
-  async record(input: { userId?: string; source: ProviderSource; model?: string; promptTokens?: number; completionTokens?: number }): Promise<void> {
+  async record(input: { userId?: string; source: ProviderSource; model?: string; promptTokens?: number; completionTokens?: number; cachedTokens?: number }): Promise<void> {
     return this.base.record(input)
   }
 }

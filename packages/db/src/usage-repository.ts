@@ -18,17 +18,20 @@ export class BunUsageRepository implements UsageRepository {
         model TEXT NOT NULL DEFAULT '',
         prompt_tokens INTEGER NOT NULL DEFAULT 0,
         completion_tokens INTEGER NOT NULL DEFAULT 0,
+        cached_tokens INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS idx_llm_usage_lookup ON llm_usage (user_id, source, created_at);
     `)
+    // 老库补列
+    try { this.sqlite.exec('ALTER TABLE llm_usage ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0') } catch { /* 已存在 */ }
   }
 
-  async record(input: { userId: string; source: ProviderSource; model: string; promptTokens: number; completionTokens: number }): Promise<void> {
+  async record(input: { userId: string; source: ProviderSource; model: string; promptTokens: number; completionTokens: number; cachedTokens?: number }): Promise<void> {
     this.sqlite.query(`
-      INSERT INTO llm_usage (user_id, source, model, prompt_tokens, completion_tokens)
-      VALUES ($userId, $source, $model, $promptTokens, $completionTokens)
-    `).run({ $userId: input.userId, $source: input.source, $model: input.model, $promptTokens: input.promptTokens, $completionTokens: input.completionTokens })
+      INSERT INTO llm_usage (user_id, source, model, prompt_tokens, completion_tokens, cached_tokens)
+      VALUES ($userId, $source, $model, $promptTokens, $completionTokens, $cachedTokens)
+    `).run({ $userId: input.userId, $source: input.source, $model: input.model, $promptTokens: input.promptTokens, $completionTokens: input.completionTokens, $cachedTokens: input.cachedTokens || 0 })
   }
 
   async platformCallsToday(userId: string): Promise<number> {

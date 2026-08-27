@@ -23,6 +23,7 @@ import {
   type VoiceprintDriver,
   type VoiceprintDriverFactory,
   type VoiceRoleDetector,
+  type ChatUsage,
 } from '@techspar/core'
 
 export { normalizeEmbeddingApiBase } from '@techspar/core'
@@ -65,6 +66,7 @@ export class OpenAiChatDriverFactory implements ChatDriverFactory {
       async complete(messages: readonly ChatMessage[], signal: AbortSignal, options?: ChatCompleteOptions) {
         let promptTokens = 0
         let completionTokens = 0
+        let cachedTokens = 0
         for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
           const response = await client.chat.completions.create(
             {
@@ -81,8 +83,11 @@ export class OpenAiChatDriverFactory implements ChatDriverFactory {
           )
           promptTokens += response.usage?.prompt_tokens || 0
           completionTokens += response.usage?.completion_tokens || 0
+          // DeepSeek 在 usage 里给出命中缓存的输入量,命中价是未命中的 1/30,
+          // 不记下来就无从判断真实成本
+          cachedTokens += (response.usage as { prompt_cache_hit_tokens?: number } | undefined)?.prompt_cache_hit_tokens || 0
           const text = response.choices?.[0]?.message.content || ''
-          if (text.trim()) return { text, promptTokens, completionTokens }
+          if (text.trim()) return { text, promptTokens, completionTokens, cachedTokens }
           if (attempt < retryDelaysMs.length) await sleep(retryDelaysMs[attempt]!, signal)
         }
         throw new ProviderResponseError('模型服务连续返回空内容，已自动重试，请稍后再试或更换模型。')
@@ -94,13 +99,26 @@ export class OpenAiChatDriverFactory implements ChatDriverFactory {
             messages: [...messages],
             temperature: options?.temperature ?? config.temperature,
             stream: true,
+            // usage 只随最后一个分片下发,不显式索取就完全拿不到,
+            // 流式调用会被记成 0 token
+            stream_options: { include_usage: true },
           },
           { signal },
         )
+        let usage: ChatUsage = { promptTokens: 0, completionTokens: 0, cachedTokens: 0 }
         for await (const chunk of response) {
+          const raw = (chunk as { usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number } }).usage
+          if (raw) {
+            usage = {
+              promptTokens: raw.prompt_tokens || 0,
+              completionTokens: raw.completion_tokens || 0,
+              cachedTokens: raw.prompt_cache_hit_tokens || 0,
+            }
+          }
           const token = chunk.choices[0]?.delta.content
           if (token) yield token
         }
+        options?.onUsage?.(usage)
       },
     }
   }

@@ -28,7 +28,7 @@ describe('chat provider compatibility', () => {
     })
     const result = await factory.create(config).complete([{ role: 'user', content: 'generate' }], new AbortController().signal, { maxTokens: 4096 })
 
-    expect(result).toEqual({ text: '[{"id":1,"question":"题目"}]', promptTokens: 4, completionTokens: 4 })
+    expect(result).toEqual({ text: '[{"id":1,"question":"题目"}]', promptTokens: 4, completionTokens: 4, cachedTokens: 0 })
     expect(delays).toEqual([10])
     expect(requests).toHaveLength(2)
     expect(requests.every((request) => request.max_tokens === 4096)).toBeTrue()
