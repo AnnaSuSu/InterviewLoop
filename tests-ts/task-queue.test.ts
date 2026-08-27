@@ -164,7 +164,8 @@ describe('persistent task queue leases', () => {
     await repository.upsert({ taskId: 'heartbeat', userId: 'user-a', type: 'review', payload: {} })
 
     const gate = deferred()
-    const queue = new PersistentTaskQueue(repository, { owner: 'live-worker', leaseDurationMs: 80, heartbeatIntervalMs: 10 })
+    const leaseDurationMs = 2_000
+    const queue = new PersistentTaskQueue(repository, { owner: 'live-worker', leaseDurationMs, heartbeatIntervalMs: 100 })
     queue.register('review', async () => {
       await gate.promise
       return { ok: true }
@@ -172,12 +173,12 @@ describe('persistent task queue leases', () => {
     await queue.start()
     await waitFor(async () => (await repository.get('heartbeat', 'user-a'))?.status === 'running')
     const initialExpiry = Date.parse((await repository.get('heartbeat', 'user-a'))!.lease_expires_at!)
-    await waitFor(() => Date.now() > initialExpiry + 20)
+    await waitFor(() => Date.now() > initialExpiry + 20, leaseDurationMs + 1_000)
 
     const renewed = await repository.get('heartbeat', 'user-a')
     expect(Date.parse(renewed!.lease_expires_at!)).toBeGreaterThan(initialExpiry)
     expect(Date.parse(renewed!.lease_expires_at!)).toBeGreaterThan(Date.now())
-    expect(await competitor.claim('heartbeat', 'user-a', { owner: 'other-worker', durationMs: 80 })).toBeUndefined()
+    expect(await competitor.claim('heartbeat', 'user-a', { owner: 'other-worker', durationMs: leaseDurationMs })).toBeUndefined()
 
     gate.resolve()
     await waitFor(async () => (await repository.get('heartbeat', 'user-a'))?.status === 'done')

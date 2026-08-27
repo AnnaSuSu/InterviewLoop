@@ -57,7 +57,7 @@ export class BackendSupervisor {
         finish(undefined, { origin: `http://${host}:${message.port}`, port: Number(message.port) })
       })
       child.once('error', (error) => finish(error))
-      child.once('exit', (code, signal) => {
+      child.once('close', (code, signal) => {
         const detail = `TechSpar backend exited (${signal || (code ?? 'unknown')})${stderr ? `\n${stderr}` : ''}`
         if (!this.ready) finish(new Error(detail))
         else if (!this.stopping) this.onUnexpectedExit?.(detail)
