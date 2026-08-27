@@ -1,11 +1,6 @@
 import { PLATFORM_PROVIDER, QuotaExceeded, type ProviderSource, type QuotaUseCases, type UsageRepository } from '@techspar/core'
 import type { SubscriptionRepository } from './subscriptions.ts'
-
-/** 订阅用户的每日上限,0 表示不限。防的是单个账号写脚本把网关额度刷干。 */
-function paidDailyLimit(): number {
-  const parsed = Number(process.env.CLOUD_PAID_DAILY_CALL_LIMIT || 0)
-  return Number.isFinite(parsed) ? parsed : 0
-}
+import type { Tier } from './tiers.ts'
 
 /**
  * 订阅制配额策略,包装开源版默认实现。
@@ -20,22 +15,30 @@ export class CloudQuotaService implements QuotaUseCases {
     private readonly subscriptions: SubscriptionRepository,
   ) {}
 
-  private subscribed(userId: string | undefined, source: ProviderSource): boolean {
-    return !!userId && source === PLATFORM_PROVIDER && this.subscriptions.isActive(userId)
+  /** 该用户当下适用的付费档位;非平台来源或未订阅都返回 null,交回默认策略。 */
+  private tier(userId: string | undefined, source: ProviderSource): Tier | null {
+    if (!userId || source !== PLATFORM_PROVIDER) return null
+    return this.subscriptions.activeTier(userId)
   }
 
   async check(userId: string | undefined, source: ProviderSource): Promise<void> {
-    if (!this.subscribed(userId, source)) return this.base.check(userId, source)
-    const limit = paidDailyLimit()
-    if (limit <= 0) return
+    const tier = this.tier(userId, source)
+    if (!tier) return this.base.check(userId, source)
+    if (tier.daily_limit <= 0) return
     const used = await this.usage.platformCallsToday(userId!)
-    if (used >= limit) throw new QuotaExceeded(`今日调用已达上限(${used}/${limit}),明天再来。`)
+    if (used >= tier.daily_limit) {
+      throw new QuotaExceeded(`今日调用已达上限(${used}/${tier.daily_limit}),明天再来。`)
+    }
   }
 
   async status(userId: string, source: ProviderSource): Promise<{ source: ProviderSource; used: number; limit: number | null }> {
-    if (!this.subscribed(userId, source)) return this.base.status(userId, source)
-    const limit = paidDailyLimit()
-    return { source, used: await this.usage.platformCallsToday(userId), limit: limit > 0 ? limit : null }
+    const tier = this.tier(userId, source)
+    if (!tier) return this.base.status(userId, source)
+    return {
+      source,
+      used: await this.usage.platformCallsToday(userId),
+      limit: tier.daily_limit > 0 ? tier.daily_limit : null,
+    }
   }
 
   async record(input: { userId?: string; source: ProviderSource; model?: string; promptTokens?: number; completionTokens?: number }): Promise<void> {

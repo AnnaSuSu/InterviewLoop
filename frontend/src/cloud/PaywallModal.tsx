@@ -4,7 +4,7 @@ import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { fetchSubscription, formatPrice, type Plan, type Subscription } from "./api";
+import { currentUserId, fetchSubscription, formatPrice, type Subscription, type Tier } from "./api";
 import { closePaywall, getState, subscribe } from "./store";
 
 /**
@@ -17,7 +17,7 @@ const SPONSOR_URL: string = import.meta.env.VITE_SPONSOR_URL || "";
 export default function PaywallModal() {
   const { paywallOpen, quota } = useSyncExternalStore(subscribe, getState);
   const [sub, setSub] = useState<Subscription | null>(null);
-  const [selected, setSelected] = useState<string>("month");
+  const [selected, setSelected] = useState<string>("");
 
   useEffect(() => {
     if (!paywallOpen) return;
@@ -35,7 +35,8 @@ export default function PaywallModal() {
 
   if (!paywallOpen) return null;
 
-  const plans: Plan[] = sub?.plans ?? [];
+  const plans: Tier[] = sub?.plans ?? [];
+  const chosen = selected || plans[0]?.key || "";
   // 弹窗有两个入口:额度耗尽时自动弹,和用户主动点角标提前升级。
   // 后者额度还没用完,再说"已用完"就是假话。
   const exhausted = quota?.limit != null && quota.used >= quota.limit;
@@ -77,27 +78,29 @@ export default function PaywallModal() {
               onClick={() => setSelected(p.key)}
               className={cn(
                 "flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-colors",
-                selected === p.key
+                chosen === p.key
                   ? "border-primary bg-primary/5"
                   : "border-border hover:bg-accent/50"
               )}
             >
               <div>
                 <div className="text-sm font-medium text-card-foreground">{p.label}</div>
-                <div className="text-xs text-muted-foreground">{p.days} 天</div>
+                <div className="text-xs text-muted-foreground">
+                  {p.daily_limit > 0 ? `每天 ${p.daily_limit} 次` : "不限每日额度"}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-base font-semibold text-card-foreground">
                   {formatPrice(p.price_cents)}
                 </span>
-                {selected === p.key && <Check className="h-4 w-4 text-primary" />}
+                {chosen === p.key && <Check className="h-4 w-4 text-primary" />}
               </div>
             </button>
           ))}
         </div>
 
         {SPONSOR_URL && (
-          <Button className="mt-5 w-full" onClick={openSponsorPage}>
+          <Button className="mt-5 w-full" onClick={() => openSponsorPage(plans.find((p) => p.key === chosen))}>
             去爱发电赞助
           </Button>
         )}
@@ -112,6 +115,16 @@ export default function PaywallModal() {
   );
 }
 
-function openSponsorPage(): void {
-  window.open(SPONSOR_URL, "_blank", "noopener,noreferrer");
+/**
+ * 跳去赞助页，并把本站用户 ID 挂在 custom_order_id 上。
+ *
+ * 平台会把这个字段原样带回订单回调，服务端据此认出是谁付的钱——不然两边是
+ * 两套账号体系，只能让用户自己填备注再人工对账。
+ */
+function openSponsorPage(tier?: Tier): void {
+  const url = new URL(SPONSOR_URL);
+  const userId = currentUserId();
+  if (userId) url.searchParams.set("custom_order_id", userId);
+  if (tier?.planId) url.searchParams.set("plan_id", tier.planId);
+  window.open(url.toString(), "_blank", "noopener,noreferrer");
 }

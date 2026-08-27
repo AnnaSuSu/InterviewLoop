@@ -6,17 +6,29 @@ export interface Quota {
   limit: number | null;
 }
 
-export interface Plan {
+export interface Tier {
   key: string;
+  planId: string;
   label: string;
   price_cents: number;
-  days: number;
+  /** 每日调用上限，0 表示不限 */
+  daily_limit: number;
 }
 
 export interface Subscription {
   active: boolean;
   expires_at: string | null;
-  plans: Plan[];
+  tier: string | null;
+  plans: Tier[];
+}
+
+/** 当前登录用户的 ID，用于把订单和账号对上。取不到就返回空串。 */
+export function currentUserId(): string {
+  try {
+    return (JSON.parse(localStorage.getItem("user") || "{}") as { id?: string }).id || "";
+  } catch {
+    return "";
+  }
 }
 
 /**

@@ -5,11 +5,19 @@ import { join } from 'node:path'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { AppError, PLATFORM_PROVIDER, QuotaExceeded, USER_PROVIDER, type ProviderSource, type QuotaUseCases, type UsageRepository } from '@techspar/core'
 import { JoseTokenService } from '@techspar/platform'
+import { verifyOrderSignature, type AfdianOrder } from './afdian.ts'
+import { OrderRepository } from './orders.ts'
+import { processOrder } from './process-order.ts'
 import { CloudQuotaService } from './quota.ts'
 import { registerCloudRoutes } from './routes.ts'
 import { SubscriptionRepository } from './subscriptions.ts'
+import { resetTierCache } from './tiers.ts'
 
 const DAY = 86_400_000
+const TIERS = [
+  { key: 'basic', planId: 'plan-basic', label: '保持手感', price_cents: 990, daily_limit: 100 },
+  { key: 'sprint', planId: 'plan-sprint', label: '全力冲刺', price_cents: 6990, daily_limit: 0 },
+]
 
 class StubUsage implements UsageRepository {
   constructor(public calls = 0) {}
@@ -21,184 +29,245 @@ class StubUsage implements UsageRepository {
 class StubBaseQuota implements QuotaUseCases {
   checked = 0
   async check(): Promise<void> { this.checked += 1 }
-  async status(userId: string, source: ProviderSource) { return { source, used: 0, limit: 5 } }
+  async status(_userId: string, source: ProviderSource) { return { source, used: 0, limit: 20 } }
   async record(): Promise<void> {}
 }
 
+function order(overrides: Partial<AfdianOrder> = {}): AfdianOrder {
+  return {
+    out_trade_no: 'order-1', user_id: 'afdian-user', plan_id: 'plan-basic',
+    custom_order_id: 'u1', month: 1, total_amount: '9.90', status: 2, ...overrides,
+  }
+}
+
 let directory: string
-let repository: SubscriptionRepository
+let subscriptions: SubscriptionRepository
+let orders: OrderRepository
 
 beforeEach(() => {
+  process.env.CLOUD_TIERS = JSON.stringify(TIERS)
+  resetTierCache()
   directory = mkdtempSync(join(tmpdir(), 'techspar-cloud-'))
-  repository = new SubscriptionRepository(join(directory, 'test.db'))
-  repository.initialize()
+  subscriptions = new SubscriptionRepository(join(directory, 'test.db'))
+  subscriptions.initialize()
+  orders = new OrderRepository(join(directory, 'test.db'))
+  orders.initialize()
 })
 
 afterEach(() => {
-  repository.close()
+  subscriptions.close()
+  orders.close()
   rmSync(directory, { recursive: true, force: true })
+  delete process.env.CLOUD_TIERS
+  resetTierCache()
 })
 
 describe('SubscriptionRepository', () => {
-  test('未订阅时无有效期', () => {
-    expect(repository.expiresAt('u1')).toBeNull()
-    expect(repository.isActive('u1')).toBe(false)
-    expect(repository.status('u1').active).toBe(false)
+  test('未订阅时无档位', () => {
+    expect(subscriptions.isActive('u1')).toBe(false)
+    expect(subscriptions.activeTier('u1')).toBeNull()
+    expect(subscriptions.status('u1').tier).toBeNull()
   })
 
-  test('发放后生效,到期时间约为套餐天数之后', () => {
-    const expiry = repository.grant('u1', 'month')
-    expect(repository.isActive('u1')).toBe(true)
+  test('发放后生效并记录档位', () => {
+    const expiry = subscriptions.grant('u1', 'basic')
+    expect(subscriptions.activeTier('u1')?.key).toBe('basic')
     expect(expiry.getTime() - Date.now()).toBeGreaterThan(29 * DAY)
-    expect(expiry.getTime() - Date.now()).toBeLessThanOrEqual(30 * DAY)
+    expect(subscriptions.status('u1').tier).toBe('basic')
+  })
+
+  test('按月份数折算时长', () => {
+    const expiry = subscriptions.grant('u1', 'basic', 3)
+    expect(Math.round((expiry.getTime() - Date.now()) / DAY)).toBe(90)
   })
 
   test('续费从原到期时间往后接,不从现在重算', () => {
-    const first = repository.grant('u1', 'month')
-    const second = repository.grant('u1', 'month')
+    const first = subscriptions.grant('u1', 'basic')
+    const second = subscriptions.grant('u1', 'basic')
     expect(second.getTime() - first.getTime()).toBe(30 * DAY)
   })
 
-  test('已过期的订阅续费从现在重新算', () => {
-    repository.grant('u1', 'day')
-    // 直接把到期时间改到过去,模拟过期
-    const expired = new Date(Date.now() - 10 * DAY)
-    repository.grant('u1', 'day')
-    const database = repository as unknown as { sqlite: { query(sql: string): { run(params: Record<string, string>): void } } }
-    database.sqlite.query('UPDATE cloud_subscriptions SET expires_at = $expiresAt WHERE user_id = $userId')
-      .run({ $expiresAt: expired.toISOString(), $userId: 'u1' })
-    expect(repository.isActive('u1')).toBe(false)
-
-    const renewed = repository.grant('u1', 'day')
-    expect(renewed.getTime()).toBeGreaterThan(Date.now())
-    expect(renewed.getTime() - Date.now()).toBeLessThanOrEqual(DAY)
+  test('换档位时剩余时间顺延,不清零', () => {
+    const first = subscriptions.grant('u1', 'basic')
+    const second = subscriptions.grant('u1', 'sprint')
+    expect(second.getTime() - first.getTime()).toBe(30 * DAY)
+    expect(subscriptions.activeTier('u1')?.key).toBe('sprint')
   })
 
-  test('未知套餐被拒', () => {
-    expect(() => repository.grant('u1', 'forever')).toThrow('unknown plan')
+  test('未知档位被拒', () => {
+    expect(() => subscriptions.grant('u1', 'nope')).toThrow('unknown tier')
   })
 })
 
 describe('CloudQuotaService', () => {
   test('未订阅时委托给默认策略', async () => {
     const base = new StubBaseQuota()
-    const quota = new CloudQuotaService(base, new StubUsage(999), repository)
+    const quota = new CloudQuotaService(base, new StubUsage(999), subscriptions)
     await quota.check('u1', PLATFORM_PROVIDER)
     expect(base.checked).toBe(1)
-    expect((await quota.status('u1', PLATFORM_PROVIDER)).limit).toBe(5)
+    expect((await quota.status('u1', PLATFORM_PROVIDER)).limit).toBe(20)
   })
 
-  test('非平台来源始终委托,不受订阅影响', async () => {
-    repository.grant('u1', 'day')
+  test('非平台来源始终委托', async () => {
+    subscriptions.grant('u1', 'basic')
     const base = new StubBaseQuota()
-    const quota = new CloudQuotaService(base, new StubUsage(999), repository)
-    await quota.check('u1', USER_PROVIDER)
+    await new CloudQuotaService(base, new StubUsage(999), subscriptions).check('u1', USER_PROVIDER)
     expect(base.checked).toBe(1)
   })
 
-  test('订阅用户默认不限量', async () => {
-    repository.grant('u1', 'day')
-    delete process.env.CLOUD_PAID_DAILY_CALL_LIMIT
+  test('按档位取上限,超额被拦', async () => {
+    subscriptions.grant('u1', 'basic')
+    const quota = new CloudQuotaService(new StubBaseQuota(), new StubUsage(100), subscriptions)
+    expect(quota.check('u1', PLATFORM_PROVIDER)).rejects.toThrow(QuotaExceeded)
+    expect((await quota.status('u1', PLATFORM_PROVIDER)).limit).toBe(100)
+  })
+
+  test('daily_limit 为 0 的档位不限量', async () => {
+    subscriptions.grant('u1', 'sprint')
     const base = new StubBaseQuota()
-    const quota = new CloudQuotaService(base, new StubUsage(10_000), repository)
+    const quota = new CloudQuotaService(base, new StubUsage(10_000), subscriptions)
     await quota.check('u1', PLATFORM_PROVIDER)
     expect(base.checked).toBe(0)
     expect((await quota.status('u1', PLATFORM_PROVIDER)).limit).toBeNull()
   })
+})
 
-  test('配了付费上限后订阅用户超额被拦', async () => {
-    repository.grant('u1', 'day')
-    process.env.CLOUD_PAID_DAILY_CALL_LIMIT = '100'
-    try {
-      const quota = new CloudQuotaService(new StubBaseQuota(), new StubUsage(100), repository)
-      expect(quota.check('u1', PLATFORM_PROVIDER)).rejects.toThrow(QuotaExceeded)
-      expect((await quota.status('u1', PLATFORM_PROVIDER)).limit).toBe(100)
-    } finally {
-      delete process.env.CLOUD_PAID_DAILY_CALL_LIMIT
-    }
+describe('processOrder', () => {
+  const deps = () => ({ orders, subscriptions, userExists: async (id: string) => id === 'u1' })
+
+  test('正常订单发放订阅', async () => {
+    expect(await processOrder(order(), deps())).toBe('granted')
+    expect(subscriptions.activeTier('u1')?.key).toBe('basic')
+  })
+
+  test('重复推送不会二次延长有效期', async () => {
+    await processOrder(order(), deps())
+    const first = subscriptions.expiresAt('u1')!.getTime()
+    expect(await processOrder(order(), deps())).toBe('already')
+    expect(subscriptions.expiresAt('u1')!.getTime()).toBe(first)
+  })
+
+  test('认不出档位时不发放,留待人工', async () => {
+    expect(await processOrder(order({ plan_id: 'unknown' }), deps())).toBe('unknown_plan')
+    expect(subscriptions.isActive('u1')).toBe(false)
+    expect(orders.pending()).toHaveLength(1)
+  })
+
+  test('对不上账号时不发放,留待人工', async () => {
+    expect(await processOrder(order({ custom_order_id: 'ghost' }), deps())).toBe('unmatched')
+    expect(orders.pending()).toHaveLength(1)
+  })
+
+  test('非成功状态直接忽略', async () => {
+    expect(await processOrder(order({ status: 1 }), deps())).toBe('ignored')
+    expect(subscriptions.isActive('u1')).toBe(false)
+  })
+
+  test('按订单月份数发放', async () => {
+    await processOrder(order({ month: 2 }), deps())
+    expect(Math.round((subscriptions.expiresAt('u1')!.getTime() - Date.now()) / DAY)).toBe(60)
+  })
+})
+
+describe('verifyOrderSignature', () => {
+  test('缺签名一律拒绝', () => {
+    expect(verifyOrderSignature(order(), undefined)).toBe(false)
+    expect(verifyOrderSignature(order(), '')).toBe(false)
+  })
+
+  test('伪造签名被拒', () => {
+    expect(verifyOrderSignature(order(), Buffer.from('forged').toString('base64'))).toBe(false)
   })
 })
 
 describe('cloud routes', () => {
   const tokens = new JoseTokenService('test-secret-for-cloud-routes')
 
-  function createTestApp(): OpenAPIHono {
+  function testApp(): OpenAPIHono {
     const app = new OpenAPIHono()
     app.onError((error, c) => {
       if (error instanceof AppError) return c.json({ detail: error.message }, error.status as 400)
       throw error
     })
-    registerCloudRoutes(app, { subscriptions: repository, tokens })
+    registerCloudRoutes(app, { subscriptions, orders, tokens, userExists: async (id) => id === 'u1' })
     return app
   }
 
   test('订阅状态需要登录', async () => {
-    const response = await createTestApp().request('/api/cloud/subscription')
-    expect(response.status).toBe(401)
+    expect((await testApp().request('/api/cloud/subscription')).status).toBe(401)
   })
 
-  test('登录后返回状态与套餐', async () => {
+  test('登录后返回状态与档位', async () => {
     const token = await tokens.create('u1')
-    const response = await createTestApp().request('/api/cloud/subscription', { headers: { authorization: `Bearer ${token}` } })
-    expect(response.status).toBe(200)
+    const response = await testApp().request('/api/cloud/subscription', { headers: { authorization: `Bearer ${token}` } })
     const body = (await response.json()) as { active: boolean; plans: unknown[] }
+    expect(response.status).toBe(200)
     expect(body.active).toBe(false)
     expect(body.plans).toHaveLength(2)
   })
 
-  test('没配 CLOUD_GRANT_SECRET 时发放接口整个关闭', async () => {
-    delete process.env.CLOUD_GRANT_SECRET
-    const response = await createTestApp().request('/api/cloud/subscription/grant', {
+  test('webhook 拒绝无效签名且不发放', async () => {
+    const response = await testApp().request('/api/cloud/afdian/webhook', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ user_id: 'u1', plan: 'day' }),
+      body: JSON.stringify({ data: { type: 'order', order: order(), sign: 'forged' } }),
+    })
+    expect((await response.json() as { ec: number }).ec).toBe(403)
+    expect(subscriptions.isActive('u1')).toBe(false)
+  })
+
+  test('webhook 拒绝非订单负载', async () => {
+    const response = await testApp().request('/api/cloud/afdian/webhook', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ data: { type: 'ping' } }),
+    })
+    expect((await response.json() as { ec: number }).ec).toBe(400)
+  })
+
+  test('没配 secret 时手动发放接口关闭', async () => {
+    delete process.env.CLOUD_GRANT_SECRET
+    const response = await testApp().request('/api/cloud/subscription/grant', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ user_id: 'u1', plan: 'basic' }),
     })
     expect(response.status).toBe(404)
-    expect(repository.isActive('u1')).toBe(false)
+    expect(subscriptions.isActive('u1')).toBe(false)
   })
 
   test('凭据不对不发放', async () => {
     process.env.CLOUD_GRANT_SECRET = 'right'
     try {
-      const response = await createTestApp().request('/api/cloud/subscription/grant', {
+      const response = await testApp().request('/api/cloud/subscription/grant', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-cloud-secret': 'wrong' },
-        body: JSON.stringify({ user_id: 'u1', plan: 'day' }),
+        body: JSON.stringify({ user_id: 'u1', plan: 'basic' }),
       })
       expect(response.status).toBe(403)
-      expect(repository.isActive('u1')).toBe(false)
-    } finally {
-      delete process.env.CLOUD_GRANT_SECRET
-    }
+      expect(subscriptions.isActive('u1')).toBe(false)
+    } finally { delete process.env.CLOUD_GRANT_SECRET }
   })
 
-  test('凭据正确则发放订阅', async () => {
+  test('凭据正确则手动发放', async () => {
     process.env.CLOUD_GRANT_SECRET = 'right'
     try {
-      const response = await createTestApp().request('/api/cloud/subscription/grant', {
+      const response = await testApp().request('/api/cloud/subscription/grant', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-cloud-secret': 'right' },
-        body: JSON.stringify({ user_id: 'u1', plan: 'day' }),
+        body: JSON.stringify({ user_id: 'u1', plan: 'basic' }),
       })
       expect(response.status).toBe(200)
-      expect(repository.isActive('u1')).toBe(true)
-    } finally {
-      delete process.env.CLOUD_GRANT_SECRET
-    }
+      expect(subscriptions.activeTier('u1')?.key).toBe('basic')
+    } finally { delete process.env.CLOUD_GRANT_SECRET }
   })
 
-  test('未知套餐被拒且不发放', async () => {
+  test('待处理订单接口同样需要凭据', async () => {
     process.env.CLOUD_GRANT_SECRET = 'right'
     try {
-      const response = await createTestApp().request('/api/cloud/subscription/grant', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-cloud-secret': 'right' },
-        body: JSON.stringify({ user_id: 'u1', plan: 'forever' }),
-      })
-      expect(response.status).toBe(400)
-      expect(repository.isActive('u1')).toBe(false)
-    } finally {
-      delete process.env.CLOUD_GRANT_SECRET
-    }
+      expect((await testApp().request('/api/cloud/orders/pending')).status).toBe(403)
+      const ok = await testApp().request('/api/cloud/orders/pending', { headers: { 'x-cloud-secret': 'right' } })
+      expect(ok.status).toBe(200)
+    } finally { delete process.env.CLOUD_GRANT_SECRET }
   })
 })
