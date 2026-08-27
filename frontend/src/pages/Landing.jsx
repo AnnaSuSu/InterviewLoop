@@ -9,6 +9,7 @@ import {
   BookOpen,
   BriefcaseBusiness,
   FileText,
+  Zap,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import useScrollReveal from "@/hooks/useScrollReveal";
@@ -18,6 +19,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import Logo from "../components/Logo";
 import GitHubStar from "../components/GitHubStar";
 import heroArt from "../assets/hero-art.jpg";
+
+/** 赞助页。托管版的服务器与模型推理费用由此支撑。 */
+const SPONSOR_URL = "https://ifdian.net/a/techspar";
 import heroIntro from "../assets/hero-intro.mp4";
 import storyRemember from "../assets/story-remember.jpg";
 import storyAdapt from "../assets/story-adapt.jpg";
@@ -326,6 +330,16 @@ export default function Landing() {
 
           <div className="flex items-center gap-3">
             <GitHubStar />
+            <a
+              href={SPONSOR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="在爱发电赞助 TechSpar"
+              className="group inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 text-sm font-medium text-text backdrop-blur-sm transition-colors hover:border-primary/40 hover:bg-card"
+            >
+              <Zap size={15} className="text-primary transition-transform duration-300 group-hover:scale-110" />
+              <span className="hidden sm:inline">赞助</span>
+            </a>
             <Button variant="outline" onClick={() => navigate("/login")}>
               登录
             </Button>
@@ -536,6 +550,18 @@ export default function Landing() {
             <span className="font-display font-bold">TechSpar</span>
           </div>
           <p className="text-xs text-dim">从刷题到实战的 AI 技术面试陪练系统</p>
+          <p className="max-w-md text-xs leading-relaxed text-dim">
+            完整开源，自己部署永远免费。托管版的服务器和模型推理由我自费，
+            <a
+              href={SPONSOR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-text underline underline-offset-2 transition-colors hover:text-primary"
+            >
+              赞助
+            </a>
+            能让它继续更新下去。
+          </p>
           <div className="flex gap-6 text-xs">
             <a
               href="https://github.com/AnnaSuSu/TechSpar"
@@ -552,6 +578,14 @@ export default function Landing() {
               className="text-dim transition-colors hover:text-text"
             >
               在线 Demo
+            </a>
+            <a
+              href={SPONSOR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-dim transition-colors hover:text-text"
+            >
+              爱发电
             </a>
           </div>
         </div>
