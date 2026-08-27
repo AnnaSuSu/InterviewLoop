@@ -55,6 +55,8 @@ export type AppDependencies = {
   copilotRealtime?: CopilotRealtimeUseCases
   websocketUpgrade?: UpgradeWebSocket
   voiceprint?: VoiceprintUseCases
+  /** 追加路由。必须在静态前端兜底之前注册,否则会被 app.get('*') 吃掉。 */
+  extendRoutes?: (app: OpenAPIHono) => void
   webDir?: string
 }
 
@@ -93,6 +95,7 @@ export function createApp(deps: AppDependencies): OpenAPIHono {
   if (deps.copilotPrep) registerCopilotRoutes(app, { prep: deps.copilotPrep, tokens: deps.tokens })
   if (deps.copilotRealtime && deps.websocketUpgrade) registerCopilotWebSocket(app, { realtime: deps.copilotRealtime, tokens: deps.tokens, upgrade: deps.websocketUpgrade })
   if (deps.voiceprint) registerVoiceprintRoutes(app, { voiceprint: deps.voiceprint, tokens: deps.tokens })
+  deps.extendRoutes?.(app)
   app.get('/openapi.json', (c) => c.json(createOpenApiDocument(app)))
   if (deps.webDir) registerStaticFrontend(app, deps.webDir)
   return app

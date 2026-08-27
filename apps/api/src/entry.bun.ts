@@ -44,6 +44,7 @@ import {
 import { DashScopeLongAsrDriver, DashScopeRealtimeAsrFactory, DashScopeShortAsrDriver, OpenAiChatDriverFactory, OpenAiEmbeddingDriverFactory, TavilyWebSearchDriver, TencentVoiceprintDriverFactory } from '@techspar/providers'
 import { createBunWebSocket } from 'hono/bun'
 import { createApp } from './app.ts'
+import { loadExtensions } from './extensions.ts'
 
 const config = loadConfig()
 mkdirSync(dirname(config.dbPath), { recursive: true })
@@ -79,7 +80,10 @@ const platform: PlatformProviderConfig = {
   },
   dailyCallLimit: config.platformDailyCallLimit,
 }
-const quota = new QuotaService(usageRepository, platform)
+const extensions = await loadExtensions(process.env.TECHSPAR_EXTENSIONS)
+const extensionContext = { dbPath: config.dbPath, tokens }
+const baseQuota = new QuotaService(usageRepository, platform)
+const quota = extensions.quota ? extensions.quota(baseQuota, extensionContext) : baseQuota
 const chatDrivers = new OpenAiChatDriverFactory()
 const embeddingDrivers = new OpenAiEmbeddingDriverFactory()
 const ai = new AiService(settingsRepository, platform, quota, chatDrivers)
@@ -133,7 +137,7 @@ taskQueue.register('copilot_prep', (task) => copilotPrep.runPrepTask(task))
 taskQueue.register('retrospective', (task) => profile.runRetrospectiveTask(task))
 await taskQueue.start()
 const { upgradeWebSocket, websocket } = createBunWebSocket()
-const app = createApp({ auth, registration, settings, settingsOperations, quota, tokens, knowledge, resume, interview, profile, personalAgent, migration, recording, copilotPrep, copilotRealtime, websocketUpgrade: upgradeWebSocket, voiceprint, webDir: config.webDir })
+const app = createApp({ auth, registration, settings, settingsOperations, quota, tokens, knowledge, resume, interview, profile, personalAgent, migration, recording, copilotPrep, copilotRealtime, websocketUpgrade: upgradeWebSocket, voiceprint, extendRoutes: (instance) => extensions.routes?.(instance, extensionContext), webDir: config.webDir })
 
 const server = Bun.serve({ hostname: config.host, port: config.port, fetch: app.fetch, websocket })
 console.log(JSON.stringify({ event: 'techspar:ready', host: config.host, port: server.port }))

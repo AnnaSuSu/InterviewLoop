@@ -1,0 +1,47 @@
+import { authFetch, API_BASE } from "@/api/client";
+
+export interface Quota {
+  source: "user" | "platform";
+  used: number;
+  limit: number | null;
+}
+
+export interface Plan {
+  key: string;
+  label: string;
+  price_cents: number;
+  days: number;
+}
+
+export interface Subscription {
+  active: boolean;
+  expires_at: string | null;
+  plans: Plan[];
+}
+
+/**
+ * 未登录时一律不打接口。
+ *
+ * 额度条挂在全局 portal 上,落地页也在跑;而 authFetch 遇到 401 会直接
+ * window.location.href = "/login",于是「轮询 → 401 → 跳转 → 重新挂载 → 轮询」
+ * 成环,表现为首页不停刷新。
+ */
+function signedIn(): boolean {
+  return !!localStorage.getItem("token");
+}
+
+export async function fetchQuota(): Promise<Quota | null> {
+  if (!signedIn()) return null;
+  const res = await authFetch(`${API_BASE}/usage/quota`);
+  return res.ok ? ((await res.json()) as Quota) : null;
+}
+
+export async function fetchSubscription(): Promise<Subscription | null> {
+  if (!signedIn()) return null;
+  const res = await authFetch(`${API_BASE}/cloud/subscription`);
+  return res.ok ? ((await res.json()) as Subscription) : null;
+}
+
+export function formatPrice(cents: number): string {
+  return `¥${(cents / 100).toFixed(2).replace(/\.00$/, "")}`;
+}

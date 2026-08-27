@@ -4,7 +4,7 @@
 
 **Connect focused drills, resume interviews, JD prep, realtime Copilot, and recording review into one continuously improving technical interview loop.**
 
-[Online Demo](https://techspar.top/) · [Quick Start](#quick-start) · [中文](README.md)
+[Online Demo](https://techspar.cn/) · [Quick Start](#quick-start) · [中文](README.md)
 
 [![Bun](https://img.shields.io/badge/Bun-1.3+-000000.svg)](https://bun.sh/)
 [![Hono](https://img.shields.io/badge/Hono-4-E36002.svg)](https://hono.dev/)

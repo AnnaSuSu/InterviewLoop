@@ -546,7 +546,7 @@ export default function Landing() {
               GitHub
             </a>
             <a
-              href="https://techspar.top/"
+              href="https://techspar.cn/"
               target="_blank"
               rel="noreferrer"
               className="text-dim transition-colors hover:text-text"
