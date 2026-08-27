@@ -34,8 +34,8 @@ describe('provider resolution', () => {
   test('platform fallback is used only when own config is incomplete', () => {
     const platform = { ...emptyPlatform, llm: { api_base: 'https://platform.test/v1', api_key: 'platform-key', model: 'platform-model' } }
     expect(resolveLlmConfig(undefined, platform).source).toBe(PLATFORM_PROVIDER)
-    expect(resolveLlmConfig({ api_base: '', api_key: 'mine', model: '', temperature: 0.7 }, platform).source).toBe(PLATFORM_PROVIDER)
-    expect(resolveLlmConfig({ api_base: '', api_key: 'mine', model: 'my-model', temperature: 0.7 }, platform).source).toBe(USER_PROVIDER)
+    expect(resolveLlmConfig({ api_base: '', api_key: 'mine', model: '', temperature: 0.7, compatibility: 'generic' }, platform).source).toBe(PLATFORM_PROVIDER)
+    expect(resolveLlmConfig({ api_base: '', api_key: 'mine', model: 'my-model', temperature: 0.7, compatibility: 'generic' }, platform).source).toBe(USER_PROVIDER)
   })
 
   test('explicit local embedding is never replaced by platform API', () => {
@@ -125,15 +125,15 @@ describe('settings operations', () => {
     let llmOptions: Record<string, unknown> | undefined
     let embeddingConfig: Record<string, unknown> | undefined
     const service = new SettingsOperationsService({
-      chats: { create(config: Record<string, unknown>) { llmConfig = config; return { async complete(messages: Array<Record<string, unknown>>, _signal: unknown, options: Record<string, unknown>) { llmMessages = messages; llmOptions = options; return { text: JSON.stringify([{ id: 1, question: '闭包是什么？', difficulty: 2, focus_area: '闭包' }, { id: 2, question: '事件循环如何工作？', difficulty: 3, focus_area: '事件循环' }]), promptTokens: 1, completionTokens: 1 } }, async *stream() {} } } },
+      chats: { create(config: Record<string, unknown>) { llmConfig = config; return { async complete(messages: Array<Record<string, unknown>>, _signal: unknown, options: Record<string, unknown>) { llmMessages = messages; llmOptions = options; return { text: JSON.stringify({ questions: [{ id: 1, question: '闭包是什么？', difficulty: 2, focus_area: '闭包' }, { id: 2, question: '事件循环如何工作？', difficulty: 3, focus_area: '事件循环' }] }), promptTokens: 1, completionTokens: 1 } }, async *stream() {} } } },
       embeddingDrivers: { async create(config: Record<string, unknown>) { embeddingConfig = config; return { async embed() { return [Float32Array.from([1])] } } } },
       embeddings: {}, index: {}, vectors: {}, knowledge: {}, personal: {}, profile: {}, settings: {},
     } as never)
     const context = { requestId: 'test', userId: 'user', signal: new AbortController().signal }
-    expect(await service.testLlm(context, { api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', temperature: 0.2 })).toEqual({ ok: true })
+    expect(await service.testLlm(context, { api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', temperature: 0.2, compatibility: 'deepseek' })).toEqual({ ok: true })
     expect(llmConfig).toMatchObject({ api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', source: USER_PROVIDER })
     expect(llmMessages?.map((message) => message.content).join('\n')).toContain('专项训练')
-    expect(llmOptions).toEqual({ maxTokens: 2048, temperature: 0 })
+    expect(llmOptions).toEqual({ maxTokens: 4096, temperature: 0, jsonMode: true, reasoningEffort: 'low' })
     expect(await service.testEmbedding(context, { backend: 'local', api_base: '', api_key: '', api_model: '', local_model: 'Xenova/bge-m3', local_path: '', api_batch_size: 10 })).toEqual({ ok: true })
     expect(embeddingConfig).toMatchObject({ backend: 'local', local_model: 'Xenova/bge-m3', source: USER_PROVIDER })
   })
@@ -145,7 +145,7 @@ describe('settings operations', () => {
     } as never)
     const context = { requestId: 'test', userId: 'user', signal: new AbortController().signal }
 
-    expect(await service.testLlm(context, { api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', temperature: 0.2 })).toEqual({
+    expect(await service.testLlm(context, { api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', temperature: 0.2, compatibility: 'generic' })).toEqual({
       ok: false,
       error: '模型已连接，但未返回完整的专项训练结构化结果；请换用支持长文本 JSON 输出的模型。',
     })

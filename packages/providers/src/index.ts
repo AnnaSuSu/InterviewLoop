@@ -7,6 +7,8 @@ import {
   normalizeEmbeddingApiBase,
   type ChatDriver,
   type ChatDriverFactory,
+  type ChatCompleteOptions,
+  type ChatStreamOptions,
   type ChatMessage,
   type EmbeddingDriver,
   type EmbeddingDriverFactory,
@@ -60,7 +62,7 @@ export class OpenAiChatDriverFactory implements ChatDriverFactory {
     const retryDelaysMs = this.options.retryDelaysMs || DEFAULT_EMPTY_COMPLETION_RETRY_DELAYS_MS
     const sleep = this.options.sleep || abortableSleep
     return {
-      async complete(messages: readonly ChatMessage[], signal: AbortSignal, options?: { maxTokens?: number; temperature?: number }) {
+      async complete(messages: readonly ChatMessage[], signal: AbortSignal, options?: ChatCompleteOptions) {
         let promptTokens = 0
         let completionTokens = 0
         for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
@@ -69,7 +71,11 @@ export class OpenAiChatDriverFactory implements ChatDriverFactory {
               model: config.model,
               messages: [...messages],
               temperature: options?.temperature ?? config.temperature,
-              ...(options?.maxTokens === undefined ? {} : { max_tokens: options.maxTokens }),
+              ...(options?.maxTokens === undefined
+                ? (config.compatibility === 'deepseek' && options?.jsonMode ? { max_tokens: 8192 } : {})
+                : { max_tokens: options.maxTokens }),
+              ...(config.compatibility === 'deepseek' && options?.jsonMode ? { response_format: { type: 'json_object' } } : {}),
+              ...(config.compatibility === 'deepseek' && options?.jsonMode && options?.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
             },
             { signal },
           )
@@ -81,9 +87,14 @@ export class OpenAiChatDriverFactory implements ChatDriverFactory {
         }
         throw new ProviderResponseError('模型服务连续返回空内容，已自动重试，请稍后再试或更换模型。')
       },
-      async *stream(messages: readonly ChatMessage[], signal: AbortSignal, options?: { temperature?: number }) {
+      async *stream(messages: readonly ChatMessage[], signal: AbortSignal, options?: ChatStreamOptions) {
         const response = await client.chat.completions.create(
-          { model: config.model, messages: [...messages], temperature: options?.temperature ?? config.temperature, stream: true },
+          {
+            model: config.model,
+            messages: [...messages],
+            temperature: options?.temperature ?? config.temperature,
+            stream: true,
+          },
           { signal },
         )
         for await (const chunk of response) {

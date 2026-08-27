@@ -117,6 +117,7 @@ export default function Settings() {
   const [apiBase, setApiBase] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
+  const [compatibility, setCompatibility] = useState("generic");
   const [temperature, setTemperature] = useState(0.7);
   const [numQuestions, setNumQuestions] = useState(10);
   const [divergence, setDivergence] = useState(3);
@@ -227,6 +228,7 @@ export default function Settings() {
         setApiBase(data.llm.api_base || "");
         setApiKey(data.llm.api_key || "");
         setModel(data.llm.model || "");
+        setCompatibility(data.llm.compatibility || "generic");
         setTemperature(data.llm.temperature ?? 0.7);
         const emb = data.embedding || {};
         setEmbBackend(emb.backend || "");
@@ -514,7 +516,7 @@ export default function Settings() {
   const handleTestLLM = async () => {
     setLlmTest({ status: "testing" });
     try {
-      const r = await testLLMConnection({ api_base: apiBase, api_key: apiKey, model });
+      const r = await testLLMConnection({ api_base: apiBase, api_key: apiKey, model, compatibility });
       setLlmTest(r.ok ? { status: "ok" } : { status: "fail", error: r.error });
     } catch (err) {
       setLlmTest({ status: "fail", error: err.message });
@@ -544,7 +546,7 @@ export default function Settings() {
     setError("");
     try {
       const res = await updateSettings({
-        llm: { api_base: apiBase, api_key: apiKey, model, temperature },
+        llm: { api_base: apiBase, api_key: apiKey, model, compatibility, temperature },
         embedding: {
           backend: embBackend,
           api_base: embApiBase,
@@ -718,6 +720,9 @@ export default function Settings() {
                   value={apiBase}
                   onChange={(e) => setApiBase(e.target.value)}
                 />
+                <div className="text-[12px] text-dim/70">
+                  {compatibility === "deepseek" ? "DeepSeek 官方 API 填 https://api.deepseek.com（不要加 /v1）" : "多数 OpenAI 兼容服务填写包含 /v1 的 Base URL。"}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label className={labelClass}>Model</Label>
@@ -727,6 +732,23 @@ export default function Settings() {
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label className={labelClass}>API 兼容模式</Label>
+                <label className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/75 px-3 py-2.5 text-sm">
+                  <span className="shrink-0 text-dim">请求配置</span>
+                  <select
+                    className="min-w-0 flex-1 bg-transparent text-right text-text outline-none"
+                    value={compatibility}
+                    onChange={(e) => setCompatibility(e.target.value)}
+                  >
+                    <option value="generic">通用 OpenAI 兼容</option>
+                    <option value="deepseek">DeepSeek V4</option>
+                  </select>
+                </label>
+                <div className="text-[12px] text-dim/70">
+                  DeepSeek 模式只对结构化请求发送 JSON 输出和低推理参数，其他平台不会收到这些字段。
+                </div>
               </div>
             </div>
 

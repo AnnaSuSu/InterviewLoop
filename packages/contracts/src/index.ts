@@ -50,6 +50,7 @@ export const LlmSettingsSchema = z.object({
   api_key: z.string().default(''),
   model: z.string().default(''),
   temperature: z.number().min(0).max(2).default(0.7),
+  compatibility: z.enum(['generic', 'deepseek']).default('generic'),
 })
 
 export const EmbeddingSettingsSchema = z.object({

@@ -1,6 +1,7 @@
 import type { RequestContext } from '../kernel/context.ts'
 import { AppError, AuthenticationError } from '../kernel/errors.ts'
 import { parseJsonResponse } from '../kernel/json.ts'
+import { STRUCTURED_CHAT_OPTIONS } from '../provider/ports.ts'
 import { fill } from '../interview/prompts.ts'
 import type { TaskRecord } from '../interview/model.ts'
 import type { CopilotDependencies, CopilotPrepUseCases, SearchResult } from './ports.ts'
@@ -71,22 +72,22 @@ export class CopilotPrepService implements CopilotPrepUseCases {
       const company = (async () => {
         const results = await this.search(context, services.tavily_api_key, prep.company, prep.position)
         if (!results.length) return JSON.stringify({ company_name: prep.company || '未知', tech_stack: [], interview_style: '无法获取（未配置搜索 API 或搜索无结果）', culture_notes: '', common_focus_areas: [], sources: [] })
-        return (await this.deps.ai.complete(context, [{ role: 'system', content: '你是面试情报分析师。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_COMPANY_PROMPT, { company: prep.company, position: prep.position, results: json(results) }) }])).trim()
+        return (await this.deps.ai.complete(context, [{ role: 'system', content: '你是面试情报分析师。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_COMPANY_PROMPT, { company: prep.company, position: prep.position, results: json(results) }) }], STRUCTURED_CHAT_OPTIONS)).trim()
       })()
-      const jd = this.deps.ai.complete(context, [{ role: 'system', content: '你是 JD 分析引擎。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_JD_PROMPT, { jd_text: prep.jd_text.slice(0, 6000) }) }])
-      const fit = this.deps.ai.complete(context, [{ role: 'system', content: '你是匹配分析引擎。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_FIT_PROMPT, { jd_text: prep.jd_text.slice(0, 6000), resume_context: resumeText.slice(0, 5000) || '未上传简历', profile_summary: profileSummary }) }])
+      const jd = this.deps.ai.complete(context, [{ role: 'system', content: '你是 JD 分析引擎。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_JD_PROMPT, { jd_text: prep.jd_text.slice(0, 6000) }) }], STRUCTURED_CHAT_OPTIONS)
+      const fit = this.deps.ai.complete(context, [{ role: 'system', content: '你是匹配分析引擎。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_FIT_PROMPT, { jd_text: prep.jd_text.slice(0, 6000), resume_context: resumeText.slice(0, 5000) || '未上传简历', profile_summary: profileSummary }) }], STRUCTURED_CHAT_OPTIONS)
       const [companyReport, jdText, fitText] = await Promise.all([company, jd, fit])
       const jdAnalysis = parseObject(jdText, { role_title: '', required_skills: [], likely_question_dimensions: [] })
       const fitReport = parseObject(fitText, { overall_fit: 0, highlights: [], gaps: [], talking_points: [] })
 
       await this.deps.repository.updatePrepProgress(prepId, task.user_id, '正在生成 HR 提问策略树...')
-      const strategy = parseObject(await this.deps.ai.complete(context, [{ role: 'system', content: '你是面试策略引擎。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_STRATEGY_PROMPT, { role_title: jdAnalysis.role_title || '技术岗位', company_report: companyReport.slice(0, 3000), jd_analysis: json(jdAnalysis).slice(0, 3000), fit_report: json(fitReport).slice(0, 3000), profile_summary: profileSummary.slice(0, 3000) }) }]), { root_nodes: [], nodes: {}, phase_order: [] })
+      const strategy = parseObject(await this.deps.ai.complete(context, [{ role: 'system', content: '你是面试策略引擎。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_STRATEGY_PROMPT, { role_title: jdAnalysis.role_title || '技术岗位', company_report: companyReport.slice(0, 3000), jd_analysis: json(jdAnalysis).slice(0, 3000), fit_report: json(fitReport).slice(0, 3000), profile_summary: profileSummary.slice(0, 3000) }) }], STRUCTURED_CHAT_OPTIONS), { root_nodes: [], nodes: {}, phase_order: [] })
 
       await this.deps.repository.updatePrepProgress(prepId, task.user_id, '正在评估风险路径...')
       const nodes = object(strategy.nodes)
       const riskNodes = Object.entries(nodes).flatMap(([nodeId, raw]) => { const node = object(raw); return ['danger', 'caution'].includes(String(node.risk_level)) ? [{ node_id: nodeId, topic: node.topic || '', risk_level: node.risk_level }] : [] })
       let risk: Record<string, unknown> = { risk_map: [], prep_hints: [], risk_summary: '' }
-      if (riskNodes.length) risk = parseObject(await this.deps.ai.complete(context, [{ role: 'system', content: '你是风险评估引擎。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_RISK_PROMPT, { weak_points: json(Array.isArray(profile.weak_points) ? profile.weak_points.slice(0, 10) : []), gaps: json(Array.isArray(fitReport.gaps) ? fitReport.gaps.slice(0, 10) : []), risk_nodes: json(riskNodes) }) }]), risk)
+      if (riskNodes.length) risk = parseObject(await this.deps.ai.complete(context, [{ role: 'system', content: '你是风险评估引擎。只返回 JSON。' }, { role: 'user', content: fill(COPILOT_RISK_PROMPT, { weak_points: json(Array.isArray(profile.weak_points) ? profile.weak_points.slice(0, 10) : []), gaps: json(Array.isArray(fitReport.gaps) ? fitReport.gaps.slice(0, 10) : []), risk_nodes: json(riskNodes) }) }], STRUCTURED_CHAT_OPTIONS), risk)
       const result = { user_id: task.user_id, jd_text: prep.jd_text, resume_context: resumeText.slice(0, 2000), profile, company_report: companyReport, jd_analysis: jdAnalysis, fit_report: fitReport, question_strategy_tree: strategy, risk_map: Array.isArray(risk.risk_map) ? risk.risk_map : [], risk_summary: String(risk.risk_summary || ''), prep_hints: Array.isArray(risk.prep_hints) ? risk.prep_hints : [], status: 'done', progress: '准备完成', error: '' }
       await this.deps.repository.completePrep(prepId, task.user_id, result)
       const predicted = Array.isArray(fitReport.gaps) ? fitReport.gaps.flatMap((raw) => { const gap = object(raw); return gap.risk === 'high' && typeof gap.point === 'string' ? [gap.point] : [] }) : []

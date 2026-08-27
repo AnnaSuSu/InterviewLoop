@@ -1,5 +1,6 @@
 import { AppError, AuthenticationError } from '../kernel/errors.ts'
 import { parseJsonResponse } from '../kernel/json.ts'
+import { STRUCTURED_CHAT_OPTIONS } from '../provider/ports.ts'
 import type { RequestContext } from '../kernel/context.ts'
 import type { ResumeDependencies, ResumeUseCases } from './ports.ts'
 
@@ -87,7 +88,7 @@ export class ResumeService implements ResumeUseCases {
     ]
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const parsed = parseJsonResponse(await this.deps.ai.complete(context, messages))
+        const parsed = parseJsonResponse(await this.deps.ai.complete(context, messages, STRUCTURED_CHAT_OPTIONS))
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return { ok: true as const, parsed }
       } catch (error) {
         if (attempt === 1) throw new AppError('简历解析失败，请重试', 500)

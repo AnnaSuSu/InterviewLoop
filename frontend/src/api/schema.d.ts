@@ -286,6 +286,11 @@ export interface paths {
                                 model: string;
                                 /** @default 0.7 */
                                 temperature: number;
+                                /**
+                                 * @default generic
+                                 * @enum {string}
+                                 */
+                                compatibility: "generic" | "deepseek";
                             };
                             /**
                              * @default {
@@ -394,6 +399,11 @@ export interface paths {
                             model?: string;
                             /** @default 0.7 */
                             temperature?: number;
+                            /**
+                             * @default generic
+                             * @enum {string}
+                             */
+                            compatibility?: "generic" | "deepseek";
                         };
                         /**
                          * @default {
@@ -580,6 +590,11 @@ export interface paths {
                         model?: string;
                         /** @default 0.7 */
                         temperature?: number;
+                        /**
+                         * @default generic
+                         * @enum {string}
+                         */
+                        compatibility?: "generic" | "deepseek";
                     };
                 };
             };

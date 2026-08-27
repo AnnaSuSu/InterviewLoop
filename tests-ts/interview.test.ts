@@ -8,6 +8,7 @@ import {
   ProfileService,
   ResumeInterviewEngine,
   type CandidateProfilePort,
+  type ChatCompleteOptions,
   type ChatMessage,
   type InterviewDependencies,
   type KnowledgeStore,
@@ -31,9 +32,9 @@ const context: RequestContext = { requestId: 'test', userId: 'user-a', signal: n
 
 class FakeAi implements TextGenerationUseCases {
   calls: ChatMessage[][] = []
-  options: Array<{ maxTokens?: number; temperature?: number } | undefined> = []
+  options: Array<ChatCompleteOptions | undefined> = []
   constructor(private readonly replies: string[]) {}
-  async complete(_context: RequestContext, messages: readonly ChatMessage[], options?: { maxTokens?: number; temperature?: number }): Promise<string> {
+  async complete(_context: RequestContext, messages: readonly ChatMessage[], options?: ChatCompleteOptions): Promise<string> {
     this.calls.push([...messages])
     this.options.push(options)
     const reply = this.replies.shift()
@@ -232,7 +233,10 @@ describe('interview application service', () => {
     const result = await service.start(context, { mode: 'topic_drill', topic: 'typescript', num_questions: 10 })
     expect(result.questions).toHaveLength(10)
     expect(ai.calls).toHaveLength(2)
-    expect(ai.options).toEqual([{ maxTokens: 5120 }, { maxTokens: 5120 }])
+    expect(ai.options).toEqual([
+      { maxTokens: 5120, jsonMode: true, reasoningEffort: 'low' },
+      { maxTokens: 5120, jsonMode: true, reasoningEffort: 'low' },
+    ])
     sessions.close(); states.close()
   })
 

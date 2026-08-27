@@ -8,11 +8,14 @@ export const DEFAULT_EMBEDDING_BATCH_SIZE = 10
 
 export type ProviderSource = typeof USER_PROVIDER | typeof PLATFORM_PROVIDER
 
+export type LlmCompatibility = 'generic' | 'deepseek'
+
 export type LlmSettings = {
   api_base: string
   api_key: string
   model: string
   temperature: number
+  compatibility: LlmCompatibility
 }
 
 export type EmbeddingSettings = {
@@ -59,7 +62,7 @@ export type SettingsView = {
 export type ResolvedLlmConfig = LlmSettings & { source: ProviderSource }
 export type ResolvedEmbeddingConfig = EmbeddingSettings & { source: ProviderSource }
 
-export const emptyLlmSettings = (): LlmSettings => ({ api_base: '', api_key: '', model: '', temperature: 0.7 })
+export const emptyLlmSettings = (): LlmSettings => ({ api_base: '', api_key: '', model: '', temperature: 0.7, compatibility: 'generic' })
 export const emptyEmbeddingSettings = (): EmbeddingSettings => ({
   backend: '', api_base: '', api_key: '', api_model: '', local_model: '', local_path: '', api_batch_size: DEFAULT_EMBEDDING_BATCH_SIZE,
 })
@@ -69,7 +72,7 @@ export const emptyServiceSettings = (): ServiceSettings => ({
 export const defaultTrainingSettings = (): TrainingSettings => ({ num_questions: 10, divergence: 3 })
 
 export type PlatformProviderConfig = {
-  llm: Pick<LlmSettings, 'api_base' | 'api_key' | 'model'>
+  llm: Pick<LlmSettings, 'api_base' | 'api_key' | 'model'> & { compatibility?: LlmCompatibility }
   embedding: Pick<EmbeddingSettings, 'api_base' | 'api_key' | 'api_model'>
   dailyCallLimit: number
 }

@@ -32,13 +32,23 @@ export function embeddingModeOf(settings: EmbeddingSettings): 'api' | 'local' {
   return settings.api_base || settings.api_key ? 'api' : 'local'
 }
 
+export function normalizeLlmSettings(settings?: Partial<LlmSettings>): LlmSettings {
+  return {
+    api_base: settings?.api_base || '',
+    api_key: settings?.api_key || '',
+    model: settings?.model || '',
+    temperature: typeof settings?.temperature === 'number' ? settings.temperature : 0.7,
+    compatibility: settings?.compatibility === 'deepseek' ? 'deepseek' : 'generic',
+  }
+}
+
 export function resolveLlmConfig(
   own: LlmSettings | undefined,
   platform: PlatformProviderConfig,
 ): ResolvedLlmConfig {
-  if (own?.api_key && own.model) return { ...own, source: USER_PROVIDER }
+  if (own?.api_key && own.model) return { ...normalizeLlmSettings(own), source: USER_PROVIDER }
   if (platform.llm.api_key && platform.llm.model) {
-    return { ...platform.llm, temperature: 0.7, source: PLATFORM_PROVIDER }
+    return { ...normalizeLlmSettings({ ...platform.llm, temperature: 0.7 }), source: PLATFORM_PROVIDER }
   }
   return { ...emptyLlmSettings(), source: USER_PROVIDER }
 }

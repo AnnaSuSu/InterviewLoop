@@ -1,11 +1,10 @@
 import type { AuthPolicy, UserRepository } from '../account/ports.ts'
 import type { RequestContext } from '../kernel/context.ts'
 import { AuthenticationError } from '../kernel/errors.ts'
-import { embeddingTarget, resolveEmbeddingConfig, resolveLlmConfig } from './config.ts'
+import { embeddingTarget, normalizeLlmSettings, resolveEmbeddingConfig, resolveLlmConfig } from './config.ts'
 import {
   defaultTrainingSettings,
   emptyEmbeddingSettings,
-  emptyLlmSettings,
   emptyServiceSettings,
   type PlatformProviderConfig,
   type SettingsView,
@@ -34,7 +33,7 @@ export class SettingsService implements SettingsUseCases {
       this.repository.loadLastReindexAt(userId),
       this.users.findById(userId),
     ])
-    const llm = stored.llm || emptyLlmSettings()
+    const llm = normalizeLlmSettings(stored.llm)
     const embedding = stored.embedding || emptyEmbeddingSettings()
     const resolvedLlm = resolveLlmConfig(stored.llm, this.platform)
     const resolvedEmbedding = resolveEmbeddingConfig(stored.embedding, this.platform)

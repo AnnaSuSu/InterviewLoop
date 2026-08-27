@@ -384,6 +384,14 @@
                           "minimum": 0,
                           "maximum": 2,
                           "default": 0.7
+                        },
+                        "compatibility": {
+                          "type": "string",
+                          "enum": [
+                            "generic",
+                            "deepseek"
+                          ],
+                          "default": "generic"
                         }
                       }
                     },
@@ -572,6 +580,14 @@
                         "minimum": 0,
                         "maximum": 2,
                         "default": 0.7
+                      },
+                      "compatibility": {
+                        "type": "string",
+                        "enum": [
+                          "generic",
+                          "deepseek"
+                        ],
+                        "default": "generic"
                       }
                     }
                   },
@@ -841,6 +857,14 @@
                     "minimum": 0,
                     "maximum": 2,
                     "default": 0.7
+                  },
+                  "compatibility": {
+                    "type": "string",
+                    "enum": [
+                      "generic",
+                      "deepseek"
+                    ],
+                    "default": "generic"
                   }
                 }
               }

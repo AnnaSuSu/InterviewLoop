@@ -23,14 +23,19 @@ function message(error: unknown): string {
 function userId(context: RequestContext): string { if (!context.userId) throw new AuthenticationError(); return context.userId }
 
 const LLM_PROBE_MESSAGES = [
-  { role: 'system' as const, content: '你是专项训练出题引擎。只返回 JSON 数组，不要其他内容。' },
-  { role: 'user' as const, content: '请生成 2 道 JavaScript 专项训练题，只返回严格 JSON 数组。每项包含 id、question、difficulty、focus_area，必须完整闭合。' },
+  { role: 'system' as const, content: '你是专项训练出题引擎。只返回 JSON 对象，不要其他内容。' },
+  { role: 'user' as const, content: '请生成 2 道 JavaScript 专项训练题，只返回严格 JSON 对象。格式必须是 {"questions":[{"id":1,"question":"题目","difficulty":3,"focus_area":"考察点"}]}，必须完整闭合。' },
 ]
 
 function validateLlmProbe(text: string): void {
   try {
     const value = parseJsonResponse(text)
-    if (!Array.isArray(value) || value.length !== 2 || !value.every((item) => {
+    const questions = Array.isArray(value)
+      ? value
+      : value && typeof value === 'object' && !Array.isArray(value) && Array.isArray((value as Record<string, unknown>).questions)
+        ? (value as { questions: unknown[] }).questions
+        : undefined
+    if (!questions || questions.length !== 2 || !questions.every((item) => {
       if (!item || typeof item !== 'object' || Array.isArray(item)) return false
       const question = item as Record<string, unknown>
       return typeof question.question === 'string' && question.question.trim().length > 0
@@ -58,7 +63,10 @@ export class SettingsOperationsService implements SettingsOperationsUseCases {
   async testLlm(context: RequestContext, value: LlmSettings): Promise<{ ok: boolean; error?: string }> {
     try {
       if (!value.api_key.trim() || !value.model.trim()) throw new Error('请先填写必填字段')
-      const result = await this.deps.chats.create({ ...value, source: USER_PROVIDER }).complete(LLM_PROBE_MESSAGES, context.signal, { maxTokens: 2048, temperature: 0 })
+      const probeOptions = value.compatibility === 'deepseek'
+        ? { maxTokens: 4096, temperature: 0, jsonMode: true, reasoningEffort: 'low' as const }
+        : { maxTokens: 2048, temperature: 0 }
+      const result = await this.deps.chats.create({ ...value, source: USER_PROVIDER }).complete(LLM_PROBE_MESSAGES, context.signal, probeOptions)
       validateLlmProbe(result.text)
       return { ok: true }
     } catch (error) { return { ok: false, error: message(error) } }

@@ -10,6 +10,20 @@ import type {
   ProviderSource,
 } from './model.ts'
 
+export type ChatReasoningEffort = 'low' | 'high' | 'max'
+export type ChatCompleteOptions = {
+  maxTokens?: number
+  temperature?: number
+  jsonMode?: boolean
+  reasoningEffort?: ChatReasoningEffort
+}
+export type ChatStreamOptions = {
+  temperature?: number
+}
+
+/** Options used by calls whose response is parsed as JSON. Providers may ignore provider-specific fields. */
+export const STRUCTURED_CHAT_OPTIONS: ChatCompleteOptions = { jsonMode: true, reasoningEffort: 'low' }
+
 export type StoredProviderSettings = {
   llm?: LlmSettings
   embedding?: EmbeddingSettings
@@ -60,8 +74,8 @@ export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: stri
 export type ChatResult = { text: string; promptTokens: number; completionTokens: number }
 
 export interface ChatDriver {
-  complete(messages: readonly ChatMessage[], signal: AbortSignal, options?: { maxTokens?: number; temperature?: number }): Promise<ChatResult>
-  stream(messages: readonly ChatMessage[], signal: AbortSignal, options?: { temperature?: number }): AsyncIterable<string>
+  complete(messages: readonly ChatMessage[], signal: AbortSignal, options?: ChatCompleteOptions): Promise<ChatResult>
+  stream(messages: readonly ChatMessage[], signal: AbortSignal, options?: ChatStreamOptions): AsyncIterable<string>
 }
 
 export interface ChatDriverFactory {
@@ -69,8 +83,8 @@ export interface ChatDriverFactory {
 }
 
 export interface TextGenerationUseCases {
-  complete(context: RequestContext, messages: readonly ChatMessage[], options?: { maxTokens?: number; temperature?: number }): Promise<string>
-  stream(context: RequestContext, messages: readonly ChatMessage[], options?: { temperature?: number }): AsyncIterable<string>
+  complete(context: RequestContext, messages: readonly ChatMessage[], options?: ChatCompleteOptions): Promise<string>
+  stream(context: RequestContext, messages: readonly ChatMessage[], options?: ChatStreamOptions): AsyncIterable<string>
 }
 
 export interface EmbeddingDriver {
