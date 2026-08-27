@@ -43,6 +43,12 @@ export async function processOrder(
     return 'unknown_plan'
   }
 
+  if (tier.donation) {
+    // 纯赞助没有权益可发,但它是正常订单,不该混进待人工处理的队列里
+    deps.orders.record({ ...base, tier: tier.key, outcome: 'ignored' })
+    return 'ignored'
+  }
+
   const userId = order.custom_order_id?.trim() ?? ''
   if (!userId || !(await deps.userExists(userId))) {
     // 落库待人工处理:钱已经收了,不能因为对不上账号就丢掉

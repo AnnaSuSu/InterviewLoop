@@ -17,6 +17,7 @@ const DAY = 86_400_000
 const TIERS = [
   { key: 'basic', planId: 'plan-basic', label: '保持手感', price_cents: 990, daily_limit: 100 },
   { key: 'sprint', planId: 'plan-sprint', label: '全力冲刺', price_cents: 6990, daily_limit: 0 },
+  { key: 'tip', planId: 'plan-tip', label: '随意投喂', price_cents: 500, daily_limit: 0, donation: true },
 ]
 
 class StubUsage implements UsageRepository {
@@ -158,6 +159,12 @@ describe('processOrder', () => {
     expect(orders.pending()).toHaveLength(1)
   })
 
+  test('纯赞助档不发订阅,也不进待人工队列', async () => {
+    expect(await processOrder(order({ plan_id: 'plan-tip' }), deps())).toBe('ignored')
+    expect(subscriptions.isActive('u1')).toBe(false)
+    expect(orders.pending()).toHaveLength(0)
+  })
+
   test('非成功状态直接忽略', async () => {
     expect(await processOrder(order({ status: 1 }), deps())).toBe('ignored')
     expect(subscriptions.isActive('u1')).toBe(false)
@@ -203,7 +210,7 @@ describe('cloud routes', () => {
     const body = (await response.json()) as { active: boolean; plans: unknown[] }
     expect(response.status).toBe(200)
     expect(body.active).toBe(false)
-    expect(body.plans).toHaveLength(2)
+    expect(body.plans).toHaveLength(2) // 纯赞助档不出现在付费墙里
   })
 
   test('webhook 拒绝无效签名且不发放', async () => {

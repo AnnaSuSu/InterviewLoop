@@ -14,6 +14,8 @@ export type Tier = {
   price_cents: number
   /** 每日调用上限,0 表示不限 */
   daily_limit: number
+  /** 纯赞助档:不含任何权益,不发订阅,也不出现在付费墙里 */
+  donation?: boolean
 }
 
 const DEFAULT_TIERS: readonly Tier[] = [
@@ -50,6 +52,11 @@ export function tiers(): readonly Tier[] {
 
 export function tierByKey(key: string): Tier | undefined {
   return tiers().find((tier) => tier.key === key)
+}
+
+/** 付费墙里展示的档位:纯赞助档不含权益,列在这里只会让人以为买了能提额度。 */
+export function purchasableTiers(): Tier[] {
+  return tiers().filter((tier) => !tier.donation)
 }
 
 /** 按爱发电方案 ID 反查档位。planId 为空的档位不参与匹配,避免未配置时误命中。 */

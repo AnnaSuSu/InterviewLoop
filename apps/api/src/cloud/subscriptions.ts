@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite'
-import { DAYS_PER_MONTH, tierByKey, tiers, type Tier } from './tiers.ts'
+import { DAYS_PER_MONTH, purchasableTiers, tierByKey, type Tier } from './tiers.ts'
 
 export type SubscriptionStatus = {
   active: boolean
@@ -97,7 +97,7 @@ export class SubscriptionRepository {
       active,
       expires_at: expiry ? expiry.toISOString() : null,
       tier: active ? (this.row(userId)?.plan ?? null) : null,
-      plans: [...tiers()],
+      plans: purchasableTiers(),
     }
   }
 
