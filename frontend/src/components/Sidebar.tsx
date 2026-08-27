@@ -3,22 +3,24 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   User, BookOpen, GitFork, Clock, Mic, Brain,
   Target, FileText, FileUser, Settings as SettingsIcon,
-  Sun, Moon, LogOut, Menu, X, ChevronLeft, ChevronRight, Sparkles, Zap,
+  Sun, Moon, LogOut, Menu, X, ChevronLeft, ChevronRight, Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth";
-
-const SPONSOR_URL = "https://ifdian.net/a/techspar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import Logo from "./Logo";
+import AfdianIcon from "./AfdianIcon";
+import SidebarQuota from "@/cloud/SidebarQuota";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+const SPONSOR_URL = "https://ifdian.net/a/techspar";
 
 interface NavItem {
   path: string;
@@ -120,6 +122,26 @@ export default function Sidebar() {
         <Separator />
 
         <div className={cn("py-2 space-y-0.5", collapsed ? "px-2" : "px-3")}>
+          <SidebarQuota collapsed={collapsed} />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={SPONSOR_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "flex items-center gap-2.5 w-full py-2 rounded-lg text-[13px] text-dim hover:text-primary hover:bg-hover transition-all",
+                  collapsed && "justify-center"
+                )}
+              >
+                <AfdianIcon size={18} />
+                {!collapsed && "赞助项目"}
+              </a>
+            </TooltipTrigger>
+            {collapsed && <TooltipContent side="right" sideOffset={8}>赞助项目</TooltipContent>}
+          </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -134,24 +156,6 @@ export default function Sidebar() {
               </button>
             </TooltipTrigger>
             {collapsed && <TooltipContent side="right" sideOffset={8}>{theme === "dark" ? "浅色模式" : "深色模式"}</TooltipContent>}
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <a
-                href={SPONSOR_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  "flex items-center gap-2.5 w-full py-2 rounded-lg text-[13px] text-dim hover:text-primary hover:bg-hover transition-all",
-                  collapsed && "justify-center"
-                )}
-              >
-                <Zap size={18} />
-                {!collapsed && "赞助项目"}
-              </a>
-            </TooltipTrigger>
-            {collapsed && <TooltipContent side="right" sideOffset={8}>赞助项目</TooltipContent>}
           </Tooltip>
 
           {user && (

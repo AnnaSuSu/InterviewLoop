@@ -15,13 +15,13 @@ import { setApiErrorHandler } from "@/api/client";
 
 import { fetchQuota } from "./api";
 import PaywallModal from "./PaywallModal";
-import QuotaBanner from "./QuotaBanner";
+import QuotaPoller from "./QuotaPoller";
 import { openPaywall, setQuota } from "./store";
 
 function CloudOverlay() {
   return (
     <>
-      <QuotaBanner />
+      <QuotaPoller />
       <PaywallModal />
     </>
   );
@@ -41,7 +41,7 @@ function mount() {
 setApiErrorHandler((code) => {
   if (code !== "quota_exceeded") return;
   openPaywall();
-  // 立刻重拉一次,否则角标要等下一轮轮询才显示"已用完"
+  // 立刻重拉一次,否则侧栏额度条要等下一轮轮询才更新
   fetchQuota()
     .then(setQuota)
     .catch(() => {});
