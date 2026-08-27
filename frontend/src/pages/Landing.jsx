@@ -551,7 +551,7 @@ export default function Landing() {
           </div>
           <p className="text-xs text-dim">从刷题到实战的 AI 技术面试陪练系统</p>
           <p className="max-w-md text-xs leading-relaxed text-dim">
-            完整开源，自己部署永远免费。托管版的服务器和模型推理由我自费，
+            完整开源，你自己部署永远免费。托管版的服务器和模型推理都是我自费在扛，如果它帮到了你，
             <a
               href={SPONSOR_URL}
               target="_blank"
@@ -560,7 +560,7 @@ export default function Landing() {
             >
               赞助
             </a>
-            能让它继续更新下去。
+            一点能让它继续做下去。
           </p>
           <div className="flex gap-6 text-xs">
             <a

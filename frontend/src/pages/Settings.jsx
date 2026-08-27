@@ -18,6 +18,7 @@ import {
   RotateCw,
   KeyRound,
   Plug,
+  Zap,
   XCircle,
 } from "lucide-react";
 import {
@@ -1512,6 +1513,33 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* 赞助入口。放在最后一张卡片之后:用户已经用过产品,这时候开口才不突兀。 */}
+        <Card className="overflow-hidden border-border/40 bg-card/40">
+          <CardContent className="p-5 md:p-7">
+            <div className="flex items-center gap-2 mb-1">
+              <Zap size={16} className="text-primary" />
+              <h2 className="text-[15px] font-semibold">支持这个项目</h2>
+            </div>
+            <p className="mb-4 text-[13px] leading-relaxed text-dim">
+              TechSpar 是完整开源的，你自己部署它永远免费，功能一个不少。托管版的服务器和模型推理
+              费用现在都是我自己在扛——一个人做这件事，它能不能继续更新下去，说到底取决于能不能
+              养活自己。
+              <br />
+              如果它帮到了你，去爱发电赞助一点，对我意义很大。
+            </p>
+            <a
+              href="https://ifdian.net/a/techspar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-[13px] font-medium transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <Zap size={15} className="text-primary" />
+              去爱发电赞助
+            </a>
+          </CardContent>
+        </Card>
+
 
         </div>
       </div>
