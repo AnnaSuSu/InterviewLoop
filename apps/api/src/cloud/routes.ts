@@ -5,7 +5,6 @@ import { AppError, type TokenService, type UsageRepository } from '@techspar/cor
 import { authenticatedContext } from '../http/context.ts'
 import { verifyOrderSignature, type AfdianOrder } from './afdian.ts'
 import type { OrderRepository } from './orders.ts'
-import { grantWithCarryOver } from './grant.ts'
 import { processOrder, type OrderDependencies } from './process-order.ts'
 import type { SubscriptionRepository } from './subscriptions.ts'
 import { tierByKey, tiers } from './tiers.ts'
@@ -100,7 +99,7 @@ export function registerCloudRoutes(
       if (!userId || !tierByKey(body.plan.trim())) {
         throw new AppError(`user_id and a valid plan are required (${tiers().map((t) => t.key).join(', ')})`, 400)
       }
-      const expiry = await grantWithCarryOver(userId, body.plan.trim(), body.months ?? 1, { subscriptions: deps.subscriptions, usage: deps.usage })
+      const expiry = deps.subscriptions.grant(userId, body.plan.trim(), body.months ?? 1)
       console.log(JSON.stringify({ event: 'cloud:subscription_granted', userId, tier: body.plan.trim(), expiresAt: expiry.toISOString() }))
       return c.json({ ok: true as const, expires_at: expiry.toISOString() })
     },

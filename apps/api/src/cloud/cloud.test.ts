@@ -182,12 +182,12 @@ describe('processOrder', () => {
     expect(subscriptions.isActive('u1')).toBe(false)
   })
 
-  test('续费结转上期没用完的 token', async () => {
+  test('续费重新给满额度,上期没用完的不累加', async () => {
     await processOrder(order(), deps())
-    // 用掉 300,剩 700;再买一次应得 700 + 1000
-    const carried = { orders, subscriptions, usage: new StubUsage(300), userExists: async (id: string) => id === 'u1' }
-    await processOrder(order({ out_trade_no: 'order-2' }), carried)
-    expect(subscriptions.active('u1')?.tokenQuota).toBe(1700)
+    // 用掉 300 后再买一次,拿到的仍是一整期的 1000,不是 700 + 1000
+    const renewed = { orders, subscriptions, usage: new StubUsage(300), userExists: async (id: string) => id === 'u1' }
+    await processOrder(order({ out_trade_no: 'order-2' }), renewed)
+    expect(subscriptions.active('u1')?.tokenQuota).toBe(1000)
   })
 
   test('按订单月份数发放', async () => {
