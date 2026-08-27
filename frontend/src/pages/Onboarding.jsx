@@ -184,11 +184,11 @@ export default function Onboarding() {
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>API Base URL</Label>
-                  <Input className={inputClass} autoComplete="off" placeholder="例：https://api-inference.modelscope.cn/v1" value={apiBase} onChange={(e) => setApiBase(e.target.value)} />
+                  <Input className={inputClass} placeholder="例：https://api-inference.modelscope.cn/v1" value={apiBase} onChange={(e) => setApiBase(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Model</Label>
-                  <Input className={inputClass} autoComplete="off" placeholder="例：ZhipuAI/GLM-5" value={model} onChange={(e) => setModel(e.target.value)} />
+                  <Input className={inputClass} placeholder="例：ZhipuAI/GLM-5" value={model} onChange={(e) => setModel(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>API 兼容模式</Label>
@@ -213,7 +213,6 @@ export default function Onboarding() {
                     <Input
                       className={cn(inputClass, "pr-11")}
                       type={showKey ? "text" : "password"}
-                      autoComplete="new-password"
                       placeholder="sk-..."
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
@@ -231,11 +230,11 @@ export default function Onboarding() {
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>API Base URL</Label>
-                  <Input className={inputClass} autoComplete="off" placeholder="例：https://api.siliconflow.cn/v1（OpenAI 官方可留空）" value={embApiBase} onChange={(e) => setEmbApiBase(e.target.value)} />
+                  <Input className={inputClass} placeholder="例：https://api.siliconflow.cn/v1（OpenAI 官方可留空）" value={embApiBase} onChange={(e) => setEmbApiBase(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>Embedding Model</Label>
-                  <Input className={inputClass} autoComplete="off" placeholder="例：BAAI/bge-large-zh-v1.5" value={embApiModel} onChange={(e) => setEmbApiModel(e.target.value)} />
+                  <Input className={inputClass} placeholder="例：BAAI/bge-large-zh-v1.5" value={embApiModel} onChange={(e) => setEmbApiModel(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label className={labelClass}>API Key</Label>
@@ -243,7 +242,6 @@ export default function Onboarding() {
                     <Input
                       className={cn(inputClass, "pr-11")}
                       type={showEmbKey ? "text" : "password"}
-                      autoComplete="new-password"
                       placeholder="sk-..."
                       value={embApiKey}
                       onChange={(e) => setEmbApiKey(e.target.value)}
