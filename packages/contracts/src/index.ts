@@ -51,6 +51,8 @@ export const LlmSettingsSchema = z.object({
   model: z.string().default(''),
   temperature: z.number().min(0).max(2).default(0.7),
   compatibility: z.enum(['generic', 'deepseek']).default('generic'),
+  /** 显式选用部署方的共享 key,即使自己也填了 key */
+  use_platform: z.boolean().default(false),
 })
 
 export const EmbeddingSettingsSchema = z.object({
@@ -86,6 +88,10 @@ export const SettingsViewSchema = z.object({
   training: TrainingSettingsSchema,
   is_admin: z.boolean().default(false),
   configured: ProviderStatusSchema.default({ llm: false, embedding: false }),
+  /** 本部署是否提供共享 key */
+  platform: ProviderStatusSchema.default({ llm: false, embedding: false }),
+  /** 此刻实际生效的 key 来源 */
+  source: z.enum(['user', 'platform']).default('user'),
   last_reindex_at: z.string().default(''),
 })
 

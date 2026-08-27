@@ -15,7 +15,7 @@ function chatFetch(replies: unknown[], requests: Array<Record<string, unknown>>)
 }
 
 describe('chat provider compatibility', () => {
-  const config = { api_base: 'https://example.test/v1', api_key: 'key', model: 'test-model', temperature: 0.7, compatibility: 'generic' as const, source: USER_PROVIDER }
+  const config = { api_base: 'https://example.test/v1', api_key: 'key', model: 'test-model', temperature: 0.7, compatibility: 'generic' as const, use_platform: false, source: USER_PROVIDER }
   const valid = completion([{ index: 0, message: { role: 'assistant', content: '[{"id":1,"question":"题目"}]' }, finish_reason: 'stop' }], { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 })
 
   test('retries null choices with backoff and preserves the output limit', async () => {

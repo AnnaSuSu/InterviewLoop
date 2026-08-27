@@ -16,6 +16,8 @@ export type LlmSettings = {
   model: string
   temperature: number
   compatibility: LlmCompatibility
+  /** 显式选用部署方的共享 key。填了自己的 key 但仍想走平台额度时才需要它。 */
+  use_platform: boolean
 }
 
 export type EmbeddingSettings = {
@@ -55,14 +57,19 @@ export type SettingsView = {
   system: SystemSettings
   training: TrainingSettings
   is_admin: boolean
+  /** 当前能不能用——自己的或平台的,任一可用即为 true。 */
   configured: ProviderStatus
+  /** 本部署是否提供共享 key。自托管通常全 false,前端据此隐藏来源选择。 */
+  platform: ProviderStatus
+  /** 此刻实际在用谁的 key。用户判断"会不会消耗额度"只看这个。 */
+  source: ProviderSource
   last_reindex_at: string
 }
 
 export type ResolvedLlmConfig = LlmSettings & { source: ProviderSource }
 export type ResolvedEmbeddingConfig = EmbeddingSettings & { source: ProviderSource }
 
-export const emptyLlmSettings = (): LlmSettings => ({ api_base: '', api_key: '', model: '', temperature: 0.7, compatibility: 'generic' })
+export const emptyLlmSettings = (): LlmSettings => ({ api_base: '', api_key: '', model: '', temperature: 0.7, compatibility: 'generic', use_platform: false })
 export const emptyEmbeddingSettings = (): EmbeddingSettings => ({
   backend: '', api_base: '', api_key: '', api_model: '', local_model: '', local_path: '', api_batch_size: DEFAULT_EMBEDDING_BATCH_SIZE,
 })

@@ -34,8 +34,16 @@ describe('provider resolution', () => {
   test('platform fallback is used only when own config is incomplete', () => {
     const platform = { ...emptyPlatform, llm: { api_base: 'https://platform.test/v1', api_key: 'platform-key', model: 'platform-model' } }
     expect(resolveLlmConfig(undefined, platform).source).toBe(PLATFORM_PROVIDER)
-    expect(resolveLlmConfig({ api_base: '', api_key: 'mine', model: '', temperature: 0.7, compatibility: 'generic' }, platform).source).toBe(PLATFORM_PROVIDER)
-    expect(resolveLlmConfig({ api_base: '', api_key: 'mine', model: 'my-model', temperature: 0.7, compatibility: 'generic' }, platform).source).toBe(USER_PROVIDER)
+    expect(resolveLlmConfig({ api_base: '', api_key: 'mine', model: '', temperature: 0.7, compatibility: 'generic', use_platform: false }, platform).source).toBe(PLATFORM_PROVIDER)
+    expect(resolveLlmConfig({ api_base: '', api_key: 'mine', model: 'my-model', temperature: 0.7, compatibility: 'generic', use_platform: false }, platform).source).toBe(USER_PROVIDER)
+  })
+
+  test('opting into the platform keeps a complete own config from being used', () => {
+    const platform = { ...emptyPlatform, llm: { api_base: 'https://platform.test/v1', api_key: 'platform-key', model: 'platform-model' } }
+    const own = { api_base: '', api_key: 'mine', model: 'my-model', temperature: 0.7, compatibility: 'generic' as const, use_platform: true }
+    expect(resolveLlmConfig(own, platform)).toMatchObject({ api_key: 'platform-key', source: PLATFORM_PROVIDER })
+    // 自托管没有共享 key,勾了也只能回落到自己的,不能变成"未配置"
+    expect(resolveLlmConfig(own, emptyPlatform)).toMatchObject({ api_key: 'mine', source: USER_PROVIDER })
   })
 
   test('explicit local embedding is never replaced by platform API', () => {
@@ -145,7 +153,7 @@ describe('settings operations', () => {
       embeddings: {}, index: {}, vectors: {}, knowledge: {}, personal: {}, profile: {}, settings: {},
     } as never)
     const context = { requestId: 'test', userId: 'user', signal: new AbortController().signal }
-    expect(await service.testLlm(context, { api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', temperature: 0.2, compatibility: 'deepseek' })).toEqual({ ok: true })
+    expect(await service.testLlm(context, { api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', temperature: 0.2, compatibility: 'deepseek', use_platform: false })).toEqual({ ok: true })
     expect(llmConfig).toMatchObject({ api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', source: USER_PROVIDER })
     expect(llmMessages?.map((message) => message.content).join('\n')).toContain('专项训练')
     expect(llmOptions).toEqual({ maxTokens: 4096, temperature: 0, jsonMode: true, reasoningEffort: 'low' })
@@ -160,7 +168,7 @@ describe('settings operations', () => {
     } as never)
     const context = { requestId: 'test', userId: 'user', signal: new AbortController().signal }
 
-    expect(await service.testLlm(context, { api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', temperature: 0.2, compatibility: 'generic' })).toEqual({
+    expect(await service.testLlm(context, { api_base: 'https://submitted.test/v1', api_key: 'submitted-key', model: 'submitted-model', temperature: 0.2, compatibility: 'generic', use_platform: false })).toEqual({
       ok: false,
       error: '模型已连接，但未返回完整的专项训练结构化结果；请换用支持长文本 JSON 输出的模型。',
     })

@@ -291,6 +291,8 @@ export interface paths {
                                  * @enum {string}
                                  */
                                 compatibility: "generic" | "deepseek";
+                                /** @default false */
+                                use_platform: boolean;
                             };
                             /**
                              * @default {
@@ -373,6 +375,21 @@ export interface paths {
                                 llm: boolean;
                                 embedding: boolean;
                             };
+                            /**
+                             * @default {
+                             *       "llm": false,
+                             *       "embedding": false
+                             *     }
+                             */
+                            platform: {
+                                llm: boolean;
+                                embedding: boolean;
+                            };
+                            /**
+                             * @default user
+                             * @enum {string}
+                             */
+                            source: "user" | "platform";
                             /** @default  */
                             last_reindex_at: string;
                         };
@@ -404,6 +421,8 @@ export interface paths {
                              * @enum {string}
                              */
                             compatibility?: "generic" | "deepseek";
+                            /** @default false */
+                            use_platform?: boolean;
                         };
                         /**
                          * @default {
@@ -486,6 +505,21 @@ export interface paths {
                             llm: boolean;
                             embedding: boolean;
                         };
+                        /**
+                         * @default {
+                         *       "llm": false,
+                         *       "embedding": false
+                         *     }
+                         */
+                        platform?: {
+                            llm: boolean;
+                            embedding: boolean;
+                        };
+                        /**
+                         * @default user
+                         * @enum {string}
+                         */
+                        source?: "user" | "platform";
                         /** @default  */
                         last_reindex_at?: string;
                     };
@@ -599,6 +633,8 @@ export interface paths {
                          * @enum {string}
                          */
                         compatibility?: "generic" | "deepseek";
+                        /** @default false */
+                        use_platform?: boolean;
                     };
                 };
             };

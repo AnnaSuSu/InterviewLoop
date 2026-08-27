@@ -1,7 +1,14 @@
 import type { AuthPolicy, UserRepository } from '../account/ports.ts'
 import type { RequestContext } from '../kernel/context.ts'
 import { AuthenticationError } from '../kernel/errors.ts'
-import { embeddingTarget, normalizeLlmSettings, resolveEmbeddingConfig, resolveLlmConfig } from './config.ts'
+import {
+  embeddingTarget,
+  normalizeLlmSettings,
+  platformEmbeddingReady,
+  platformLlmReady,
+  resolveEmbeddingConfig,
+  resolveLlmConfig,
+} from './config.ts'
 import {
   defaultTrainingSettings,
   emptyEmbeddingSettings,
@@ -48,6 +55,8 @@ export class SettingsService implements SettingsUseCases {
         llm: Boolean(resolvedLlm.api_key && resolvedLlm.model),
         embedding: resolvedEmbedding.backend === 'local' || Boolean(resolvedEmbedding.api_key),
       },
+      platform: { llm: platformLlmReady(this.platform), embedding: platformEmbeddingReady(this.platform) },
+      source: resolvedLlm.source,
       last_reindex_at: lastReindexAt,
     }
   }

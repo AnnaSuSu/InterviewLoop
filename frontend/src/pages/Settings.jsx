@@ -114,12 +114,36 @@ const DIVERGENCE_OPTIONS = [
   { value: 5, label: "全面探索", description: "100% 探索未涉猎过的新知识领域，发掘潜在盲区" },
 ];
 
+/**
+ * key 来源的两个选项。
+ *
+ * 后端只存一个 `use_platform`：默认自己的 key 优先（填了就是想用它），
+ * 勾上则显式改走部署方的共享 key，自己的 key 留着不删。
+ */
+const LLM_SOURCE_OPTIONS = [
+  {
+    value: "platform",
+    platform: true,
+    label: "用平台提供的 key",
+    description: "不用配置，开箱即用；按账号额度计费，用完需要赞助或换成自己的 key。",
+  },
+  {
+    value: "own",
+    platform: false,
+    label: "用我自己的 key",
+    description: "不消耗平台额度，用量不设上限；费用直接结算在你自己的服务商那边。",
+  },
+];
+
 export default function Settings() {
   const [apiBase, setApiBase] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
   const [compatibility, setCompatibility] = useState("generic");
   const [temperature, setTemperature] = useState(0.7);
+  // key 来源：部署方是否提供共享 key，以及用户是否显式选它
+  const [platformLlm, setPlatformLlm] = useState(false);
+  const [usePlatform, setUsePlatform] = useState(false);
   const [numQuestions, setNumQuestions] = useState(10);
   const [divergence, setDivergence] = useState(3);
   const [showKey, setShowKey] = useState(false);
@@ -231,6 +255,8 @@ export default function Settings() {
         setModel(data.llm.model || "");
         setCompatibility(data.llm.compatibility || "generic");
         setTemperature(data.llm.temperature ?? 0.7);
+        setPlatformLlm(Boolean(data.platform?.llm));
+        setUsePlatform(data.source === "platform");
         const emb = data.embedding || {};
         setEmbBackend(emb.backend || "");
         setEmbApiBase(emb.api_base || "");
@@ -542,12 +568,17 @@ export default function Settings() {
     }
   };
 
+  // 和后端 resolveLlmConfig 同一套判定，让用户在保存前就能看到会走哪条路。
+  // "fallback" = 选了自己的 key 但还没填全，实际仍然落回平台。
+  const llmSource =
+    usePlatform && platformLlm ? "platform" : apiKey && model ? "user" : platformLlm ? "fallback" : "user";
+
   const handleSave = async () => {
     setSaving(true);
     setError("");
     try {
       const res = await updateSettings({
-        llm: { api_base: apiBase, api_key: apiKey, model, compatibility, temperature },
+        llm: { api_base: apiBase, api_key: apiKey, model, compatibility, temperature, use_platform: usePlatform },
         embedding: {
           backend: embBackend,
           api_base: embApiBase,
@@ -619,12 +650,12 @@ export default function Settings() {
   const inputClass = "h-12 rounded-2xl bg-card/90";
 
   // 「测试连接」按钮 + 结果，LLM / Embedding 两处复用
-  const renderTestRow = (test, onTest) => (
+  const renderTestRow = (test, onTest, disabled = false) => (
     <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border/40 pt-5">
       <Button
         variant="outline"
         onClick={onTest}
-        disabled={test?.status === "testing"}
+        disabled={disabled || test?.status === "testing"}
         className="h-10 rounded-xl"
       >
         {test?.status === "testing" ? (
@@ -646,7 +677,9 @@ export default function Settings() {
           <XCircle size={15} className="mt-0.5 shrink-0" /> {test.error || "连接失败"}
         </span>
       ) : test?.status === "testing" ? null : (
-        <span className="text-[12px] text-dim">用当前填写的配置发一个最小请求，验证是否可用</span>
+        <span className="text-[12px] text-dim">
+          {disabled ? "填上自己的 Model 和 API Key 才能测试" : "用当前填写的配置发一个最小请求，验证是否可用"}
+        </span>
       )}
     </div>
   );
@@ -710,12 +743,60 @@ export default function Settings() {
               <Server size={16} className="text-primary" />
               <span className="text-base font-semibold">LLM 服务配置</span>
             </div>
-            <div className="text-[13px] text-dim mb-6">你自己的 LLM，仅对你生效。系统不提供共享 key，这里必须填你自己的；更改后立即生效。</div>
+            <div className="text-[13px] text-dim mb-6">
+              {platformLlm
+                ? "选择这个账号用谁的 key。配置只对你生效，更改后立即生效。"
+                : "你自己的 LLM，仅对你生效。本部署没有共享 key，这里必须填你自己的；更改后立即生效。"}
+            </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            {platformLlm && (
+              <div className="mb-6">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {LLM_SOURCE_OPTIONS.map((option) => {
+                    const active = usePlatform === option.platform;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setUsePlatform(option.platform)}
+                        className={cn(
+                          "rounded-2xl border p-3.5 text-left transition-colors",
+                          active
+                            ? "border-primary bg-primary/5"
+                            : "border-border/70 hover:bg-hover/60"
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[13px] font-medium text-text">{option.label}</span>
+                          {active && <Check size={15} className="shrink-0 text-primary" />}
+                        </div>
+                        <div className="mt-1 text-[12px] leading-relaxed text-dim">{option.description}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div
+                  className={cn(
+                    "mt-2.5 text-[12px] leading-relaxed",
+                    llmSource === "fallback" ? "text-orange" : "text-dim/80"
+                  )}
+                >
+                  {llmSource === "platform"
+                    ? `当前用平台的 key，按额度计费；额度用完可以换成自己的 key，或者赞助提升额度。${
+                        apiKey && model ? "你自己的 key 已保存，但现在没在用。" : ""
+                      }`
+                    : llmSource === "user"
+                      ? "当前用你自己的 key，不消耗平台额度，用量和费用都算在你自己的服务商那边。"
+                      : "Model 和 API Key 都填上才会切过去；在此之前仍然走平台的 key 和额度。"}
+                </div>
+              </div>
+            )}
+
+            <div className={cn("grid gap-4 md:grid-cols-2", llmSource === "platform" && "opacity-60")}>
               <div className="space-y-2">
                 <Label className={labelClass}>API Base URL</Label>
                 <Input
+                  name="llm-api-base"
                   className={inputClass}
                   placeholder="例：https://api.openai.com/v1"
                   value={apiBase}
@@ -728,6 +809,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label className={labelClass}>Model</Label>
                 <Input
+                  name="llm-model"
                   className={inputClass}
                   placeholder="例：gpt-4o"
                   value={model}
@@ -753,11 +835,12 @@ export default function Settings() {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 mt-4">
+            <div className={cn("grid gap-4 md:grid-cols-2 mt-4", llmSource === "platform" && "opacity-60")}>
               <div className="space-y-2">
                 <Label className={labelClass}>API Key</Label>
                 <div className="relative">
                   <Input
+                    name="llm-api-key"
                     className={cn(inputClass, "pr-11")}
                     type={showKey ? "text" : "password"}
                     placeholder="sk-...（你自己的 key）"
@@ -787,7 +870,7 @@ export default function Settings() {
               </div>
             </div>
 
-            {renderTestRow(llmTest, handleTestLLM)}
+            {renderTestRow(llmTest, handleTestLLM, !(apiKey && model))}
           </CardContent>
         </Card>
 

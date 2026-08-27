@@ -39,17 +39,34 @@ export function normalizeLlmSettings(settings?: Partial<LlmSettings>): LlmSettin
     model: settings?.model || '',
     temperature: typeof settings?.temperature === 'number' ? settings.temperature : 0.7,
     compatibility: settings?.compatibility === 'deepseek' ? 'deepseek' : 'generic',
+    use_platform: settings?.use_platform === true,
   }
 }
 
+/** 本部署有没有配共享 key。自托管一般没有,前端据此决定要不要显示来源选择。 */
+export function platformLlmReady(platform: PlatformProviderConfig): boolean {
+  return Boolean(platform.llm.api_key && platform.llm.model)
+}
+
+export function platformEmbeddingReady(platform: PlatformProviderConfig): boolean {
+  return Boolean(platform.embedding.api_key && platform.embedding.api_model)
+}
+
+/**
+ * 决定这次请求用谁的 key。
+ *
+ * 默认自己的 key 优先——填了就是想用它,不该再去烧部署方的额度。
+ * `use_platform` 是显式反选:key 留着不删,但这一阵先走平台额度。
+ * 两边都不可用时返回空配置,由调用方抛 ProviderNotConfigured。
+ */
 export function resolveLlmConfig(
   own: LlmSettings | undefined,
   platform: PlatformProviderConfig,
 ): ResolvedLlmConfig {
+  const usePlatform = () => ({ ...normalizeLlmSettings({ ...platform.llm, temperature: 0.7 }), source: PLATFORM_PROVIDER })
+  if (own?.use_platform && platformLlmReady(platform)) return usePlatform()
   if (own?.api_key && own.model) return { ...normalizeLlmSettings(own), source: USER_PROVIDER }
-  if (platform.llm.api_key && platform.llm.model) {
-    return { ...normalizeLlmSettings({ ...platform.llm, temperature: 0.7 }), source: PLATFORM_PROVIDER }
-  }
+  if (platformLlmReady(platform)) return usePlatform()
   return { ...emptyLlmSettings(), source: USER_PROVIDER }
 }
 
@@ -59,7 +76,7 @@ export function resolveEmbeddingConfig(
 ): ResolvedEmbeddingConfig {
   const configured = own && Boolean(own.api_key || own.local_model || own.local_path || own.backend === 'local')
   if (configured) return { ...normalizeEmbeddingSettings(own), source: USER_PROVIDER }
-  if (platform.embedding.api_key && platform.embedding.api_model) {
+  if (platformEmbeddingReady(platform)) {
     return {
       ...emptyEmbeddingSettings(),
       backend: 'api',

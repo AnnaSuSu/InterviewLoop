@@ -392,6 +392,10 @@
                             "deepseek"
                           ],
                           "default": "generic"
+                        },
+                        "use_platform": {
+                          "type": "boolean",
+                          "default": false
                         }
                       }
                     },
@@ -533,6 +537,33 @@
                         "embedding"
                       ]
                     },
+                    "platform": {
+                      "type": "object",
+                      "properties": {
+                        "llm": {
+                          "type": "boolean"
+                        },
+                        "embedding": {
+                          "type": "boolean"
+                        }
+                      },
+                      "default": {
+                        "llm": false,
+                        "embedding": false
+                      },
+                      "required": [
+                        "llm",
+                        "embedding"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "platform"
+                      ],
+                      "default": "user"
+                    },
                     "last_reindex_at": {
                       "type": "string",
                       "default": ""
@@ -588,6 +619,10 @@
                           "deepseek"
                         ],
                         "default": "generic"
+                      },
+                      "use_platform": {
+                        "type": "boolean",
+                        "default": false
                       }
                     }
                   },
@@ -728,6 +763,33 @@
                       "llm",
                       "embedding"
                     ]
+                  },
+                  "platform": {
+                    "type": "object",
+                    "properties": {
+                      "llm": {
+                        "type": "boolean"
+                      },
+                      "embedding": {
+                        "type": "boolean"
+                      }
+                    },
+                    "default": {
+                      "llm": false,
+                      "embedding": false
+                    },
+                    "required": [
+                      "llm",
+                      "embedding"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "platform"
+                    ],
+                    "default": "user"
                   },
                   "last_reindex_at": {
                     "type": "string",
@@ -882,6 +944,10 @@
                       "deepseek"
                     ],
                     "default": "generic"
+                  },
+                  "use_platform": {
+                    "type": "boolean",
+                    "default": false
                   }
                 }
               }
