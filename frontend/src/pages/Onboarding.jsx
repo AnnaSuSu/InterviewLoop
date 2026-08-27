@@ -212,7 +212,7 @@ export default function Onboarding() {
                   <div className="relative">
                     <Input
                       className={cn(inputClass, "pr-11")}
-                      type={showKey ? "text" : "password"}
+                      masked={!showKey}
                       placeholder="sk-..."
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
@@ -241,7 +241,7 @@ export default function Onboarding() {
                   <div className="relative">
                     <Input
                       className={cn(inputClass, "pr-11")}
-                      type={showEmbKey ? "text" : "password"}
+                      masked={!showEmbKey}
                       placeholder="sk-..."
                       value={embApiKey}
                       onChange={(e) => setEmbApiKey(e.target.value)}

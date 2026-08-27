@@ -689,3 +689,16 @@
   opacity: 0.03;
   pointer-events: none;
 }
+
+/*
+ * 密钥输入框的遮点。
+ *
+ * 不用 type="password":只要页面上有 password 框,Chrome 自带的密码管理器
+ * 就会把紧邻的文本框认作用户名栏并往里填邮箱(Model 被填成账号就是这么来的),
+ * 而它对 autocomplete="off" 和各家的 data-*-ignore 一概不理。
+ * 换成普通 text + CSS 遮点,浏览器就不再把这一片当登录表单。
+ */
+.input-masked {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
