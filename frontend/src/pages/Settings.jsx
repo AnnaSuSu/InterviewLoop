@@ -572,6 +572,9 @@ export default function Settings() {
   // "fallback" = 选了自己的 key 但还没填全，实际仍然落回平台。
   const llmSource =
     usePlatform && platformLlm ? "platform" : apiKey && model ? "user" : platformLlm ? "fallback" : "user";
+  // 选了平台就把自己的那一片停掉:不只是看着灰,而是真的填不进去——
+  // 禁用的输入框浏览器也不会往里自动填。
+  const ownLlmDisabled = llmSource === "platform";
 
   const handleSave = async () => {
     setSaving(true);
@@ -650,12 +653,13 @@ export default function Settings() {
   const inputClass = "h-12 rounded-2xl bg-card/90";
 
   // 「测试连接」按钮 + 结果，LLM / Embedding 两处复用
-  const renderTestRow = (test, onTest, disabled = false) => (
+  // disabledHint 非空即代表按钮不可用,内容就是不可用的原因
+  const renderTestRow = (test, onTest, disabledHint = "") => (
     <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border/40 pt-5">
       <Button
         variant="outline"
         onClick={onTest}
-        disabled={disabled || test?.status === "testing"}
+        disabled={Boolean(disabledHint) || test?.status === "testing"}
         className="h-10 rounded-xl"
       >
         {test?.status === "testing" ? (
@@ -678,7 +682,7 @@ export default function Settings() {
         </span>
       ) : test?.status === "testing" ? null : (
         <span className="text-[12px] text-dim">
-          {disabled ? "填上自己的 Model 和 API Key 才能测试" : "用当前填写的配置发一个最小请求，验证是否可用"}
+          {disabledHint || "用当前填写的配置发一个最小请求，验证是否可用"}
         </span>
       )}
     </div>
@@ -792,12 +796,13 @@ export default function Settings() {
               </div>
             )}
 
-            <div className={cn("grid gap-4 md:grid-cols-2", llmSource === "platform" && "opacity-60")}>
+            <div className={cn("grid gap-4 md:grid-cols-2", ownLlmDisabled && "opacity-60")}>
               <div className="space-y-2">
                 <Label className={labelClass}>API Base URL</Label>
                 <Input
                   name="llm-api-base"
                   className={inputClass}
+                  disabled={ownLlmDisabled}
                   placeholder="例：https://api.openai.com/v1"
                   value={apiBase}
                   onChange={(e) => setApiBase(e.target.value)}
@@ -811,6 +816,7 @@ export default function Settings() {
                 <Input
                   name="llm-model"
                   className={inputClass}
+                  disabled={ownLlmDisabled}
                   placeholder="例：gpt-4o"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
@@ -821,7 +827,8 @@ export default function Settings() {
                 <label className="flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/75 px-3 py-2.5 text-sm">
                   <span className="shrink-0 text-dim">请求配置</span>
                   <select
-                    className="min-w-0 flex-1 bg-transparent text-right text-text outline-none"
+                    className="min-w-0 flex-1 bg-transparent text-right text-text outline-none disabled:cursor-not-allowed"
+                    disabled={ownLlmDisabled}
                     value={compatibility}
                     onChange={(e) => setCompatibility(e.target.value)}
                   >
@@ -835,21 +842,23 @@ export default function Settings() {
               </div>
             </div>
 
-            <div className={cn("grid gap-4 md:grid-cols-2 mt-4", llmSource === "platform" && "opacity-60")}>
+            <div className={cn("grid gap-4 md:grid-cols-2 mt-4", ownLlmDisabled && "opacity-60")}>
               <div className="space-y-2">
                 <Label className={labelClass}>API Key</Label>
                 <div className="relative">
                   <Input
                     name="llm-api-key"
                     className={cn(inputClass, "pr-11")}
-                    type={showKey ? "text" : "password"}
+                    disabled={ownLlmDisabled}
+                    masked={!showKey}
                     placeholder="sk-...（你自己的 key）"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                   />
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-dim hover:text-text transition-colors"
+                    disabled={ownLlmDisabled}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-dim transition-colors enabled:hover:text-text disabled:cursor-not-allowed"
                     onClick={() => setShowKey((v) => !v)}
                   >
                     {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -861,6 +870,7 @@ export default function Settings() {
                 <Input
                   className={inputClass}
                   type="number"
+                  disabled={ownLlmDisabled}
                   step={0.1}
                   min={0}
                   max={2}
@@ -870,7 +880,15 @@ export default function Settings() {
               </div>
             </div>
 
-            {renderTestRow(llmTest, handleTestLLM, !(apiKey && model))}
+            {renderTestRow(
+              llmTest,
+              handleTestLLM,
+              ownLlmDisabled
+                ? "现在用的是平台的 key，不需要测试"
+                : apiKey && model
+                  ? ""
+                  : "填上自己的 Model 和 API Key 才能测试"
+            )}
           </CardContent>
         </Card>
 
@@ -946,7 +964,7 @@ export default function Settings() {
                   <div className="relative">
                     <Input
                       className={cn(inputClass, "pr-11")}
-                      type={showEmbKey ? "text" : "password"}
+                      masked={!showEmbKey}
                       placeholder="sk-..."
                       value={embApiKey}
                       onChange={(e) => setEmbApiKey(e.target.value)}
@@ -1100,7 +1118,7 @@ export default function Settings() {
                 <div className="relative">
                   <Input
                     className={cn(inputClass, "pr-11")}
-                    type={showDashscope ? "text" : "password"}
+                    masked={!showDashscope}
                     placeholder="sk-...（语音输入 / 录音转写 / Copilot 实时识别）"
                     value={dashscopeKey}
                     onChange={(e) => setDashscopeKey(e.target.value)}
@@ -1122,7 +1140,7 @@ export default function Settings() {
                 <div className="relative">
                   <Input
                     className={cn(inputClass, "pr-11")}
-                    type={showTavily ? "text" : "password"}
+                    masked={!showTavily}
                     placeholder="tvly-...（Copilot 联网搜索公司情报）"
                     value={tavilyKey}
                     onChange={(e) => setTavilyKey(e.target.value)}
@@ -1160,7 +1178,7 @@ export default function Settings() {
                     <div className="relative">
                       <Input
                         className={cn(inputClass, "pr-11")}
-                        type={showOssSecret ? "text" : "password"}
+                        masked={!showOssSecret}
                         placeholder="••••••"
                         value={ossKeySecret}
                         onChange={(e) => setOssKeySecret(e.target.value)}
@@ -1227,7 +1245,7 @@ export default function Settings() {
                 <div className="relative">
                   <Input
                     className={cn(inputClass, "pr-11")}
-                    type={showVpKey ? "text" : "password"}
+                    masked={!showVpKey}
                     value={vpSecretKey}
                     onChange={(e) => setVpSecretKey(e.target.value)}
                     placeholder="腾讯云 Secret Key"
@@ -1364,12 +1382,17 @@ export default function Settings() {
             </div>
             <div className="text-[13px] text-dim mb-5">管理当前账户凭证{isAdmin ? "和注册策略" : ""}。</div>
 
+            {/* 下面这三个才是真的 password 框。圈进 <form> 让 Chrome 的登录表单
+                启发式只在这里生效,不会跨整页去认领配置区的输入框当用户名栏。 */}
             {isDesktopApp() ? (
               <div className="rounded-xl border border-border/60 bg-background/40 px-4 py-4 text-[13px] text-dim leading-6">
                 桌面版使用仅保存在本机的随机凭证并自动进入，不暴露固定默认密码。
               </div>
             ) : (
-              <div className="rounded-xl border border-border/60 bg-background/40 px-4 py-4 space-y-4">
+              <form
+                className="rounded-xl border border-border/60 bg-background/40 px-4 py-4 space-y-4"
+                onSubmit={(event) => event.preventDefault()}
+              >
                 <div>
                   <div className="text-sm font-medium">修改密码</div>
                   <div className="text-[12px] text-dim/70 mt-1">首次使用默认账户后请立即修改，至少 8 个字符。</div>
@@ -1387,7 +1410,7 @@ export default function Settings() {
                   {passwordMessage && <span className="text-[12px] text-emerald-500">{passwordMessage}</span>}
                   {passwordError && <span className="text-[12px] text-red-500">{passwordError}</span>}
                 </div>
-              </div>
+              </form>
             )}
 
             {isAdmin && (
