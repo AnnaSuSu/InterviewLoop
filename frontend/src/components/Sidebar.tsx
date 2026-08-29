@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import Logo from "./Logo";
-import AfdianIcon from "./AfdianIcon";
 import SidebarQuota from "@/cloud/SidebarQuota";
 import {
   Tooltip,
