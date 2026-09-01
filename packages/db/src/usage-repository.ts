@@ -51,9 +51,10 @@ export class BunUsageRepository implements UsageRepository {
   }
 
   async platformTokensSince(userId: string, since: string): Promise<number> {
+    // CURRENT_TIMESTAMP uses SQLite's format, while quota windows use ISO-8601.
     const row = this.sqlite.query<{ total: number | null }, { $userId: string; $since: string }>(`
       SELECT SUM(prompt_tokens + completion_tokens) AS total FROM llm_usage
-      WHERE user_id = $userId AND source = 'platform' AND created_at >= $since
+      WHERE user_id = $userId AND source = 'platform' AND julianday(created_at) >= julianday($since)
     `).get({ $userId: userId, $since: since })
     return row?.total || 0
   }
