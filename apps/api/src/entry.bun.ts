@@ -45,6 +45,7 @@ import { DashScopeLongAsrDriver, DashScopeRealtimeAsrFactory, DashScopeShortAsrD
 import { createBunWebSocket } from 'hono/bun'
 import { createApp } from './app.ts'
 import { loadExtensions } from './extensions.ts'
+import { withLongRequestTimeout } from './server-options.ts'
 
 const config = loadConfig()
 mkdirSync(dirname(config.dbPath), { recursive: true })
@@ -141,6 +142,6 @@ await taskQueue.start()
 const { upgradeWebSocket, websocket } = createBunWebSocket()
 const app = createApp({ auth, registration, settings, settingsOperations, quota, tokens, knowledge, resume, interview, profile, personalAgent, migration, recording, copilotPrep, copilotRealtime, websocketUpgrade: upgradeWebSocket, voiceprint, extendRoutes: (instance) => extensions.routes?.(instance, extensionContext), webDir: config.webDir })
 
-const server = Bun.serve({ hostname: config.host, port: config.port, fetch: app.fetch, websocket })
+const server = Bun.serve(withLongRequestTimeout({ hostname: config.host, port: config.port, fetch: app.fetch, websocket }))
 console.log(JSON.stringify({ event: 'techspar:ready', host: config.host, port: server.port }))
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => { void server.stop(true).finally(() => process.exit(0)) })

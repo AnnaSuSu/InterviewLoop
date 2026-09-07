@@ -172,6 +172,47 @@ describe('resume interview state machine', () => {
 })
 
 describe('interview application service', () => {
+  test('normalizes structured JD preview fields returned by the model', async () => {
+    const path = await databasePath()
+    const sessions = new BunInterviewSessionRepository(path); sessions.initialize()
+    const states = new BunResumeInterviewStateRepository(path); states.initialize()
+    const ai = new FakeAi([JSON.stringify({
+      company: '跨越速运',
+      position: '高级 Java 工程师',
+      role_summary: { overview: '负责物流核心系统开发', level: '高级岗位' },
+      focus_areas: [{ area: 'Java', importance: '高', expected_capabilities: ['JVM 调优', '并发编程'] }],
+      prep_priorities: [{ priority: 1, topic: '分布式系统', actions: ['准备高并发案例', '复习一致性方案'] }],
+      likely_question_groups: [{ group: '系统设计', questions: ['如何设计物流订单系统？'] }],
+      resume_alignment: {
+        resume_used: true,
+        fit_assessment: { conclusion: '基本匹配', basis: ['Java 经验吻合', '物流经验不足'] },
+        matching_evidence: [{ evidence: '有 Java 项目经验', relevance: '高' }],
+        risk_gaps: [{ gap: '缺少物流经验', reason: '简历未体现物流行业项目' }],
+        recommended_stories: [{ story: '订单系统改造', evidence_to_prepare: ['吞吐量提升', '故障率下降'] }],
+      },
+    })])
+    const service = new InterviewService(interviewDependencies({ sessions, states, ai }))
+
+    const result = await service.previewJob(context, {
+      jd_text: '负责物流核心系统设计开发，要求精通 Java、MySQL、Redis、消息队列、微服务和分布式系统，具备高并发项目经验。',
+      use_resume: true,
+    })
+    sessions.close(); states.close()
+
+    expect(result.preview).toMatchObject({
+      role_summary: '负责物流核心系统开发；高级岗位',
+      focus_areas: [{ area: 'Java', priority: '高', reason: 'JVM 调优；并发编程' }],
+      prep_priorities: ['分布式系统：准备高并发案例；复习一致性方案'],
+      likely_question_groups: [{ title: '系统设计', reason: '', sample_questions: ['如何设计物流订单系统？'] }],
+      resume_alignment: {
+        fit_assessment: '基本匹配；Java 经验吻合；物流经验不足',
+        matching_evidence: ['有 Java 项目经验（高）'],
+        risk_gaps: ['缺少物流经验：简历未体现物流行业项目'],
+        recommended_stories: [{ project: '订单系统改造', reason: '吞吐量提升；故障率下降' }],
+      },
+    })
+  })
+
   test('starts resume sessions with durable state and metadata', async () => {
     const path = await databasePath()
     const sessions = new BunInterviewSessionRepository(path); sessions.initialize()
