@@ -123,6 +123,88 @@ function objectOrEmpty(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
+function text(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return String(value)
+  if (Array.isArray(value)) return value.map(text).filter(Boolean).join('；')
+  if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>).map(text).filter(Boolean).join('；')
+  return ''
+}
+
+function textList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(text).filter(Boolean) : []
+}
+
+function joined(value: unknown): string {
+  return textList(value).join('；')
+}
+
+function normalizeFocusAreas(value: unknown): Array<{ area: string; priority: string; reason: string }> {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    const record = objectOrEmpty(item)
+    return {
+      area: text(record.area || record.topic || record.name),
+      priority: text(record.priority || record.importance),
+      reason: text(record.reason) || joined(record.expected_capabilities),
+    }
+  }).filter((item) => item.area)
+}
+
+function normalizePriorities(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    if (typeof item === 'string') return item.trim()
+    const record = objectOrEmpty(item)
+    const topic = text(record.topic || record.title)
+    const actions = joined(record.actions)
+    return [topic, actions].filter(Boolean).join('：')
+  }).filter(Boolean)
+}
+
+function normalizeQuestionGroups(value: unknown): Array<{ title: string; reason: string; sample_questions: string[] }> {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    const record = objectOrEmpty(item)
+    return {
+      title: text(record.title || record.group),
+      reason: text(record.reason),
+      sample_questions: textList(record.sample_questions || record.questions),
+    }
+  }).filter((item) => item.title)
+}
+
+function normalizeEvidence(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    if (typeof item === 'string') return item.trim()
+    const record = objectOrEmpty(item)
+    const evidence = text(record.evidence || record.description || record.item)
+    const relevance = text(record.relevance)
+    return relevance ? `${evidence}（${relevance}）` : evidence
+  }).filter(Boolean)
+}
+
+function normalizeRiskGaps(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    if (typeof item === 'string') return item.trim()
+    const record = objectOrEmpty(item)
+    return [text(record.gap || record.topic), text(record.reason)].filter(Boolean).join('：')
+  }).filter(Boolean)
+}
+
+function normalizeStories(value: unknown): Array<{ project: string; reason: string }> {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    const record = objectOrEmpty(item)
+    return {
+      project: text(record.project || record.story),
+      reason: text(record.reason) || joined(record.evidence_to_prepare),
+    }
+  }).filter((item) => item.project)
+}
+
 function userId(context: RequestContext): string {
   if (!context.userId) throw new AuthenticationError()
   return context.userId
@@ -149,16 +231,16 @@ export class InterviewService implements InterviewUseCases {
     return { preview: {
       company: (input.company || String(parsed.company || '')).trim(),
       position: (input.position || String(parsed.position || '')).trim(),
-      role_summary: String(parsed.role_summary || '').trim(),
-      focus_areas: Array.isArray(parsed.focus_areas) ? parsed.focus_areas : [],
-      likely_question_groups: Array.isArray(parsed.likely_question_groups) ? parsed.likely_question_groups : [],
+      role_summary: text(parsed.role_summary),
+      focus_areas: normalizeFocusAreas(parsed.focus_areas),
+      likely_question_groups: normalizeQuestionGroups(parsed.likely_question_groups),
       resume_alignment: {
-        resume_used: Boolean(useResume && resumeContext), fit_assessment: String(alignment.fit_assessment || '').trim(),
-        matching_evidence: Array.isArray(alignment.matching_evidence) ? alignment.matching_evidence : [],
-        risk_gaps: Array.isArray(alignment.risk_gaps) ? alignment.risk_gaps : [],
-        recommended_stories: Array.isArray(alignment.recommended_stories) ? alignment.recommended_stories : [],
+        resume_used: Boolean(useResume && resumeContext), fit_assessment: text(alignment.fit_assessment),
+        matching_evidence: normalizeEvidence(alignment.matching_evidence),
+        risk_gaps: normalizeRiskGaps(alignment.risk_gaps),
+        recommended_stories: normalizeStories(alignment.recommended_stories),
       },
-      prep_priorities: Array.isArray(parsed.prep_priorities) ? parsed.prep_priorities : [],
+      prep_priorities: normalizePriorities(parsed.prep_priorities),
       question_blueprint: Array.isArray(parsed.question_blueprint) ? parsed.question_blueprint : [],
       jd_excerpt: jd.slice(0, 1500),
     } }

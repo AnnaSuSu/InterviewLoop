@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { sanitizeJobPrepDraft } from "@/lib/jobPrepDraft";
 
 interface JobPrepProps {
   embedded?: boolean;
@@ -86,7 +87,7 @@ const DRAFT_KEY = "jobprep-draft";
 function loadDraft(): Partial<JobPrepDraft> {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? JSON.parse(raw) as Partial<JobPrepDraft> : {};
+    return raw ? sanitizeJobPrepDraft(JSON.parse(raw)) as Partial<JobPrepDraft> : {};
   } catch {
     return {};
   }
