@@ -19,6 +19,7 @@ import {
   KeyRound,
   Plug,
   XCircle,
+  Cloud,
 } from "lucide-react";
 import {
   getSettings,
@@ -41,6 +42,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { isDesktopApp } from "@/lib/desktop";
+import { atlasCloudLlmPreset } from "@/lib/llmProviderPresets";
 
 // 录音参数
 const VP_SAMPLE_RATE = 16000;
@@ -540,6 +542,12 @@ export default function Settings() {
     }
   };
 
+  const useAtlasCloud = () => {
+    const preset = atlasCloudLlmPreset();
+    setApiBase(preset.apiBase);
+    setCompatibility(preset.compatibility);
+  };
+
   const handleTestLLM = async () => {
     setLlmTest({ status: "testing" });
     try {
@@ -798,7 +806,21 @@ export default function Settings() {
 
             <div className={cn("grid gap-4 md:grid-cols-2", ownLlmDisabled && "opacity-60")}>
               <div className="space-y-2">
-                <Label className={labelClass}>API Base URL</Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label className={labelClass}>API Base URL</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    disabled={ownLlmDisabled}
+                    onClick={useAtlasCloud}
+                    title="使用 Atlas Cloud LLM API"
+                  >
+                    <Cloud size={14} />
+                    Atlas Cloud
+                  </Button>
+                </div>
                 <Input
                   name="llm-api-base"
                   className={inputClass}
