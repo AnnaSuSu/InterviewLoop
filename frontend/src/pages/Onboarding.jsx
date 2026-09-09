@@ -7,13 +7,14 @@ import {
   testLLMConnection,
   testEmbeddingConnection,
 } from "../api/interview";
-import { Loader2, Server, Boxes, ArrowRight, ArrowLeft, Eye, EyeOff, LogOut } from "lucide-react";
+import { Loader2, Server, Boxes, ArrowRight, ArrowLeft, Eye, EyeOff, LogOut, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import Logo from "../components/Logo";
+import { atlasCloudLlmPreset } from "@/lib/llmProviderPresets";
 
 // 首登引导：每个用户都得带自己的 key,这里两步把 LLM + Embedding 配齐。
 // 其余可选服务(语音/搜索/录音上传)留到设置页按需填。
@@ -133,6 +134,12 @@ export default function Onboarding() {
     { n: 2, label: "Embedding", icon: Boxes },
   ];
 
+  function useAtlasCloud() {
+    const preset = atlasCloudLlmPreset();
+    setApiBase(preset.apiBase);
+    setCompatibility(preset.compatibility);
+  }
+
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center px-4 py-10 relative">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-gradient-to-b from-primary/8 to-transparent rounded-full blur-[80px] pointer-events-none" />
@@ -183,7 +190,13 @@ export default function Onboarding() {
                   填你自己的 LLM(OpenAI 兼容接口)。没有的话,ModelScope 的 <span className="text-text">ZhipuAI/GLM-5</span> 有免费额度可先跑通。
                 </div>
                 <div className="space-y-2">
-                  <Label className={labelClass}>API Base URL</Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className={labelClass}>API Base URL</Label>
+                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" onClick={useAtlasCloud} title="使用 Atlas Cloud LLM API">
+                      <Cloud size={14} />
+                      Atlas Cloud
+                    </Button>
+                  </div>
                   <Input className={inputClass} placeholder="例：https://api-inference.modelscope.cn/v1" value={apiBase} onChange={(e) => setApiBase(e.target.value)} />
                 </div>
                 <div className="space-y-2">
